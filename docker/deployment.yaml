@@ -1,22 +1,22 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: strimzi-admin
+  name: kafka-admin-api
   labels:
     app: strimzi
 spec:
   replicas: 1
   selector:
     matchLabels:
-      name: strimzi-admin
+      name: kafka-admin-api
   template:
     metadata:
       labels:
-        name: strimzi-admin
+        name: kafka-admin-api
     spec:
       containers:
         - name: strimzi-cluster-operator
-          image: quay.io/sknot/strimzi-admin:latest
+          image: quay.io/sknot/kafka-admin-api:latest
           ports:
             - containerPort: 8080
               name: http
@@ -31,7 +31,7 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: strimzi-admin-service
+  name: kafka-admin-api-service
   labels:
     app: strimzi
 spec:
@@ -41,5 +41,5 @@ spec:
       targetPort: 8080
       protocol: TCP
   selector:
-    name: strimzi-admin
+    name: kafka-admin-api
   type: ClusterIP
