@@ -18,6 +18,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.ServiceLoader;
 
+import io.vertx.ext.web.handler.CorsHandler;
 import io.vertx.micrometer.MicrometerMetricsOptions;
 import io.vertx.micrometer.VertxPrometheusOptions;
 import org.apache.logging.log4j.LogManager;
@@ -37,7 +38,10 @@ public class AdminServer extends AbstractVerticle {
 
     @Override
     public void start(final Promise<Void> startServer) {
-        VertxOptions options = new VertxOptions().setMetricsOptions(
+        VertxOptions options = new
+
+
+                VertxOptions().setMetricsOptions(
                 new MicrometerMetricsOptions()
                         .setPrometheusOptions(new VertxPrometheusOptions().setEnabled(true))
                         .setJvmMetricsEnabled(true)
@@ -56,6 +60,24 @@ public class AdminServer extends AbstractVerticle {
 
     private Future<Router> loadRoutes() {
         final Router router = Router.router(vertx);
+
+        String defaultAllowRegex = "(https?:\\/\\/localhost(:\\d*)?)";
+
+        String envAllowList = System.getenv("CORS_ALLOW_LIST_REGEX");
+        String allowList = envAllowList == null ? defaultAllowRegex : envAllowList;
+        LOGGER.info("CORS allow list regex is {}", allowList);
+        CorsHandler corsHandler = CorsHandler.create(allowList)
+                .allowedMethod(io.vertx.core.http.HttpMethod.GET)
+                .allowedMethod(io.vertx.core.http.HttpMethod.POST)
+                .allowedMethod(io.vertx.core.http.HttpMethod.OPTIONS)
+                .allowedHeader("Access-Control-Request-Method")
+                .allowedHeader("Access-Control-Allow-Credentials")
+                .allowedHeader("Access-Control-Allow-Origin")
+                .allowedHeader("Access-Control-Allow-Headers")
+                .allowedHeader("Content-Type");
+
+        router.route().handler(corsHandler);
+
         final ServiceLoader<RouteRegistration> loader = ServiceLoader.load(RouteRegistration.class);
         final List<Future<RouteRegistrationDescriptor>> routeRegistrationDescriptors = new ArrayList<>();
 
