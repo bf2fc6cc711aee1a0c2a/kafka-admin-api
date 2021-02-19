@@ -102,6 +102,7 @@ public class CommonHandler {
                     routingContext.response().end(e.getMessage());
                     httpMetrics.getFailedRequestsCounter().increment();
                     requestTimerSample.stop(httpMetrics.getRequestTimer());
+                    return;
                 }
                 routingContext.response().setStatusCode(responseStatus.code());
                 routingContext.response().end(json);
