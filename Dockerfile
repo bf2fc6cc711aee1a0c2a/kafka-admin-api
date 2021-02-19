@@ -17,7 +17,7 @@ RUN echo "${TINI_SHA256} */usr/bin/tini" | sha256sum -c \
 RUN useradd -r -m -u 1001 -g 0 strimzi
 
 ARG kafka_admin_api_version=1.0-SNAPSHOT
-ENV STRIMZI_ADMIN_VERSION ${kafka_admin_api_version}
+ENV KAFKA_ADMIN_API_VERSION ${kafka_admin_api_version}
 ENV STRIMZI_HOME=/opt/strimzi
 RUN mkdir -p ${STRIMZI_HOME}
 WORKDIR ${STRIMZI_HOME}

@@ -9,6 +9,7 @@ import io.strimzi.admin.http.server.registration.RouteRegistration;
 import io.strimzi.admin.http.server.registration.RouteRegistrationDescriptor;
 import io.strimzi.admin.kafka.admin.HttpMetrics;
 import io.strimzi.admin.kafka.admin.KafkaAdmin;
+import io.strimzi.admin.kafka.admin.Operations;
 import io.strimzi.admin.kafka.admin.handlers.RestOperations;
 import io.vertx.core.Future;
 import io.vertx.core.Promise;
@@ -53,18 +54,18 @@ public class RestService implements RouteRegistration {
 
     private void assignRoutes(final OpenAPI3RouterFactory routerFactory, final Vertx vertx) {
         RestOperations ro = new RestOperations();
-        routerFactory.addHandlerByOperationId("getTopic", ro.describeTopic(ka.getAcConfig(), vertx, httpMetrics));
-        routerFactory.addHandlerByOperationId("getTopicsList", ro.listTopics(ka.getAcConfig(), vertx, httpMetrics));
+        routerFactory.addHandlerByOperationId(Operations.GET_TOPIC, ro.describeTopic(ka.getAcConfig(), vertx, httpMetrics));
+        routerFactory.addHandlerByOperationId(Operations.GET_TOPICS_LIST, ro.listTopics(ka.getAcConfig(), vertx, httpMetrics));
 
-        routerFactory.addHandlerByOperationId("deleteTopic", ro.deleteTopic(ka.getAcConfig(), vertx, httpMetrics));
-        routerFactory.addHandlerByOperationId("createTopic", ro.createTopic(ka.getAcConfig(), vertx, httpMetrics));
-        routerFactory.addHandlerByOperationId("updateTopic", ro.updateTopic(ka.getAcConfig(), vertx, httpMetrics));
+        routerFactory.addHandlerByOperationId(Operations.DELETE_TOPIC, ro.deleteTopic(ka.getAcConfig(), vertx, httpMetrics));
+        routerFactory.addHandlerByOperationId(Operations.CREATE_TOPIC, ro.createTopic(ka.getAcConfig(), vertx, httpMetrics));
+        routerFactory.addHandlerByOperationId(Operations.UPDATE_TOPIC, ro.updateTopic(ka.getAcConfig(), vertx, httpMetrics));
 
-        routerFactory.addHandlerByOperationId("getGroup", ro.describeGroup(ka.getAcConfig(), vertx, httpMetrics));
-        routerFactory.addHandlerByOperationId("getGroupsList", ro.listGroups(ka.getAcConfig(), vertx, httpMetrics));
+        routerFactory.addHandlerByOperationId(Operations.GET_CONSUMER_GROUP, ro.describeGroup(ka.getAcConfig(), vertx, httpMetrics));
+        routerFactory.addHandlerByOperationId(Operations.GET_CONSUMER_GROUPS_LIST, ro.listGroups(ka.getAcConfig(), vertx, httpMetrics));
 
-        routerFactory.addHandlerByOperationId("deleteGroup", ro.deleteGroup(ka.getAcConfig(), vertx, httpMetrics));
+        routerFactory.addHandlerByOperationId(Operations.DELETE_CONSUMER_GROUP, ro.deleteGroup(ka.getAcConfig(), vertx, httpMetrics));
 
-        routerFactory.addHandlerByOperationId("metrics", routingContext -> routingContext.response().setStatusCode(HttpResponseStatus.OK.code()).end(httpMetrics.getRegistry().scrape()));
+        routerFactory.addHandlerByOperationId(Operations.METRICS, routingContext -> routingContext.response().setStatusCode(HttpResponseStatus.OK.code()).end(httpMetrics.getRegistry().scrape()));
     }
 }

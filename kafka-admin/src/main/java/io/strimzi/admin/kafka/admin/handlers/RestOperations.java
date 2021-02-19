@@ -43,6 +43,7 @@ public class RestOperations extends CommonHandler implements OperationsHandler<H
                     prom.fail(e);
                     httpMetrics.getFailedRequestsCounter().increment();
                     requestTimerSample.stop(httpMetrics.getRequestTimer());
+                    return;
                 }
 
                 if (ac.failed()) {
@@ -110,6 +111,7 @@ public class RestOperations extends CommonHandler implements OperationsHandler<H
                         requestTimerSample.stop(httpMetrics.getRequestTimer());
                         httpMetrics.getFailedRequestsCounter().increment();
                         prom.fail(e);
+                        return;
                     }
                     TopicOperations.updateTopic(ac.result(), updatedTopic, prom);
                 }
