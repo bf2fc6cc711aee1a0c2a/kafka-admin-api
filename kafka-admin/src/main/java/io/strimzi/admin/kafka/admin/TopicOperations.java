@@ -36,9 +36,11 @@ public class TopicOperations {
 
         Map<String, String> config = new HashMap<>();
         List<Types.NewTopicConfigEntry> configObject = inputTopic.getSettings().getConfig();
-        configObject.forEach(item -> {
-            config.put(item.getKey(), item.getValue());
-        });
+        if (configObject != null) {
+            configObject.forEach(item -> {
+                config.put(item.getKey(), item.getValue());
+            });
+        }
 
         newKafkaTopic.setName(inputTopic.getName());
         newKafkaTopic.setReplicationFactor(inputTopic.getSettings().getReplicationFactor().shortValue());
@@ -183,10 +185,12 @@ public class TopicOperations {
 
     public static void updateTopic(KafkaAdminClient ac, Types.UpdatedTopic topicToUpdate, Promise prom) {
         List<ConfigEntry> ceList = new ArrayList<>();
-        topicToUpdate.getConfig().stream().forEach(cfgEntry -> {
-            ConfigEntry ce = new ConfigEntry(cfgEntry.getKey(), cfgEntry.getValue());
-            ceList.add(ce);
-        });
+        if (topicToUpdate.getConfig() != null) {
+            topicToUpdate.getConfig().stream().forEach(cfgEntry -> {
+                ConfigEntry ce = new ConfigEntry(cfgEntry.getKey(), cfgEntry.getValue());
+                ceList.add(ce);
+            });
+        }
         Config cfg = new Config(ceList);
 
         ConfigResource resource = new ConfigResource(org.apache.kafka.common.config.ConfigResource.Type.TOPIC, topicToUpdate.getName());
