@@ -242,6 +242,14 @@ paths:
           type: string
         in: path
         required: true
+  /api:
+    get:
+      responses:
+        '200':
+          content:
+            application/json: {}
+          description: OpenAPI spec
+      operationId: openApi
 components:
   schemas:
     Topic:
