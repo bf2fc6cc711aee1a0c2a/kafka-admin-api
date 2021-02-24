@@ -14,4 +14,5 @@ public class Operations {
     public static final String GET_CONSUMER_GROUPS_LIST = "getGroupsList";
     public static final String DELETE_CONSUMER_GROUP = "deleteGroup";
     public static final String METRICS = "metrics";
+    public static final String OPEN_API = "openApi";
 }

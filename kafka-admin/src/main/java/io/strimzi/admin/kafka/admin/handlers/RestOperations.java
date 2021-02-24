@@ -14,6 +14,7 @@ import io.strimzi.admin.kafka.admin.model.Types;
 import io.vertx.core.Handler;
 import io.vertx.core.Promise;
 import io.vertx.core.Vertx;
+import io.vertx.core.file.FileSystem;
 import io.vertx.ext.web.RoutingContext;
 import org.apache.kafka.common.errors.InvalidRequestException;
 
@@ -291,6 +292,28 @@ public class RestOperations extends CommonHandler implements OperationsHandler<H
                     prom.fail(ac.cause());
                 } else {
                     ConsumerGroupOperations.deleteGroup(ac.result(), Collections.singletonList(groupToDelete), prom);
+                }
+                processResponse(prom, routingContext, HttpResponseStatus.OK, httpMetrics, requestTimerSample);
+            });
+        };
+    }
+
+    public Handler<RoutingContext> openApi(Vertx vertx, HttpMetrics httpMetrics) {
+        return routingContext -> {
+            httpMetrics.getRequestsCounter().increment();
+            Timer.Sample requestTimerSample = Timer.start(httpMetrics.getRegistry());
+
+            Promise<List<String>> prom = Promise.promise();
+
+            FileSystem fileSystem = vertx.fileSystem();
+
+            String filename = "./rest/src/main/resources/openapi-specs/rest.yaml";
+            fileSystem.readFile(filename, readFile -> {
+                if (readFile.succeeded()) {
+                    routingContext.response().sendFile(filename);
+                } else {
+                    log.error("Failed to read OpenAPI YAML file", readFile.cause());
+                    prom.fail(readFile.cause());
                 }
                 processResponse(prom, routingContext, HttpResponseStatus.OK, httpMetrics, requestTimerSample);
             });

@@ -66,6 +66,8 @@ public class RestService implements RouteRegistration {
 
         routerFactory.addHandlerByOperationId(Operations.DELETE_CONSUMER_GROUP, ro.deleteGroup(ka.getAcConfig(), vertx, httpMetrics));
 
+        routerFactory.addHandlerByOperationId(Operations.OPEN_API, ro.openApi(vertx, httpMetrics));
+
         routerFactory.addHandlerByOperationId(Operations.METRICS, routingContext -> routingContext.response().setStatusCode(HttpResponseStatus.OK.code()).end(httpMetrics.getRegistry().scrape()));
     }
 }
