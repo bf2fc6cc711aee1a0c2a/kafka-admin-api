@@ -124,7 +124,8 @@ public class TopicOperations {
         ac.listTopics(describeTopicsNamesPromise);
         describeTopicsNamesPromise.future()
             .compose(topics -> {
-                List<String> filteredList = topics.stream().filter(topicName -> CommonHandler.byName(pattern, prom).test(topicName)).collect(Collectors.toList());
+                List<String> filteredList = topics.stream().filter(topicName -> CommonHandler.byName(pattern, prom).test(topicName))
+                        .filter(topicName -> !topicName.startsWith("__")).collect(Collectors.toList());
                 ac.describeTopics(filteredList, describeTopicsPromise);
                 return describeTopicsPromise.future();
             }).compose(topics -> {
