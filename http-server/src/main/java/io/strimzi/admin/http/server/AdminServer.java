@@ -61,6 +61,7 @@ public class AdminServer extends AbstractVerticle {
                 .allowedHeader("Access-Control-Allow-Credentials")
                 .allowedHeader("Access-Control-Allow-Origin")
                 .allowedHeader("Access-Control-Allow-Headers")
+                .allowedHeader("Authorization")
                 .allowedHeader("Content-Type");
 
         router.route().handler(corsHandler);
