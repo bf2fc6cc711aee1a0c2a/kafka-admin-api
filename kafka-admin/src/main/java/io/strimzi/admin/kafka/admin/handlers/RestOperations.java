@@ -46,6 +46,12 @@ public class RestOperations extends CommonHandler implements OperationsHandler<H
                     return;
                 }
 
+                if (inputTopic.getName().startsWith("__")) {
+                    prom.fail("Topic " + inputTopic.getName() + " cannot be created");
+                    processResponse(prom, routingContext, HttpResponseStatus.BAD_REQUEST, httpMetrics, requestTimerSample);
+                    return;
+                }
+
                 if (ac.failed()) {
                     prom.fail(ac.cause());
                 } else {
@@ -70,6 +76,12 @@ public class RestOperations extends CommonHandler implements OperationsHandler<H
                 prom.fail("Topic to describe has not been specified.");
                 processResponse(prom, routingContext, HttpResponseStatus.BAD_REQUEST, httpMetrics, requestTimerSample);
             }
+            if (topicToDescribe.startsWith("__")) {
+                prom.fail("Topic " + topicToDescribe + " cannot be described");
+                processResponse(prom, routingContext, HttpResponseStatus.BAD_REQUEST, httpMetrics, requestTimerSample);
+                return;
+            }
+
             createAdminClient(vertx, acConfig).onComplete(ac -> {
                 if (ac.failed()) {
                     prom.fail(ac.cause());
@@ -94,6 +106,12 @@ public class RestOperations extends CommonHandler implements OperationsHandler<H
             if (topicToUpdate == null || topicToUpdate.isEmpty()) {
                 prom.fail("Topic to update has not been specified.");
                 processResponse(prom, routingContext, HttpResponseStatus.BAD_REQUEST, httpMetrics, requestTimerSample);
+            }
+
+            if (topicToUpdate.startsWith("__")) {
+                prom.fail("Topic " + topicToUpdate + " cannot be updated");
+                processResponse(prom, routingContext, HttpResponseStatus.BAD_REQUEST, httpMetrics, requestTimerSample);
+                return;
             }
 
             createAdminClient(vertx, acConfig).onComplete(ac -> {
@@ -132,6 +150,12 @@ public class RestOperations extends CommonHandler implements OperationsHandler<H
             Promise<List<String>> prom = Promise.promise();
             if (topicToDelete == null || topicToDelete.isEmpty()) {
                 prom.fail("Topic to delete has not been specified.");
+                processResponse(prom, routingContext, HttpResponseStatus.BAD_REQUEST, httpMetrics, requestTimerSample);
+                return;
+            }
+
+            if (topicToDelete.startsWith("__")) {
+                prom.fail("Topic " + topicToDelete + " cannot be deleted");
                 processResponse(prom, routingContext, HttpResponseStatus.BAD_REQUEST, httpMetrics, requestTimerSample);
                 return;
             }
