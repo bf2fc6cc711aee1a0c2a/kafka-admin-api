@@ -54,6 +54,8 @@ public class AdminServer extends AbstractVerticle {
         CorsHandler corsHandler = CorsHandler.create(allowList)
                 .allowedMethod(io.vertx.core.http.HttpMethod.GET)
                 .allowedMethod(io.vertx.core.http.HttpMethod.POST)
+                .allowedMethod(io.vertx.core.http.HttpMethod.PATCH)
+                .allowedMethod(io.vertx.core.http.HttpMethod.DELETE)
                 .allowedMethod(io.vertx.core.http.HttpMethod.OPTIONS)
                 .allowedHeader("Access-Control-Request-Method")
                 .allowedHeader("Access-Control-Allow-Credentials")
