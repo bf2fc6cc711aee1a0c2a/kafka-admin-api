@@ -6,9 +6,7 @@ package io.strimzi.admin.systemtest.bases;
 
 import io.strimzi.admin.systemtest.deployment.AdminDeploymentManager;
 import io.strimzi.admin.systemtest.json.ModelDeserializer;
-import io.vertx.junit5.VertxExtension;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.extension.ExtensionContext;
 
 public class PlainTestBase extends TestBase {

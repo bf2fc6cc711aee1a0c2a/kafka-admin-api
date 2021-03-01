@@ -29,4 +29,5 @@ COPY kafka-admin/target/kafka-admin-${kafka_admin_api_version}-fat.jar ./
 COPY docker/run.sh ./
 
 
-ENTRYPOINT ["/usr/bin/tini", "-w", "-e", "143", "--", "sh", "-c", "/opt/kafka_admin/run.sh "]
+ENTRYPOINT ["/usr/bin/tini", "-w", "-e", "143", "--", "sh", "-c"]
+CMD [ "/opt/kafka_admin/run.sh "]

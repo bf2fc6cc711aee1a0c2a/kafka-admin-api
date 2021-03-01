@@ -33,7 +33,7 @@ public class AdminDeploymentManager {
 
     private static DockerClient client;
     private static String kafkaContId;
-    public static final String NETWORK_NAME = "strimzi-admin-network";
+    public static final String NETWORK_NAME = "kafka-admin-network";
     private static final Map<String, Stack<ThrowableRunner>> STORED_RESOURCES = new LinkedHashMap<>();
     private static final Map<String, StrimziKafkaContainer> KAFKA_CONTAINERS = new LinkedHashMap<>();
     private static final Map<String, Integer> ADMIN_PORTS = new LinkedHashMap<>();
@@ -138,7 +138,7 @@ public class AdminDeploymentManager {
         Ports portBind = new Ports();
         portBind.bind(adminPort, Ports.Binding.bindPort(8082));
 
-        CreateContainerResponse contResp = client.createContainerCmd("strimzi-admin")
+        CreateContainerResponse contResp = client.createContainerCmd("kafka-admin")
                 .withExposedPorts(adminPort)
                 .withLabels(Collections.singletonMap("test-ident", testContext.getUniqueId()))
                 .withHostConfig(new HostConfig()
@@ -164,7 +164,7 @@ public class AdminDeploymentManager {
         ExposedPort port = ExposedPort.tcp(8080);
         Ports portBind = new Ports();
         portBind.bind(port, Ports.Binding.bindPort(8080));
-        CreateContainerResponse keycloakResp = client.createContainerCmd("strimzi-admin-keycloak")
+        CreateContainerResponse keycloakResp = client.createContainerCmd("kafka-admin-keycloak")
                 .withExposedPorts(port)
                 .withName("keycloak")
                 .withLabels(Collections.singletonMap("test-ident", testContext.getUniqueId()))
@@ -174,7 +174,7 @@ public class AdminDeploymentManager {
         String keycloakContId = keycloakResp.getId();
         client.startContainerCmd(keycloakContId).exec();
         TestUtils.logDeploymentPhase("Deploying keycloak_import container");
-        CreateContainerResponse keycloakImportResp = client.createContainerCmd("strimzi-admin-keycloak-import")
+        CreateContainerResponse keycloakImportResp = client.createContainerCmd("kafka-admin-keycloak-import")
                 .withName("keycloak_import")
                 .withLabels(Collections.singletonMap("test-ident", testContext.getUniqueId()))
                 .withHostConfig(new HostConfig()
@@ -196,7 +196,7 @@ public class AdminDeploymentManager {
         ExposedPort port = ExposedPort.tcp(2181);
         Ports portBind = new Ports();
         portBind.bind(port, Ports.Binding.bindPort(2181));
-        CreateContainerResponse zookeeperResp = client.createContainerCmd("strimzi-admin-zookeeper")
+        CreateContainerResponse zookeeperResp = client.createContainerCmd("kafka-admin-zookeeper")
                 .withExposedPorts(port)
                 .withName("zookeeper")
                 .withLabels(Collections.singletonMap("test-ident", testContext.getUniqueId()))
@@ -214,7 +214,7 @@ public class AdminDeploymentManager {
         ExposedPort port = ExposedPort.tcp(9092);
         Ports portBind = new Ports();
         portBind.bind(port, Ports.Binding.bindPort(9092));
-        CreateContainerResponse kafkaResp = client.createContainerCmd("strimzi-admin-kafka")
+        CreateContainerResponse kafkaResp = client.createContainerCmd("kafka-admin-kafka")
                 .withExposedPorts(port)
                 .withName("kafka")
                 .withHostName("kafka")
