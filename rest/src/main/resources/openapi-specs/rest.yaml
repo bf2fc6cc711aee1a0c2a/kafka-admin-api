@@ -1,8 +1,8 @@
 openapi: 3.0.0
 info:
-  title: Strimzi Kubernetes REST API
+  title: Kafka Admon REST API
   version: 0.1.0
-  description: An API to provide k8s REST endpoints for query
+  description: An API to provide REST endpoints for query Kafka for admin operations
   license:
     name: Apache 2.0
     url: 'https://www.apache.org/licenses/LICENSE-2.0'
@@ -78,7 +78,7 @@ paths:
             examples:
               NewTopicInput:
                 value:
-                  name: Pets
+                  name: my-topic
                   settings:
                     numPartitions: 3
                     replicationFactor: 4
@@ -142,7 +142,7 @@ paths:
       parameters:
         -
           name: topicName
-          description: The topic name to retrieve.
+          description: The topic name to delete.
           schema:
             type: string
           in: path
@@ -271,7 +271,7 @@ components:
           items:
             $ref: '#/components/schemas/Partition'
       example:
-        name: Pets
+        name: my-topic
         config:
           -
             key: min.insync.replicas
@@ -281,33 +281,33 @@ components:
             value: '1050000'
         partitions:
           -
-            id: 28
+            id: 0
             replicas:
               -
-                id: 35
+                id: 0
               -
-                id: 5
+                id: 1
             isr:
               -
-                id: 44
+                id: 0
               -
-                id: 83
+                id: 1
             leader:
-              id: 22
+              id: 0
           -
-            id: 68
+            id: 1
             replicas:
               -
-                id: 81
+                id: 0
               -
-                id: 22
+                id: 1
             isr:
               -
-                id: 75
+                id: 0
               -
-                id: 65
+                id: 1
             leader:
-              id: 58
+              id: 1
     Partition:
       description: Kafka topic partition
       required:
@@ -331,19 +331,19 @@ components:
           $ref: '#/components/schemas/Node'
           description: Node that is the leader for this partition.
       example:
-        id: 87
+        id: 0
         replicas:
           -
-            id: 28
+            id: 0
           -
-            id: 18
+            id: 1
         isr:
           -
-            id: 22
+            id: 0
           -
-            id: 66
+            id: 1
         leader:
-          id: 62
+          id: 1
     ConfigEntry:
       description: Key value pair indicating possible configuration options for a topic.
       type: object
@@ -383,7 +383,7 @@ components:
       example:
         topics:
           -
-            name: Pets
+            name: my-topic
             config:
               -
                 key: min.insync.replicas
@@ -393,33 +393,33 @@ components:
                 value: '1050000'
             partitions:
               -
-                id: 28
+                id: 0
                 replicas:
                   -
-                    id: 35
+                    id: 0
                   -
-                    id: 5
+                    id: 1
                 isr:
                   -
-                    id: 44
+                    id: 0
                   -
-                    id: 83
+                    id: 1
                 leader:
-                  id: 22
+                  id: 0
               -
-                id: 68
+                id: 1
                 replicas:
                   -
-                    id: 81
+                    id: 0
                   -
-                    id: 22
+                    id: 1
                 isr:
                   -
-                    id: 75
+                    id: 0
                   -
-                    id: 65
+                    id: 1
                 leader:
-                  id: 58
+                  id: 1
         offset: 25
         limit: 90
         count: 94
@@ -467,7 +467,7 @@ components:
             The settings that are applicable to this topic.  This includes partitions,
             configuration information, and number of replicas.
       example:
-        name: Pets
+        name: my-topic
         settings:
           numPartitions: 3
           replicationFactor: 4

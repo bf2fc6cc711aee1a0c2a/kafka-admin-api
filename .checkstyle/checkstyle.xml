@@ -10,10 +10,10 @@
     <module name="FileTabCharacter"/>
 
     <!-- header -->
-    <module name="RegexpHeader">
+    <!--module name="RegexpHeader">
         <property name="headerFile" value="${checkstyle.header.file}"/>
         <property name="fileExtensions" value="java"/>
-    </module>
+    </module-->
 
     <module name="SuppressWarningsFilter" />
 

@@ -15,7 +15,7 @@ spec:
         name: kafka-admin-api
     spec:
       containers:
-        - name: strimzi-cluster-operator
+        - name: kafka-admin-api
           image: quay.io/sknot/kafka-admin-api:latest
           ports:
             - containerPort: 8080
@@ -24,6 +24,8 @@ spec:
             - name: KAFKA_ADMIN_BOOTSTRAP_SERVERS
               value: "my-cluster-kafka-bootstrap:9092"
             - name: KAFKA_ADMIN_OAUTH_ENABLED
+              value: "false"
+            - name: INTERNAL_TOPICS_ENABLED
               value: "false"
 ---
 apiVersion: v1
