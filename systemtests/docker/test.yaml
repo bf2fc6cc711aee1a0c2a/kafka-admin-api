@@ -1,0 +1,61 @@
+[
+  {
+    "Name": "docker_default",
+    "Id": "aefcfd3a5cabf6b2233bf7af24722eeb9a592966970f150aed7c8e4d3b28bd9d",
+    "Created": "2021-02-12T12:02:24.436713443Z",
+    "Scope": "local",
+    "Driver": "bridge",
+    "EnableIPv6": false,
+    "IPAM": {
+      "Driver": "default",
+      "Options": null,
+      "Config": [
+        {
+          "Subnet": "172.21.0.0/16",
+          "Gateway": "172.21.0.1"
+        }
+      ]
+    },
+    "Internal": false,
+    "Attachable": true,
+    "Ingress": false,
+    "ConfigFrom": {
+      "Network": ""
+    },
+    "ConfigOnly": false,
+    "Containers": {
+      "119ca10c38aa9b909c31889ac31362c6dc114f5ac7c890a4c1f645dfd0f45d97": {
+        "Name": "keycloak",
+        "EndpointID": "d850e02d3555e285c1497c6bff0ae9c7b8f85b11eb208fafe6eb2d355cf630ca",
+        "MacAddress": "02:42:ac:15:00:03",
+        "IPv4Address": "172.21.0.3/16",
+        "IPv6Address": ""
+      },
+      "9c4cf77b6ff08ab30e71a30ec063aed060fd291705b195cec113f20e15f628d0": {
+        "Name": "keycloak_import",
+        "EndpointID": "ffbd60bed05f17dce134f5243a75fc2b8863f48d647bd4ef343786a62466378d",
+        "MacAddress": "02:42:ac:15:00:05",
+        "IPv4Address": "172.21.0.5/16",
+        "IPv6Address": ""
+      },
+      "a1513e79f3e05d08a55e31c404eb526b536a09e38754ad0bbf3c101a52f78f41": {
+        "Name": "zookeeper",
+        "EndpointID": "2161d6902ce88d720e2d6e0947c774bc441a0b7e49b9c5a47ff10ed2120a04c5",
+        "MacAddress": "02:42:ac:15:00:02",
+        "IPv4Address": "172.21.0.2/16",
+        "IPv6Address": ""
+      },
+      "d41dce12c039b523d972d7ef34d38117cf72ef8d4449318d589db5db4f63858f": {
+        "Name": "kafka",
+        "EndpointID": "84659c65d3fec4301d219bd340473c91229caf7c94f2d4bf8e5b556d55ba1907",
+        "MacAddress": "02:42:ac:15:00:04",
+        "IPv4Address": "172.21.0.4/16",
+        "IPv6Address": ""
+      }
+    },
+    "Options": {},
+    "Labels": {
+      "com.docker.compose.network": "default",
+      "com.docker.compose.project": "docker",
+      "com.docker.compose.version": "1.27.4"
+    }

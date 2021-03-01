@@ -15,6 +15,7 @@
         <module>health</module>
         <module>kafka-admin</module>
         <module>rest</module>
+        <module>systemtests</module>
     </modules>
 
     <properties>
@@ -37,6 +38,7 @@
         <maven.dependency.version>3.1.2</maven.dependency.version>
         <maven.checkstyle.version>3.1.1</maven.checkstyle.version>
         <spotbugs.version>4.0.3</spotbugs.version>
+        <surefire-plugin.version>3.0.0-M5</surefire-plugin.version>
     </properties>
 
     <dependencyManagement>
@@ -47,6 +49,11 @@
                 <version>${vertx.version}</version>
                 <scope>import</scope>
                 <type>pom</type>
+            </dependency>
+            <dependency>
+                <groupId>org.apache.logging.log4j</groupId>
+                <artifactId>log4j-api</artifactId>
+                <version>${log4j.version}</version>
             </dependency>
             <dependency>
                 <groupId>org.apache.logging.log4j</groupId>
@@ -108,6 +115,36 @@
                 <artifactId>micrometer-core</artifactId>
                 <version>${micrometer.version}</version>
             </dependency>
+            <dependency>
+                <groupId>org.junit.jupiter</groupId>
+                <artifactId>junit-jupiter-api</artifactId>
+                <version>5.7.0</version>
+            </dependency>
+            <dependency>
+                <groupId>org.junit.jupiter</groupId>
+                <artifactId>junit-jupiter-engine</artifactId>
+                <version>5.7.0</version>
+            </dependency>
+            <dependency>
+                <groupId>org.junit.jupiter</groupId>
+                <artifactId>junit-jupiter-params</artifactId>
+                <version>5.7.0</version>
+            </dependency>
+            <dependency>
+                <groupId>org.junit.platform</groupId>
+                <artifactId>junit-platform-runner</artifactId>
+                <version>1.7.0</version>
+            </dependency>
+            <dependency>
+                <groupId>org.junit.platform</groupId>
+                <artifactId>junit-platform-launcher</artifactId>
+                <version>1.7.0</version>
+            </dependency>
+            <dependency>
+                <groupId>org.testcontainers</groupId>
+                <artifactId>kafka</artifactId>
+                <version>1.15.1</version>
+            </dependency>
         </dependencies>
     </dependencyManagement>
 
@@ -166,6 +203,16 @@
                             <ignoredDependencies>
                                 <ignoredDependency>io.strimzi:kafka-oauth-client</ignoredDependency>
                                 <ignoredDependency>org.apache.logging.log4j:log4j-core</ignoredDependency>
+                                <ignoredDependency>org.apache.logging.log4j:log4j-slf4j-impl</ignoredDependency>
+                                <!-- Oauth kafka test dependencies -->
+                                <ignoredDependency>io.strimzi:kafka-oauth-common</ignoredDependency>
+                                <ignoredDependency>io.strimzi:kafka-oauth-server</ignoredDependency>
+                                <ignoredDependency>io.strimzi:kafka-oauth-server-plain</ignoredDependency>
+                                <ignoredDependency>io.strimzi:kafka-oauth-keycloak-authorizer</ignoredDependency>
+                                <ignoredDependency>org.keycloak:keycloak-core</ignoredDependency>
+                                <ignoredDependency>org.keycloak:keycloak-common</ignoredDependency>
+                                <ignoredDependency>org.bouncycastle:bcprov-jdk15on</ignoredDependency>
+                                <ignoredDependency>com.jayway.jsonpath:json-path</ignoredDependency>
                             </ignoredDependencies>
                         </configuration>
                     </execution>
@@ -222,6 +269,54 @@
                     <!-- Configures the file for excluding warnings -->
                     <excludeFilterFile>${project.basedir}/../.spotbugs/spotbugs-exclude.xml</excludeFilterFile>
                 </configuration>
+            </plugin>
+            <plugin>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <version>${surefire-plugin.version}</version>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-failsafe-plugin</artifactId>
+                <version>${surefire-plugin.version}</version>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>integration-test</goal>
+                            <goal>verify</goal>
+                        </goals>
+                        <configuration>
+                            <forkCount>0</forkCount>
+                            <includes>
+                                <include>**/IT*.java</include>
+                                <include>**/*IT.java</include>
+                                <include>**/ST*.java</include>
+                                <include>**/*ST.java</include>
+                            </includes>
+                            <statelessTestsetReporter
+                                    implementation="org.apache.maven.plugin.surefire.extensions.junit5.JUnit5Xml30StatelessReporter">
+                                <disable>false</disable>
+                                <version>3.0</version>
+                                <usePhrasedFileName>false</usePhrasedFileName>
+                                <usePhrasedTestSuiteClassName>true</usePhrasedTestSuiteClassName>
+                                <usePhrasedTestCaseClassName>true</usePhrasedTestCaseClassName>
+                                <usePhrasedTestCaseMethodName>true</usePhrasedTestCaseMethodName>
+                            </statelessTestsetReporter>
+                            <consoleOutputReporter
+                                    implementation="org.apache.maven.plugin.surefire.extensions.junit5.JUnit5ConsoleOutputReporter">
+                                <disable>false</disable>
+                                <encoding>UTF-8</encoding>
+                                <usePhrasedFileName>true</usePhrasedFileName>
+                            </consoleOutputReporter>
+                            <statelessTestsetInfoReporter
+                                    implementation="org.apache.maven.plugin.surefire.extensions.junit5.JUnit5StatelessTestsetInfoReporter">
+                                <disable>false</disable>
+                                <usePhrasedFileName>false</usePhrasedFileName>
+                                <usePhrasedClassNameInRunning>false</usePhrasedClassNameInRunning>
+                                <usePhrasedClassNameInTestCaseSummary>true</usePhrasedClassNameInTestCaseSummary>
+                            </statelessTestsetInfoReporter>
+                        </configuration>
+                    </execution>
+                </executions>
             </plugin>
         </plugins>
     </build>
