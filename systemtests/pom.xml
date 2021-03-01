@@ -3,8 +3,8 @@
          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <parent>
+        <groupId>bf</groupId>
         <artifactId>kafka-admin-api</artifactId>
-        <groupId>io.strimzi</groupId>
         <version>1.0-SNAPSHOT</version>
     </parent>
     <modelVersion>4.0.0</modelVersion>
@@ -14,7 +14,6 @@
         <maven.compiler.target>1.8</maven.compiler.target>
         <maven.compiler.source>1.8</maven.compiler.source>
         <junit.platform.version>1.5.2</junit.platform.version>
-        <log4j.version>2.14.0</log4j.version>
         <vertx.version>4.0.0</vertx.version>
         <test-container.version>0.20.0</test-container.version>
     </properties>
@@ -36,6 +35,7 @@
         <dependency>
             <groupId>org.apache.logging.log4j</groupId>
             <artifactId>log4j-slf4j-impl</artifactId>
+            <version>2.14.0</version>
         </dependency>
         <dependency>
             <groupId>org.apache.kafka</groupId>
@@ -96,7 +96,7 @@
             <version>4.0.3</version>
         </dependency>
         <dependency>
-            <groupId>io.strimzi</groupId>
+            <groupId>bf</groupId>
             <artifactId>kafka-admin</artifactId>
             <version>1.0-SNAPSHOT</version>
         </dependency>
