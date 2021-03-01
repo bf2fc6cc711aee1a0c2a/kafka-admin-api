@@ -6,7 +6,7 @@ package io.strimzi.admin.systemtest.bases;
 
 import io.strimzi.admin.systemtest.deployment.AdminDeploymentManager;
 import io.strimzi.admin.systemtest.listeners.ExtensionContextParameterResolver;
-import io.strimzi.admin.systemtest.listeners.IndicativeSentences;
+import io.strimzi.admin.systemtest.IndicativeSentences;
 import io.strimzi.admin.systemtest.listeners.TestCallbackListener;
 import io.strimzi.admin.systemtest.listeners.TestExceptionCallbackListener;
 import io.vertx.junit5.VertxExtension;

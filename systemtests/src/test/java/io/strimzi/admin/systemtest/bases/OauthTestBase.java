@@ -33,11 +33,10 @@ public class OauthTestBase extends TestBase {
     protected int publishedAdminPort = 0;
 
     @BeforeEach
-    public void startup(ExtensionContext extensionContext) throws Exception {
-        DEPLOYMENT_MANAGER.deployOauthStack(extensionContext);
+    public void startup(Vertx vertx, VertxTestContext vertxTestContext, ExtensionContext extensionContext) throws Exception {
+        DEPLOYMENT_MANAGER.deployOauthStack(vertxTestContext, extensionContext);
         publishedAdminPort = DEPLOYMENT_MANAGER.getAdminPort(extensionContext);
         // Get valid auth token
-        Vertx vertx = Vertx.vertx();
         HttpClient client = vertx.createHttpClient();
         String payload = "grant_type=password&username=alice&password=alice-password&client_id=kafka-cli";
         CountDownLatch countDownLatch = new CountDownLatch(1);
