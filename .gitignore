@@ -19,3 +19,7 @@ release.properties
 # VS Code
 .factorypath
 .vscode
+
+# Test certificates
+**/docker/certificates/c*
+**/docker/certificates/k*
