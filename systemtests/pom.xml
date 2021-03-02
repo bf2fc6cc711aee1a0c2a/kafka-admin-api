@@ -15,7 +15,10 @@
         <maven.compiler.source>1.8</maven.compiler.source>
         <junit.platform.version>1.5.2</junit.platform.version>
         <vertx.version>4.0.0</vertx.version>
-        <test-container.version>0.20.0</test-container.version>
+        <strimzi-test-container.version>0.20.0</strimzi-test-container.version>
+        <testcontainers.version>1.15.1</testcontainers.version>
+        <docker-java.version>3.2.7</docker-java.version>
+        <assertj.version>3.4.1</assertj.version>
     </properties>
 
     <dependencies>
@@ -33,11 +36,6 @@
             <artifactId>log4j-core</artifactId>
         </dependency>
         <dependency>
-            <groupId>org.apache.logging.log4j</groupId>
-            <artifactId>log4j-slf4j-impl</artifactId>
-            <version>2.14.0</version>
-        </dependency>
-        <dependency>
             <groupId>org.apache.kafka</groupId>
             <artifactId>kafka-clients</artifactId>
         </dependency>
@@ -49,7 +47,7 @@
         <dependency>
             <groupId>org.testcontainers</groupId>
             <artifactId>testcontainers</artifactId>
-            <version>1.15.1</version>
+            <version>${testcontainers.version}</version>
         </dependency>
         <dependency>
             <groupId>io.vertx</groupId>
@@ -68,22 +66,22 @@
         <dependency>
             <groupId>com.github.docker-java</groupId>
             <artifactId>docker-java</artifactId>
-            <version>3.2.7</version>
+            <version>${docker-java.version}</version>
         </dependency>
         <dependency>
             <groupId>com.github.docker-java</groupId>
             <artifactId>docker-java-core</artifactId>
-            <version>3.2.7</version>
+            <version>${docker-java.version}</version>
         </dependency>
         <dependency>
             <groupId>com.github.docker-java</groupId>
             <artifactId>docker-java-api</artifactId>
-            <version>3.2.7</version>
+            <version>${docker-java.version}</version>
         </dependency>
         <dependency>
             <groupId>org.assertj</groupId>
             <artifactId>assertj-core</artifactId>
-            <version>3.4.1</version>
+            <version>${assertj.version}</version>
         </dependency>
         <dependency>
             <groupId>org.hamcrest</groupId>
@@ -98,11 +96,16 @@
         <dependency>
             <groupId>bf</groupId>
             <artifactId>kafka-admin</artifactId>
-            <version>1.0-SNAPSHOT</version>
+            <version>${project.version}</version>
         </dependency>
         <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>
             <artifactId>jackson-core</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.google.guava</groupId>
+            <artifactId>guava</artifactId>
+            <version>19.0</version>
         </dependency>
         <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>
@@ -164,7 +167,7 @@
         <dependency>
             <groupId>io.strimzi</groupId>
             <artifactId>test-container</artifactId>
-            <version>${test-container.version}</version>
+            <version>${strimzi-test-container.version}</version>
         </dependency>
     </dependencies>
     <build>

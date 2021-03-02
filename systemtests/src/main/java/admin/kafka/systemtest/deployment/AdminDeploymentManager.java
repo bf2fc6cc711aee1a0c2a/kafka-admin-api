@@ -8,6 +8,7 @@ import com.github.dockerjava.api.model.HostConfig;
 import com.github.dockerjava.api.model.Ports;
 import com.github.dockerjava.core.DefaultDockerClientConfig;
 import com.github.dockerjava.core.DockerClientBuilder;
+import com.google.common.collect.Iterables;
 import io.strimzi.StrimziKafkaContainer;
 import io.vertx.circuitbreaker.CircuitBreaker;
 import io.vertx.circuitbreaker.CircuitBreakerOptions;
@@ -21,6 +22,7 @@ import org.apache.logging.log4j.Logger;
 import org.junit.jupiter.api.extension.ExtensionContext;
 import org.testcontainers.containers.Network;
 
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -29,6 +31,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.stream.Collectors;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
@@ -56,43 +59,51 @@ public class AdminDeploymentManager {
 
 
     public void deployOauthStack(VertxTestContext vertxTestContext, ExtensionContext testContext) throws Exception {
-        LOGGER.info("*******************************************************");
-        LOGGER.info("Deploying oauth stack for {}", testContext.getDisplayName());
-        LOGGER.info("*******************************************************");
-        try {
-            createNetwork(testContext);
-            deployKeycloak(testContext, vertxTestContext);
-            deployZookeeper(testContext);
-            deployKafka(testContext);
-            deployAdminContainer(getKafkaIP() + ":9092", true, AdminDeploymentManager.NETWORK_NAME, testContext, vertxTestContext);
-        } catch (Exception e) {
-            e.printStackTrace();
-            teardown(testContext);
-            vertxTestContext.failNow("Could not deploy OAUTH stack");
-        }
-        LOGGER.info("*******************************************************");
-        LOGGER.info("");
-        vertxTestContext.completeNow();
-        vertxTestContext.checkpoint();
+        vertxTestContext.verify(() -> {
+            LOGGER.info("*******************************************************");
+            LOGGER.info("Deploying oauth stack for {}", testContext.getDisplayName());
+            LOGGER.info("*******************************************************");
+            try {
+                createNetwork(testContext);
+                deployKeycloak(testContext, vertxTestContext);
+                deployZookeeper(testContext);
+                deployKafka(testContext);
+                deployAdminContainer(getKafkaIP() + ":9092", true, false, AdminDeploymentManager.NETWORK_NAME, testContext, vertxTestContext);
+            } catch (Exception e) {
+                e.printStackTrace();
+                teardown(testContext);
+                vertxTestContext.failNow("Could not deploy OAUTH stack");
+            }
+            LOGGER.info("*******************************************************");
+            LOGGER.info("");
+            vertxTestContext.completeNow();
+            vertxTestContext.checkpoint();
+        });
     }
 
     public void deployPlainStack(VertxTestContext vertxTestContext, ExtensionContext testContext) throws Exception {
-        LOGGER.info("Deploying strimzi kafka test container.");
-        Network network = Network.newNetwork();
-        StrimziKafkaContainer kafka = new StrimziKafkaContainer().withLabels(Collections.singletonMap("test-ident", testContext.getUniqueId()))
-                .withNetwork(network);
-        kafka.start();
-        String networkName = client.inspectNetworkCmd().withNetworkId(network.getId()).exec().getName();
-        synchronized (this) {
-            STORED_RESOURCES.computeIfAbsent(testContext.getDisplayName(), k -> new Stack<>());
-            STORED_RESOURCES.get(testContext.getDisplayName()).push(kafka::stop);
-            KAFKA_CONTAINERS.putIfAbsent(testContext.getDisplayName(), kafka);
-        }
-        LOGGER.info("_________________________________________");
-        String kafkaIp = getKafkaIP(kafka.getContainerId(), networkName);
-        deployAdminContainer(kafkaIp + ":9093", false, networkName, testContext, vertxTestContext);
-        vertxTestContext.completeNow();
-        vertxTestContext.checkpoint();
+        vertxTestContext.verify(() -> {
+            LOGGER.info("Deploying strimzi kafka test container.");
+            Network network = Network.newNetwork();
+            StrimziKafkaContainer kafka = new StrimziKafkaContainer().withLabels(Collections.singletonMap("test-ident", testContext.getUniqueId()))
+                    .withNetwork(network);
+            kafka.start();
+            String networkName = client.inspectNetworkCmd().withNetworkId(network.getId()).exec().getName();
+            synchronized (this) {
+                STORED_RESOURCES.computeIfAbsent(testContext.getDisplayName(), k -> new Stack<>());
+                STORED_RESOURCES.get(testContext.getDisplayName()).push(() -> client.removeNetworkCmd(networkName).exec());
+                STORED_RESOURCES.get(testContext.getDisplayName()).push(kafka::stop);
+                KAFKA_CONTAINERS.putIfAbsent(testContext.getDisplayName(), kafka);
+            }
+            LOGGER.info("_________________________________________");
+            String kafkaIp = getKafkaIP(kafka.getContainerId(), networkName);
+            String className = Iterables.getLast(Arrays.stream(testContext.getTestClass()
+                    .get().getName().split("[.]")).collect(Collectors.toList()));
+            deployAdminContainer(kafkaIp + ":9093", false,
+                    className.equals("RestEndpointInternalIT"), networkName, testContext, vertxTestContext);
+            vertxTestContext.completeNow();
+            vertxTestContext.checkpoint();
+        });
     }
 
 
@@ -158,7 +169,7 @@ public class AdminDeploymentManager {
         vertxTestContext.checkpoint();
     }
 
-    public void deployAdminContainer(String bootstrap, Boolean oauth, String networkName, ExtensionContext testContext, VertxTestContext vertxTestContext) throws Exception {
+    public void deployAdminContainer(String bootstrap, Boolean oauth, Boolean internal, String networkName, ExtensionContext testContext, VertxTestContext vertxTestContext) throws Exception {
         TestUtils.logDeploymentPhase("Deploying kafka admin api container");
         ExposedPort adminPort = ExposedPort.tcp(8080);
         Ports portBind = new Ports();
@@ -171,7 +182,7 @@ public class AdminDeploymentManager {
                         .withPublishAllPorts(true)
                         .withNetworkMode(networkName))
                 .withCmd("/opt/strimzi/run.sh -e KAFKA_ADMIN_BOOTSTRAP_SERVERS='" + bootstrap
-                        + "' -e KAFKA_ADMIN_OAUTH_ENABLED='" + oauth + "' -e VERTXWEB_ENVIRONMENT='dev'").exec();
+                        + "' -e KAFKA_ADMIN_OAUTH_ENABLED='" + oauth + "' -e VERTXWEB_ENVIRONMENT='dev' -e INTERNAL_TOPICS_ENABLED='" + internal + "'").exec();
         String adminContId = contResp.getId();
         client.startContainerCmd(contResp.getId()).exec();
         int adminPublishedPort = Integer.parseInt(client.inspectContainerCmd(contResp.getId()).exec().getNetworkSettings()

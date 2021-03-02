@@ -41,6 +41,7 @@ public class ConsumerGroupsEndpointTestIT extends PlainTestBase {
                     }
                 }).onFailure(testContext::failNow).compose(HttpClientResponse::body))
                 .onComplete(testContext.succeeding(buffer -> testContext.verify(() -> {
+                    assertThat(testContext.failed()).isFalse();
                     List<String> expectedIDs = kafkaClient.listConsumerGroups().all()
                             .get().stream().map(ConsumerGroupListing::groupId).collect(Collectors.toList());
                     List<String> actualIDs = MODEL_DESERIALIZER.getGroupsId(buffer);
@@ -68,6 +69,7 @@ public class ConsumerGroupsEndpointTestIT extends PlainTestBase {
                     }
                 }).onFailure(testContext::failNow).compose(HttpClientResponse::body))
                 .onComplete(testContext.succeeding(buffer -> testContext.verify(() -> {
+                    assertThat(testContext.failed()).isFalse();
                     expectedIDs.remove(0);
                     List<String> actualIDs = kafkaClient.listConsumerGroups().all()
                             .get().stream().map(ConsumerGroupListing::groupId).collect(Collectors.toList());
@@ -95,6 +97,7 @@ public class ConsumerGroupsEndpointTestIT extends PlainTestBase {
                     }
                 }).onFailure(testContext::failNow).compose(HttpClientResponse::body))
                 .onComplete(testContext.succeeding(buffer -> testContext.verify(() -> {
+                    assertThat(testContext.failed()).isFalse();
                     Types.ConsumerGroupDescription groupDescription = MODEL_DESERIALIZER.getGroupDesc(buffer);
                     assertThat(groupDescription.getState().toLowerCase(Locale.ROOT))
                             .isEqualTo(groupDescAct.state().toString().toLowerCase(Locale.ROOT));

@@ -30,6 +30,8 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
+import static org.assertj.core.api.Assertions.assertThat;
+
 public class RequestUtils {
 
     public static Types.NewTopic getTopicObject(int partitions, int replicaFactor) {
@@ -68,7 +70,10 @@ public class RequestUtils {
                             testContext.failNow("Status code not correct");
                         }
                     }).onFailure(testContext::failNow).compose(HttpClientResponse::body))
-                    .onComplete(testContext.succeeding(buffer -> countDownLatch.countDown()));
+                    .onComplete(testContext.succeeding(buffer -> {
+                        assertThat(testContext.failed()).isFalse();
+                        countDownLatch.countDown();
+                    }));
             try {
                 countDownLatch.await(1, TimeUnit.MINUTES);
             } catch (InterruptedException e) {
@@ -103,7 +108,10 @@ public class RequestUtils {
                                     testContext.failNow("Status code " + response.statusCode() + " is not correct");
                                 }
                             }).onFailure(testContext::failNow).compose(HttpClientResponse::body))
-                    .onComplete(testContext.succeeding(buffer -> countDownLatch.countDown()));
+                    .onComplete(testContext.succeeding(buffer -> {
+                        assertThat(testContext.failed()).isFalse();
+                        countDownLatch.countDown();
+                    }));
 
             try {
                 countDownLatch.await(1, TimeUnit.MINUTES);
@@ -133,7 +141,10 @@ public class RequestUtils {
                                     testContext.failNow("Status code " + response.statusCode() + " is not correct");
                                 }
                             }).onFailure(testContext::failNow).compose(HttpClientResponse::body))
-                    .onComplete(testContext.succeeding(buffer -> countDownLatch.countDown()));
+                    .onComplete(testContext.succeeding(buffer -> {
+                        assertThat(testContext.failed()).isFalse();
+                        countDownLatch.countDown();
+                    }));
 
             try {
                 countDownLatch.await(1, TimeUnit.MINUTES);
@@ -161,7 +172,10 @@ public class RequestUtils {
                                     testContext.failNow("Status code " + response.statusCode() + " is not correct");
                                 }
                             }).onFailure(testContext::failNow).compose(HttpClientResponse::body))
-                    .onComplete(buffer -> countDownLatch.countDown());
+                    .onComplete(buffer -> {
+                        assertThat(testContext.failed()).isFalse();
+                        countDownLatch.countDown();
+                    });
 
             try {
                 countDownLatch.await(1, TimeUnit.MINUTES);
@@ -191,6 +205,7 @@ public class RequestUtils {
                         }
                     }).onFailure(testContext::failNow).compose(HttpClientResponse::body))
                     .onComplete(testContext.succeeding(buffer -> {
+                        assertThat(testContext.failed()).isFalse();
                         countDownLatch.countDown();
                     }));
 
@@ -230,6 +245,7 @@ public class RequestUtils {
                                 }
                             }).onFailure(testContext::failNow).compose(HttpClientResponse::body))
                     .onComplete(testContext.succeeding(buffer ->  {
+                        assertThat(testContext.failed()).isFalse();
                         countDownLatch.countDown();
                     }));
             try {
@@ -252,6 +268,7 @@ public class RequestUtils {
                     }
                 }).onFailure(testContext::failNow).compose(HttpClientResponse::body))
                 .onComplete(testContext.succeeding(buffer -> {
+                    assertThat(testContext.failed()).isFalse();
                     countDownLatch.countDown();
                 }));
         try {

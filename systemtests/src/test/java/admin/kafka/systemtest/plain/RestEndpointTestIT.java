@@ -16,7 +16,6 @@ import org.apache.kafka.clients.admin.AdminClient;
 import org.apache.kafka.clients.admin.NewTopic;
 import org.apache.kafka.clients.admin.TopicDescription;
 import org.apache.kafka.common.config.ConfigResource;
-import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtensionContext;
 import org.junit.jupiter.api.parallel.Execution;
 import org.junit.jupiter.api.parallel.ExecutionMode;
@@ -52,6 +51,7 @@ public class RestEndpointTestIT extends PlainTestBase {
                     }
                 }).onFailure(testContext::failNow).compose(HttpClientResponse::body))
                 .onComplete(testContext.succeeding(buffer -> testContext.verify(() -> {
+                    assertThat(testContext.failed()).isFalse();
                     Set<String> actualRestNames = kafkaClient.listTopics().names().get();
                     assertThat(MODEL_DESERIALIZER.getNames(buffer)).hasSameElementsAs(actualRestNames);
                     testContext.completeNow();
@@ -77,6 +77,7 @@ public class RestEndpointTestIT extends PlainTestBase {
                     }
                 }).onFailure(testContext::failNow).compose(HttpClientResponse::body))
                 .onComplete(testContext.succeeding(buffer -> testContext.verify(() -> {
+                    assertThat(testContext.failed()).isFalse();
                     Set<String> actualRestNames = kafkaClient.listTopics().names().get().stream()
                             .filter(topic -> !topic.contains("__")).collect(Collectors.toSet());
                     assertThat(MODEL_DESERIALIZER.getNames(buffer)).hasSameElementsAs(actualRestNames);
@@ -93,6 +94,7 @@ public class RestEndpointTestIT extends PlainTestBase {
         int publishedAdminPort = DEPLOYMENT_MANAGER.getAdminPort(extensionContext);
         client.request(HttpMethod.GET, publishedAdminPort, "localhost", "/rest/topics")
                 .compose(req -> req.send().onComplete(l -> testContext.verify(() -> {
+                    assertThat(testContext.failed()).isFalse();
                     if (l.succeeded()) {
                         assertThat(l.result().statusCode()).isEqualTo(ReturnCodes.KAFKA_DOWN.code);
                     }
@@ -119,6 +121,7 @@ public class RestEndpointTestIT extends PlainTestBase {
                     }
                 }).onFailure(testContext::failNow).compose(HttpClientResponse::body))
                 .onComplete(testContext.succeeding(buffer -> testContext.verify(() -> {
+                    assertThat(testContext.failed()).isFalse();
                     Set<String> actualRestNames = kafkaClient.listTopics().names().get();
                     assertThat(MODEL_DESERIALIZER.getNames(buffer)).isEqualTo(actualRestNames.stream().filter(name -> name.contains("test-topic")).collect(Collectors.toSet()));
                     testContext.completeNow();
@@ -144,6 +147,7 @@ public class RestEndpointTestIT extends PlainTestBase {
                     }
                 }).onFailure(testContext::failNow).compose(HttpClientResponse::body))
                 .onComplete(testContext.succeeding(buffer -> testContext.verify(() -> {
+                    assertThat(testContext.failed()).isFalse();
                     assertThat(MODEL_DESERIALIZER.getNames(buffer).size()).isEqualTo(0);
                     testContext.completeNow();
                 })));
@@ -171,6 +175,7 @@ public class RestEndpointTestIT extends PlainTestBase {
                     }
                 }).onFailure(testContext::failNow).compose(HttpClientResponse::body))
                 .onComplete(testContext.succeeding(buffer -> testContext.verify(() -> {
+                    assertThat(testContext.failed()).isFalse();
                     assertThat(MODEL_DESERIALIZER.getNames(buffer).size()).isEqualTo(Math.min(limit, 3));
                     testContext.completeNow();
                 })));
@@ -199,6 +204,7 @@ public class RestEndpointTestIT extends PlainTestBase {
                     }
                 }).onFailure(testContext::failNow).compose(HttpClientResponse::body))
                 .onComplete(testContext.succeeding(buffer -> testContext.verify(() -> {
+                    assertThat(testContext.failed()).isFalse();
                     if (offset != 4) {
                         assertThat(MODEL_DESERIALIZER.getNames(buffer).size()).isEqualTo(3 - offset);
                     }
@@ -227,6 +233,7 @@ public class RestEndpointTestIT extends PlainTestBase {
                     }
                 }).onFailure(testContext::failNow).compose(HttpClientResponse::body))
                 .onComplete(testContext.succeeding(buffer -> testContext.verify(() -> {
+                    assertThat(testContext.failed()).isFalse();
                     Types.Topic topic = MODEL_DESERIALIZER.deserializeResponse(buffer, Types.Topic.class);
                     assertThat(topic.getPartitions().size()).isEqualTo(2);
                     testContext.completeNow();
@@ -258,7 +265,7 @@ public class RestEndpointTestIT extends PlainTestBase {
         assertThat(testContext.awaitCompletion(1, TimeUnit.MINUTES)).isTrue();
     }
 
-    @Test
+    @ParallelTest
     void testDescribeSingleTopicWithKafkaDown(Vertx vertx, VertxTestContext testContext, ExtensionContext extensionContext) throws Exception {
         int publishedAdminPort = DEPLOYMENT_MANAGER.getAdminPort(extensionContext);
         final String topicName = UUID.randomUUID().toString();
@@ -276,7 +283,7 @@ public class RestEndpointTestIT extends PlainTestBase {
         assertThat(testContext.awaitCompletion(1, TimeUnit.MINUTES)).isTrue();
     }
 
-    @Test
+    @ParallelTest
     void testDescribeNonExistingTopic(Vertx vertx, VertxTestContext testContext, ExtensionContext extensionContext) throws Exception {
         int publishedAdminPort = DEPLOYMENT_MANAGER.getAdminPort(extensionContext);
 
@@ -293,7 +300,7 @@ public class RestEndpointTestIT extends PlainTestBase {
         assertThat(testContext.awaitCompletion(1, TimeUnit.MINUTES)).isTrue();
     }
 
-    @Test
+    @ParallelTest
     void testCreateTopic(Vertx vertx, VertxTestContext testContext, ExtensionContext extensionContext) throws InterruptedException {
         AdminClient kafkaClient = AdminClient.create(RequestUtils.getKafkaAdminConfig(DEPLOYMENT_MANAGER
                 .getKafkaContainer(extensionContext).getBootstrapServers()));
@@ -308,6 +315,7 @@ public class RestEndpointTestIT extends PlainTestBase {
                             }
                         }).onFailure(testContext::failNow).compose(HttpClientResponse::body))
                 .onComplete(testContext.succeeding(buffer -> testContext.verify(() -> {
+                    assertThat(testContext.failed()).isFalse();
                     DynamicWait.waitForTopicExists(topic.getName(), kafkaClient);
                     TopicDescription description = kafkaClient.describeTopics(Collections.singleton(topic.getName()))
                             .all().get().get(topic.getName());
@@ -318,7 +326,7 @@ public class RestEndpointTestIT extends PlainTestBase {
         assertThat(testContext.awaitCompletion(1, TimeUnit.MINUTES)).isTrue();
     }
 
-    @Test
+    @ParallelTest
     void testCreateTopicWithKafkaDown(Vertx vertx, VertxTestContext testContext, ExtensionContext extensionContext) throws InterruptedException {
         Types.NewTopic topic = RequestUtils.getTopicObject(3, 1);
 
@@ -336,7 +344,7 @@ public class RestEndpointTestIT extends PlainTestBase {
         assertThat(testContext.awaitCompletion(1, TimeUnit.MINUTES)).isTrue();
     }
 
-    @Test
+    @ParallelTest
     void testCreateWithInvJson(Vertx vertx, VertxTestContext testContext, ExtensionContext extensionContext) throws InterruptedException {
         Types.NewTopic topic = RequestUtils.getTopicObject(3, 1);
         int publishedAdminPort = DEPLOYMENT_MANAGER.getAdminPort(extensionContext);
@@ -353,7 +361,7 @@ public class RestEndpointTestIT extends PlainTestBase {
         assertThat(testContext.awaitCompletion(1, TimeUnit.MINUTES)).isTrue();
     }
 
-    @Test
+    @ParallelTest
     void testCreateTopicWithInvName(Vertx vertx, VertxTestContext testContext, ExtensionContext extensionContext) throws InterruptedException {
         int publishedAdminPort = DEPLOYMENT_MANAGER.getAdminPort(extensionContext);
         final String topicName = "testTopic3_9-=";
@@ -370,7 +378,7 @@ public class RestEndpointTestIT extends PlainTestBase {
         assertThat(testContext.awaitCompletion(1, TimeUnit.MINUTES)).isTrue();
     }
 
-    @Test
+    @ParallelTest
     void testCreateFaultTopic(Vertx vertx, VertxTestContext testContext, ExtensionContext extensionContext) throws InterruptedException {
         AdminClient kafkaClient = AdminClient.create(RequestUtils.getKafkaAdminConfig(DEPLOYMENT_MANAGER
                 .getKafkaContainer(extensionContext).getBootstrapServers()));
@@ -385,13 +393,14 @@ public class RestEndpointTestIT extends PlainTestBase {
                             }
                         }).onFailure(testContext::failNow).compose(HttpClientResponse::body))
                 .onComplete(testContext.succeeding(buffer -> testContext.verify(() -> {
+                    assertThat(testContext.failed()).isFalse();
                     assertThat(kafkaClient.listTopics().names().get()).doesNotContain(topic.getName());
                     testContext.completeNow();
                 })));
         assertThat(testContext.awaitCompletion(1, TimeUnit.MINUTES)).isTrue();
     }
 
-    @Test
+    @ParallelTest
     void testCreateForbiddenTopic(Vertx vertx, VertxTestContext testContext, ExtensionContext extensionContext) throws InterruptedException {
         AdminClient kafkaClient = AdminClient.create(RequestUtils.getKafkaAdminConfig(DEPLOYMENT_MANAGER
                 .getKafkaContainer(extensionContext).getBootstrapServers()));
@@ -407,13 +416,14 @@ public class RestEndpointTestIT extends PlainTestBase {
                             }
                         }).onFailure(testContext::failNow).compose(HttpClientResponse::body))
                 .onComplete(testContext.succeeding(buffer -> testContext.verify(() -> {
+                    assertThat(testContext.failed()).isFalse();
                     assertThat(kafkaClient.listTopics().names().get()).doesNotContain(topic.getName());
                     testContext.completeNow();
                 })));
         assertThat(testContext.awaitCompletion(1, TimeUnit.MINUTES)).isTrue();
     }
 
-    @Test
+    @ParallelTest
     void testCreateDuplicatedTopic(Vertx vertx, VertxTestContext testContext, ExtensionContext extensionContext) throws Exception {
         AdminClient kafkaClient = AdminClient.create(RequestUtils.getKafkaAdminConfig(DEPLOYMENT_MANAGER
                 .getKafkaContainer(extensionContext).getBootstrapServers()));
@@ -435,7 +445,7 @@ public class RestEndpointTestIT extends PlainTestBase {
         assertThat(testContext.awaitCompletion(1, TimeUnit.MINUTES)).isTrue();
     }
 
-    @Test
+    @ParallelTest
     void testTopicDeleteSingle(Vertx vertx, VertxTestContext testContext, ExtensionContext extensionContext) throws Exception {
         AdminClient kafkaClient = AdminClient.create(RequestUtils.getKafkaAdminConfig(DEPLOYMENT_MANAGER
                 .getKafkaContainer(extensionContext).getBootstrapServers()));
@@ -455,6 +465,7 @@ public class RestEndpointTestIT extends PlainTestBase {
                             }
                         }).onFailure(testContext::failNow).compose(HttpClientResponse::body))
                 .onComplete(testContext.succeeding(buffer -> testContext.verify(() -> {
+                    assertThat(testContext.failed()).isFalse();
                     DynamicWait.waitForTopicToBeDeleted(topicName, kafkaClient);
                     assertThat(kafkaClient.listTopics().names().get()).doesNotContain(topicName);
                     testContext.completeNow();
@@ -462,7 +473,7 @@ public class RestEndpointTestIT extends PlainTestBase {
         assertThat(testContext.awaitCompletion(1, TimeUnit.MINUTES)).isTrue();
     }
 
-    @Test
+    @ParallelTest
     void testTopicDeleteForbidden(Vertx vertx, VertxTestContext testContext, ExtensionContext extensionContext) throws Exception {
         AdminClient kafkaClient = AdminClient.create(RequestUtils.getKafkaAdminConfig(DEPLOYMENT_MANAGER
                 .getKafkaContainer(extensionContext).getBootstrapServers()));
@@ -482,13 +493,14 @@ public class RestEndpointTestIT extends PlainTestBase {
                             }
                         }).onFailure(testContext::failNow).compose(HttpClientResponse::body))
                 .onComplete(testContext.succeeding(buffer -> testContext.verify(() -> {
+                    assertThat(testContext.failed()).isFalse();
                     assertThat(kafkaClient.listTopics().names().get()).contains(topicName);
                     testContext.completeNow();
                 })));
         assertThat(testContext.awaitCompletion(1, TimeUnit.MINUTES)).isTrue();
     }
 
-    @Test
+    @ParallelTest
     void testTopicDeleteWithKafkaDown(Vertx vertx, VertxTestContext testContext, ExtensionContext extensionContext) throws Exception {
         final String topicName = UUID.randomUUID().toString();
         String query = "/rest/topics/" + topicName;
@@ -506,7 +518,7 @@ public class RestEndpointTestIT extends PlainTestBase {
         assertThat(testContext.awaitCompletion(1, TimeUnit.MINUTES)).isTrue();
     }
 
-    @Test
+    @ParallelTest
     void testTopicDeleteNotExisting(Vertx vertx, VertxTestContext testContext, ExtensionContext extensionContext) throws InterruptedException {
         int publishedAdminPort = DEPLOYMENT_MANAGER.getAdminPort(extensionContext);
         final String topicName = "test-topic-non-existing";
@@ -523,7 +535,7 @@ public class RestEndpointTestIT extends PlainTestBase {
 
     }
 
-    @Test
+    @ParallelTest
     void testUpdateTopic(Vertx vertx, VertxTestContext testContext, ExtensionContext extensionContext) throws Exception {
         AdminClient kafkaClient = AdminClient.create(RequestUtils.getKafkaAdminConfig(DEPLOYMENT_MANAGER
                 .getKafkaContainer(extensionContext).getBootstrapServers()));
@@ -550,6 +562,7 @@ public class RestEndpointTestIT extends PlainTestBase {
                             }
                         }).onFailure(testContext::failNow).compose(HttpClientResponse::body))
                 .onComplete(testContext.succeeding(buffer -> testContext.verify(() -> {
+                    assertThat(testContext.failed()).isFalse();
                     DynamicWait.waitForTopicExists(topicName, kafkaClient);
                     ConfigResource resource = new ConfigResource(org.apache.kafka.common.config.ConfigResource.Type.TOPIC,
                             topicName);
@@ -561,7 +574,7 @@ public class RestEndpointTestIT extends PlainTestBase {
         assertThat(testContext.awaitCompletion(1, TimeUnit.MINUTES)).isTrue();
     }
 
-    @Test
+    @ParallelTest
     void testUpdateTopicWithKafkaDown(Vertx vertx, VertxTestContext testContext, ExtensionContext extensionContext) throws InterruptedException {
         int publishedAdminPort = DEPLOYMENT_MANAGER.getAdminPort(extensionContext);
         final String topicName = UUID.randomUUID().toString();
@@ -585,7 +598,7 @@ public class RestEndpointTestIT extends PlainTestBase {
         assertThat(testContext.awaitCompletion(1, TimeUnit.MINUTES)).isTrue();
     }
 
-    @Test
+    @ParallelTest
     void testUpdateForbiddenTopic(Vertx vertx, VertxTestContext testContext, ExtensionContext extensionContext) throws Exception {
         AdminClient kafkaClient = AdminClient.create(RequestUtils.getKafkaAdminConfig(DEPLOYMENT_MANAGER
                 .getKafkaContainer(extensionContext).getBootstrapServers()));
@@ -612,6 +625,7 @@ public class RestEndpointTestIT extends PlainTestBase {
                             }
                         }).onFailure(testContext::failNow).compose(HttpClientResponse::body))
                 .onComplete(testContext.succeeding(buffer -> testContext.verify(() -> {
+                    assertThat(testContext.failed()).isFalse();
                     DynamicWait.waitForTopicExists(topicName, kafkaClient);
                     ConfigResource resource = new ConfigResource(org.apache.kafka.common.config.ConfigResource.Type.TOPIC,
                             topicName);
