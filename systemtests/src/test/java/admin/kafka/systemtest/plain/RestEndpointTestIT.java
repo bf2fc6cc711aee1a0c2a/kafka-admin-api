@@ -60,6 +60,32 @@ public class RestEndpointTestIT extends PlainTestBase {
     }
 
     @ParallelTest
+    void testTopicListAfterCreationWithForbTopic(Vertx vertx, VertxTestContext testContext, ExtensionContext extensionContext) throws Exception {
+        AdminClient kafkaClient = AdminClient.create(RequestUtils.getKafkaAdminConfig(DEPLOYMENT_MANAGER
+                .getKafkaContainer(extensionContext).getBootstrapServers()));
+        int publishedAdminPort = DEPLOYMENT_MANAGER.getAdminPort(extensionContext);
+        List<NewTopic> topics = new ArrayList<>();
+        for (int i = 0; i < 2; i++) topics.add(new NewTopic(UUID.randomUUID().toString(), 1, (short) 1));
+        topics.add(new NewTopic("__" + UUID.randomUUID().toString(), 1, (short) 1));
+        kafkaClient.createTopics(topics);
+        DynamicWait.waitForTopicsExists(topics.stream().map(NewTopic::name).collect(Collectors.toList()), kafkaClient);
+        HttpClient client = vertx.createHttpClient();
+        client.request(HttpMethod.GET, publishedAdminPort, "localhost", "/rest/topics")
+                .compose(req -> req.send().onSuccess(response -> {
+                    if (response.statusCode() !=  ReturnCodes.SUCCESS.code) {
+                        testContext.failNow("Status code not correct");
+                    }
+                }).onFailure(testContext::failNow).compose(HttpClientResponse::body))
+                .onComplete(testContext.succeeding(buffer -> testContext.verify(() -> {
+                    Set<String> actualRestNames = kafkaClient.listTopics().names().get().stream()
+                            .filter(topic -> !topic.contains("__")).collect(Collectors.toSet());
+                    assertThat(MODEL_DESERIALIZER.getNames(buffer)).hasSameElementsAs(actualRestNames);
+                    testContext.completeNow();
+                })));
+        assertThat(testContext.awaitCompletion(1, TimeUnit.MINUTES)).isTrue();
+    }
+
+    @ParallelTest
     void testTopicListWithKafkaDown(Vertx vertx, VertxTestContext testContext, ExtensionContext extensionContext) throws InterruptedException {
         HttpClient client = vertx.createHttpClient();
         DEPLOYMENT_MANAGER.getClient().stopContainerCmd(DEPLOYMENT_MANAGER
@@ -208,6 +234,30 @@ public class RestEndpointTestIT extends PlainTestBase {
         assertThat(testContext.awaitCompletion(1, TimeUnit.MINUTES)).isTrue();
     }
 
+    @ParallelTest
+    void testDescribeForbiddenTopic(Vertx vertx, VertxTestContext testContext, ExtensionContext extensionContext) throws Exception {
+        AdminClient kafkaClient = AdminClient.create(RequestUtils.getKafkaAdminConfig(DEPLOYMENT_MANAGER
+                .getKafkaContainer(extensionContext).getBootstrapServers()));
+        int publishedAdminPort = DEPLOYMENT_MANAGER.getAdminPort(extensionContext);
+        final String topicName = "__" + UUID.randomUUID().toString();
+        kafkaClient.createTopics(Collections.singletonList(
+                new NewTopic(topicName, 2, (short) 1)
+        ));
+
+        DynamicWait.waitForTopicExists(topicName, kafkaClient);
+
+        String queryReq = "/rest/topics/" + topicName;
+        vertx.createHttpClient().request(HttpMethod.GET, publishedAdminPort, "localhost", queryReq)
+                .compose(req -> req.send().onSuccess(response -> {
+                    if (response.statusCode() ==  ReturnCodes.FAILED_REQUEST.code) {
+                        testContext.completeNow();
+                    } else {
+                        testContext.failNow("Status code not correct");
+                    }
+                }).onFailure(testContext::failNow));
+        assertThat(testContext.awaitCompletion(1, TimeUnit.MINUTES)).isTrue();
+    }
+
     @Test
     void testDescribeSingleTopicWithKafkaDown(Vertx vertx, VertxTestContext testContext, ExtensionContext extensionContext) throws Exception {
         int publishedAdminPort = DEPLOYMENT_MANAGER.getAdminPort(extensionContext);
@@ -342,6 +392,28 @@ public class RestEndpointTestIT extends PlainTestBase {
     }
 
     @Test
+    void testCreateForbiddenTopic(Vertx vertx, VertxTestContext testContext, ExtensionContext extensionContext) throws InterruptedException {
+        AdminClient kafkaClient = AdminClient.create(RequestUtils.getKafkaAdminConfig(DEPLOYMENT_MANAGER
+                .getKafkaContainer(extensionContext).getBootstrapServers()));
+        int publishedAdminPort = DEPLOYMENT_MANAGER.getAdminPort(extensionContext);
+        Types.NewTopic topic = RequestUtils.getTopicObject(3, 4);
+        topic.setName("__" + topic.getName());
+
+        vertx.createHttpClient().request(HttpMethod.POST, publishedAdminPort, "localhost", "/rest/topics")
+                .compose(req -> req.putHeader("content-type", "application/json")
+                        .send(MODEL_DESERIALIZER.serializeBody(topic)).onSuccess(response -> {
+                            if (response.statusCode() !=  ReturnCodes.FAILED_REQUEST.code) {
+                                testContext.failNow("Status code " + response.statusCode() + " is not correct");
+                            }
+                        }).onFailure(testContext::failNow).compose(HttpClientResponse::body))
+                .onComplete(testContext.succeeding(buffer -> testContext.verify(() -> {
+                    assertThat(kafkaClient.listTopics().names().get()).doesNotContain(topic.getName());
+                    testContext.completeNow();
+                })));
+        assertThat(testContext.awaitCompletion(1, TimeUnit.MINUTES)).isTrue();
+    }
+
+    @Test
     void testCreateDuplicatedTopic(Vertx vertx, VertxTestContext testContext, ExtensionContext extensionContext) throws Exception {
         AdminClient kafkaClient = AdminClient.create(RequestUtils.getKafkaAdminConfig(DEPLOYMENT_MANAGER
                 .getKafkaContainer(extensionContext).getBootstrapServers()));
@@ -385,6 +457,32 @@ public class RestEndpointTestIT extends PlainTestBase {
                 .onComplete(testContext.succeeding(buffer -> testContext.verify(() -> {
                     DynamicWait.waitForTopicToBeDeleted(topicName, kafkaClient);
                     assertThat(kafkaClient.listTopics().names().get()).doesNotContain(topicName);
+                    testContext.completeNow();
+                })));
+        assertThat(testContext.awaitCompletion(1, TimeUnit.MINUTES)).isTrue();
+    }
+
+    @Test
+    void testTopicDeleteForbidden(Vertx vertx, VertxTestContext testContext, ExtensionContext extensionContext) throws Exception {
+        AdminClient kafkaClient = AdminClient.create(RequestUtils.getKafkaAdminConfig(DEPLOYMENT_MANAGER
+                .getKafkaContainer(extensionContext).getBootstrapServers()));
+        int publishedAdminPort = DEPLOYMENT_MANAGER.getAdminPort(extensionContext);
+        final String topicName = "__" + UUID.randomUUID().toString();
+        String query = "/rest/topics/" + topicName;
+
+        kafkaClient.createTopics(Collections.singletonList(
+                new NewTopic(topicName, 2, (short) 1)
+        ));
+        DynamicWait.waitForTopicExists(topicName, kafkaClient);
+        vertx.createHttpClient().request(HttpMethod.DELETE, publishedAdminPort, "localhost", query)
+                .compose(req -> req.putHeader("content-type", "application/json")
+                        .send().onSuccess(response -> {
+                            if (response.statusCode() !=  ReturnCodes.FAILED_REQUEST.code) {
+                                testContext.failNow("Status code " + response.statusCode() + " is not correct");
+                            }
+                        }).onFailure(testContext::failNow).compose(HttpClientResponse::body))
+                .onComplete(testContext.succeeding(buffer -> testContext.verify(() -> {
+                    assertThat(kafkaClient.listTopics().names().get()).contains(topicName);
                     testContext.completeNow();
                 })));
         assertThat(testContext.awaitCompletion(1, TimeUnit.MINUTES)).isTrue();
@@ -484,6 +582,44 @@ public class RestEndpointTestIT extends PlainTestBase {
                             }
                             testContext.completeNow();
                         }).onFailure(testContext::failNow));
+        assertThat(testContext.awaitCompletion(1, TimeUnit.MINUTES)).isTrue();
+    }
+
+    @Test
+    void testUpdateForbiddenTopic(Vertx vertx, VertxTestContext testContext, ExtensionContext extensionContext) throws Exception {
+        AdminClient kafkaClient = AdminClient.create(RequestUtils.getKafkaAdminConfig(DEPLOYMENT_MANAGER
+                .getKafkaContainer(extensionContext).getBootstrapServers()));
+        int publishedAdminPort = DEPLOYMENT_MANAGER.getAdminPort(extensionContext);
+
+        final String topicName = "__" + UUID.randomUUID().toString();
+        final String configKey = "min.insync.replicas";
+        Types.Topic topic1 = new Types.Topic();
+        topic1.setName(topicName);
+        Types.ConfigEntry conf = new Types.ConfigEntry();
+        conf.setKey(configKey);
+        conf.setValue("2");
+        topic1.setConfig(Collections.singletonList(conf));
+
+        kafkaClient.createTopics(Collections.singletonList(
+                new NewTopic(topicName, 1, (short) 1)
+        ));
+        DynamicWait.waitForTopicExists(topicName, kafkaClient);
+        vertx.createHttpClient().request(HttpMethod.PATCH, publishedAdminPort, "localhost", "/rest/topics/" + topicName)
+                .compose(req -> req.putHeader("content-type", "application/json")
+                        .send(MODEL_DESERIALIZER.serializeBody(topic1)).onSuccess(response -> {
+                            if (response.statusCode() !=  ReturnCodes.FAILED_REQUEST.code) {
+                                testContext.failNow("Status code " + response.statusCode() + " is not correct");
+                            }
+                        }).onFailure(testContext::failNow).compose(HttpClientResponse::body))
+                .onComplete(testContext.succeeding(buffer -> testContext.verify(() -> {
+                    DynamicWait.waitForTopicExists(topicName, kafkaClient);
+                    ConfigResource resource = new ConfigResource(org.apache.kafka.common.config.ConfigResource.Type.TOPIC,
+                            topicName);
+                    String configVal = kafkaClient.describeConfigs(Collections.singletonList(resource))
+                            .all().get().get(resource).get("min.insync.replicas").value();
+                    assertThat(configVal).isEqualTo("1");
+                    testContext.completeNow();
+                })));
         assertThat(testContext.awaitCompletion(1, TimeUnit.MINUTES)).isTrue();
     }
 }
