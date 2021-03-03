@@ -122,27 +122,25 @@
         <dependency>
             <groupId>io.strimzi</groupId>
             <artifactId>kafka-oauth-common</artifactId>
-            <version>1.0.0-SNAPSHOT</version>
         </dependency>
         <dependency>
             <groupId>io.strimzi</groupId>
             <artifactId>kafka-oauth-client</artifactId>
-            <version>1.0.0-SNAPSHOT</version>
         </dependency>
         <dependency>
             <groupId>io.strimzi</groupId>
             <artifactId>kafka-oauth-server</artifactId>
-            <version>1.0.0-SNAPSHOT</version>
+            <version>${strimzi-oauth.version}</version>
         </dependency>
         <dependency>
             <groupId>io.strimzi</groupId>
             <artifactId>kafka-oauth-server-plain</artifactId>
-            <version>1.0.0-SNAPSHOT</version>
+            <version>${strimzi-oauth.version}</version>
         </dependency>
         <dependency>
             <groupId>io.strimzi</groupId>
             <artifactId>kafka-oauth-keycloak-authorizer</artifactId>
-            <version>1.0.0-SNAPSHOT</version>
+            <version>${strimzi-oauth.version}</version>
         </dependency>
         <dependency>
             <groupId>org.keycloak</groupId>

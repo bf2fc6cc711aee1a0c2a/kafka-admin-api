@@ -285,22 +285,6 @@ public class AdminDeploymentManager {
         });
     }
 
-    public void createRandNetwork(ExtensionContext testContext) {
-        String networkId = client.createNetworkCmd().withName(testContext.getDisplayName()).exec().getId();
-        TestUtils.logDeploymentPhase("Created network with id " + networkId);
-        synchronized (this) {
-            STORED_RESOURCES.computeIfAbsent(testContext.getDisplayName(), k -> new Stack<>());
-            STORED_RESOURCES.get(testContext.getDisplayName()).push(() -> {
-                client.removeNetworkCmd(NETWORK_NAME).withNetworkId(networkId).exec();
-            });
-        }
-    }
-
-    public String getNetworkName(String networkId) {
-        return client.listNetworksCmd().exec().stream()
-                .filter(n -> n.getId().equals(networkId)).findFirst().get().getName();
-    }
-
     public void teardown(ExtensionContext testContext) throws Exception {
         LOGGER.info("*******************************************************");
         LOGGER.info("Going to teardown all containers for {}", testContext.getDisplayName());
