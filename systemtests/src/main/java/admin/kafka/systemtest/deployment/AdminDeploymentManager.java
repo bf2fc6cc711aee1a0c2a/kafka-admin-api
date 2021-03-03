@@ -57,6 +57,9 @@ public class AdminDeploymentManager {
         return deploymentManager;
     }
 
+    private AdminDeploymentManager() {
+        client = DockerClientBuilder.getInstance(DefaultDockerClientConfig.createDefaultConfigBuilder().build()).build();
+    }
 
     public void deployOauthStack(VertxTestContext vertxTestContext, ExtensionContext testContext) throws Exception {
         vertxTestContext.verify(() -> {
@@ -104,11 +107,6 @@ public class AdminDeploymentManager {
             vertxTestContext.completeNow();
             vertxTestContext.checkpoint();
         });
-    }
-
-
-    private AdminDeploymentManager() {
-        client = DockerClientBuilder.getInstance(DefaultDockerClientConfig.createDefaultConfigBuilder().build()).build();
     }
 
     private void waitForAdminReady(int port, VertxTestContext vertxTestContext) {
