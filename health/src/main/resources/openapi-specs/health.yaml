@@ -1,6 +1,6 @@
 openapi: 3.0.0
 info:
-  title: Strimzi Kubernetes Health API
+  title: Kafka Admin Health API
   version: 0.1.0
   description: An API to provide k8s health endpoints for query
 paths:

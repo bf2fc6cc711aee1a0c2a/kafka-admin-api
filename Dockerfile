@@ -14,13 +14,13 @@ ADD https://github.com/krallin/tini/releases/download/${TINI_VERSION}/tini /usr/
 RUN echo "${TINI_SHA256} */usr/bin/tini" | sha256sum -c \
     && chmod +x /usr/bin/tini
 
-RUN useradd -r -m -u 1001 -g 0 strimzi
+RUN useradd -r -m -u 1001 -g 0 user
 
 ARG kafka_admin_api_version=1.0-SNAPSHOT
 ENV KAFKA_ADMIN_API_VERSION ${kafka_admin_api_version}
-ENV STRIMZI_HOME=/opt/strimzi
-RUN mkdir -p ${STRIMZI_HOME}
-WORKDIR ${STRIMZI_HOME}
+ENV KAFKA_ADMIN_HOME=/opt/kafka_admin
+RUN mkdir -p ${KAFKA_ADMIN_HOME}
+WORKDIR ${KAFKA_ADMIN_HOME}
 
 COPY health/target/health-${kafka_admin_api_version}-fat.jar ./
 COPY rest/target/rest-${kafka_admin_api_version}-fat.jar ./
@@ -29,4 +29,4 @@ COPY kafka-admin/target/kafka-admin-${kafka_admin_api_version}-fat.jar ./
 COPY docker/run.sh ./
 
 
-ENTRYPOINT ["/usr/bin/tini", "-w", "-e", "143", "--", "sh", "-c", "/opt/strimzi/run.sh "]
+ENTRYPOINT ["/usr/bin/tini", "-w", "-e", "143", "--", "sh", "-c", "/opt/kafka_admin/run.sh "]

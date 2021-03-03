@@ -17,7 +17,7 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 /**
- * The main Strimzi Admin Server class. It is a Vert.x {@link io.vertx.core.Verticle} and it starts
+ * The main Kafka Admin API Server class. It is a Vert.x {@link io.vertx.core.Verticle} and it starts
  * an HTTP server which listen for inbound HTTP requests.
  * <p>
  * The resources that are defined to the server are loaded using the Java Service loader
