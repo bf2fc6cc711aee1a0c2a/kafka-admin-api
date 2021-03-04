@@ -63,7 +63,7 @@ public class CommonHandler {
         }
     }
 
-    protected static <T> void processResponse(Promise<T> prom, RoutingContext routingContext, HttpResponseStatus responseStatus, HttpMetrics httpMetrics, Timer.Sample requestTimerSample) {
+    protected static <T> void processResponse(Promise<T> prom, RoutingContext routingContext, HttpResponseStatus responseStatus, HttpMetrics httpMetrics, Timer timer, Timer.Sample requestTimerSample) {
         prom.future().onComplete(res -> {
             if (res.failed()) {
                 if (res.cause() instanceof UnknownTopicOrPartitionException) {
@@ -87,7 +87,7 @@ public class CommonHandler {
                 }
                 routingContext.response().end(res.cause().getMessage());
                 httpMetrics.getFailedRequestsCounter().increment();
-                requestTimerSample.stop(httpMetrics.getRequestTimer());
+                requestTimerSample.stop(timer);
                 log.error("{} {}", res.cause().getClass(), res.cause().getMessage());
             } else {
                 ObjectWriter ow = new ObjectMapper().writer().withDefaultPrettyPrinter();
@@ -98,13 +98,13 @@ public class CommonHandler {
                     routingContext.response().setStatusCode(HttpResponseStatus.INTERNAL_SERVER_ERROR.code());
                     routingContext.response().end(e.getMessage());
                     httpMetrics.getFailedRequestsCounter().increment();
-                    requestTimerSample.stop(httpMetrics.getRequestTimer());
+                    requestTimerSample.stop(timer);
                     return;
                 }
                 routingContext.response().setStatusCode(responseStatus.code());
                 routingContext.response().end(json);
                 httpMetrics.getSucceededRequestsCounter().increment();
-                requestTimerSample.stop(httpMetrics.getRequestTimer());
+                requestTimerSample.stop(timer);
             }
         });
     }
