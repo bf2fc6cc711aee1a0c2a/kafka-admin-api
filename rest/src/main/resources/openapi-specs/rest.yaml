@@ -381,7 +381,7 @@ components:
           description: Total number of topics
           type: integer
       example:
-        topics:
+        items:
           -
             name: my-topic
             config:
