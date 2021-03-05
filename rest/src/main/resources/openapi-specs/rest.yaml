@@ -360,17 +360,12 @@ components:
     TopicsList:
       description: A list of topics.
       required:
-        - topics
+        - items
         - offset
         - limit
         - count
       type: object
       properties:
-        topics:
-          description: List of topics
-          type: array
-          items:
-            $ref: '#/components/schemas/Topic'
         offset:
           description: The page offset
           type: integer
@@ -380,6 +375,11 @@ components:
         count:
           description: Total number of topics
           type: integer
+        items:
+          description: List of topics
+          type: array
+          items:
+            $ref: '#/components/schemas/Topic'
       example:
         items:
           -
