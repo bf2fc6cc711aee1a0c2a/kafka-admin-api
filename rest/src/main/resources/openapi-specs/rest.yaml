@@ -431,9 +431,6 @@ components:
         numPartitions:
           description: Number of partitions for this topic.
           type: integer
-        replicationFactor:
-          description: Number of replications for the topic.
-          type: integer
         config:
           description: Topic configuration entry.
           type: array
@@ -441,7 +438,6 @@ components:
             $ref: '#/components/schemas/ConfigEntry'
       example:
         numPartitions: 2
-        replicationFactor: 1
         config:
           -
             key: min.insync.replicas
@@ -470,7 +466,6 @@ components:
         name: my-topic
         settings:
           numPartitions: 3
-          replicationFactor: 4
           config:
             -
               key: min.insync.replicas

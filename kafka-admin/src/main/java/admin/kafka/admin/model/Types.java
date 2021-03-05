@@ -185,7 +185,6 @@ public class Types {
 
     public static class NewTopicInput {
         private Integer numPartitions;
-        private Integer replicationFactor;
         private List<NewTopicConfigEntry> config;
 
         public Integer getNumPartitions() {
@@ -194,14 +193,6 @@ public class Types {
 
         public void setNumPartitions(Integer numPartitions) {
             this.numPartitions = numPartitions;
-        }
-
-        public Integer getReplicationFactor() {
-            return replicationFactor;
-        }
-
-        public void setReplicationFactor(Integer replicationFactor) {
-            this.replicationFactor = replicationFactor;
         }
 
         public List<NewTopicConfigEntry> getConfig() {
