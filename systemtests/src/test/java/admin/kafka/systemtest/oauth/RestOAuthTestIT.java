@@ -155,7 +155,7 @@ public class RestOAuthTestIT extends OauthTestBase {
 
     @Test
     void testCreateTopicAuthorized(Vertx vertx, VertxTestContext testContext) throws InterruptedException {
-        Types.NewTopic topic = RequestUtils.getTopicObject(3, 1);
+        Types.NewTopic topic = RequestUtils.getTopicObject(3);
 
         vertx.createHttpClient().request(HttpMethod.POST, publishedAdminPort, "localhost", "/rest/topics")
                 .compose(req -> req.putHeader("content-type", "application/json")
@@ -178,7 +178,7 @@ public class RestOAuthTestIT extends OauthTestBase {
 
     @Test
     void testCreateTopicUnauthorized(Vertx vertx, VertxTestContext testContext) throws InterruptedException {
-        Types.NewTopic topic = RequestUtils.getTopicObject(3, 1);
+        Types.NewTopic topic = RequestUtils.getTopicObject(3);
 
         changeTokenToUnauthorized(vertx, testContext);
         vertx.createHttpClient().request(HttpMethod.POST, publishedAdminPort, "localhost", "/rest/topics")

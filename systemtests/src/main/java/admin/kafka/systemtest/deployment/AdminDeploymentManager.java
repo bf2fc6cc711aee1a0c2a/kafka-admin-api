@@ -179,8 +179,8 @@ public class AdminDeploymentManager {
                 .withHostConfig(new HostConfig()
                         .withPublishAllPorts(true)
                         .withNetworkMode(networkName))
-                .withCmd("/opt/strimzi/run.sh -e KAFKA_ADMIN_BOOTSTRAP_SERVERS='" + bootstrap
-                        + "' -e KAFKA_ADMIN_OAUTH_ENABLED='" + oauth + "' -e VERTXWEB_ENVIRONMENT='dev' -e INTERNAL_TOPICS_ENABLED='" + internal + "'").exec();
+                .withCmd("/opt/kafka_admin/run.sh -e KAFKA_ADMIN_BOOTSTRAP_SERVERS='" + bootstrap
+                        + "' -e KAFKA_ADMIN_OAUTH_ENABLED='" + oauth + "' -e VERTXWEB_ENVIRONMENT='dev' -e INTERNAL_TOPICS_ENABLED='" + internal + "' -e REPLICATION_FACTOR='1'").exec();
         String adminContId = contResp.getId();
         client.startContainerCmd(contResp.getId()).exec();
         int adminPublishedPort = Integer.parseInt(client.inspectContainerCmd(contResp.getId()).exec().getNetworkSettings()

@@ -34,12 +34,11 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 public class RequestUtils {
 
-    public static Types.NewTopic getTopicObject(int partitions, int replicaFactor) {
+    public static Types.NewTopic getTopicObject(int partitions) {
         Types.NewTopic topic = new Types.NewTopic();
         topic.setName(UUID.randomUUID().toString());
         Types.NewTopicInput topicInput = new Types.NewTopicInput();
         topicInput.setNumPartitions(partitions);
-        topicInput.setReplicationFactor(replicaFactor);
         Types.NewTopicConfigEntry config = new Types.NewTopicConfigEntry();
         config.setKey("min.insync.replicas");
         config.setValue("1");
@@ -47,12 +46,11 @@ public class RequestUtils {
         topic.setSettings(topicInput);
         return topic;
     }
-    public static Types.NewTopic getTopicObject(String name, int partitions, int replicaFactor) {
+    public static Types.NewTopic getTopicObject(String name, int partitions) {
         Types.NewTopic topic = new Types.NewTopic();
         topic.setName(name);
         Types.NewTopicInput topicInput = new Types.NewTopicInput();
         topicInput.setNumPartitions(partitions);
-        topicInput.setReplicationFactor(replicaFactor);
         Types.NewTopicConfigEntry config = new Types.NewTopicConfigEntry();
         config.setKey("min.insync.replicas");
         config.setValue("1");
@@ -89,7 +87,6 @@ public class RequestUtils {
         Types.NewTopic topic = new Types.NewTopic();
         Types.NewTopicInput topicInput = new Types.NewTopicInput();
         topicInput.setNumPartitions(3);
-        topicInput.setReplicationFactor(1);
         Types.NewTopicConfigEntry config = new Types.NewTopicConfigEntry();
         config.setKey("min.insync.replicas");
         config.setValue("1");

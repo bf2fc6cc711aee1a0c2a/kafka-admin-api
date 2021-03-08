@@ -30,4 +30,4 @@ COPY docker/run.sh ./
 
 
 ENTRYPOINT ["/usr/bin/tini", "-w", "-e", "143", "--", "sh", "-c"]
-CMD [ "/opt/kafka_admin/run.sh "]
+CMD [ "/opt/kafka_admin/run.sh"]

@@ -305,7 +305,7 @@ public class RestEndpointTestIT extends PlainTestBase {
         AdminClient kafkaClient = AdminClient.create(RequestUtils.getKafkaAdminConfig(DEPLOYMENT_MANAGER
                 .getKafkaContainer(extensionContext).getBootstrapServers()));
         int publishedAdminPort = DEPLOYMENT_MANAGER.getAdminPort(extensionContext);
-        Types.NewTopic topic = RequestUtils.getTopicObject(3, 1);
+        Types.NewTopic topic = RequestUtils.getTopicObject(3);
 
         vertx.createHttpClient().request(HttpMethod.POST, publishedAdminPort, "localhost", "/rest/topics")
                 .compose(req -> req.putHeader("content-type", "application/json")
@@ -328,7 +328,7 @@ public class RestEndpointTestIT extends PlainTestBase {
 
     @ParallelTest
     void testCreateTopicWithKafkaDown(Vertx vertx, VertxTestContext testContext, ExtensionContext extensionContext) throws InterruptedException {
-        Types.NewTopic topic = RequestUtils.getTopicObject(3, 1);
+        Types.NewTopic topic = RequestUtils.getTopicObject(3);
 
         DEPLOYMENT_MANAGER.getClient().stopContainerCmd(DEPLOYMENT_MANAGER.getKafkaContainer(extensionContext).getContainerId()).exec();
         int publishedAdminPort = DEPLOYMENT_MANAGER.getAdminPort(extensionContext);
@@ -346,7 +346,7 @@ public class RestEndpointTestIT extends PlainTestBase {
 
     @ParallelTest
     void testCreateWithInvJson(Vertx vertx, VertxTestContext testContext, ExtensionContext extensionContext) throws InterruptedException {
-        Types.NewTopic topic = RequestUtils.getTopicObject(3, 1);
+        Types.NewTopic topic = RequestUtils.getTopicObject(3);
         int publishedAdminPort = DEPLOYMENT_MANAGER.getAdminPort(extensionContext);
 
 
@@ -365,7 +365,7 @@ public class RestEndpointTestIT extends PlainTestBase {
     void testCreateTopicWithInvName(Vertx vertx, VertxTestContext testContext, ExtensionContext extensionContext) throws InterruptedException {
         int publishedAdminPort = DEPLOYMENT_MANAGER.getAdminPort(extensionContext);
         final String topicName = "testTopic3_9-=";
-        Types.NewTopic topic = RequestUtils.getTopicObject(topicName, 3, 1);
+        Types.NewTopic topic = RequestUtils.getTopicObject(topicName, 3);
 
         vertx.createHttpClient().request(HttpMethod.POST, publishedAdminPort, "localhost", "/rest/topics")
                 .compose(req -> req.putHeader("content-type", "application/json")
@@ -383,7 +383,16 @@ public class RestEndpointTestIT extends PlainTestBase {
         AdminClient kafkaClient = AdminClient.create(RequestUtils.getKafkaAdminConfig(DEPLOYMENT_MANAGER
                 .getKafkaContainer(extensionContext).getBootstrapServers()));
         int publishedAdminPort = DEPLOYMENT_MANAGER.getAdminPort(extensionContext);
-        Types.NewTopic topic = RequestUtils.getTopicObject(3, 4);
+
+        final String topicName = UUID.randomUUID().toString();
+        final String configKey = "cleanup.policy";
+        Types.Topic topic = new Types.Topic();
+        topic.setName(topicName);
+        Types.ConfigEntry conf = new Types.ConfigEntry();
+        conf.setKey(configKey);
+        conf.setValue("true");
+        topic.setConfig(Collections.singletonList(conf));
+
 
         vertx.createHttpClient().request(HttpMethod.POST, publishedAdminPort, "localhost", "/rest/topics")
                 .compose(req -> req.putHeader("content-type", "application/json")
@@ -405,7 +414,7 @@ public class RestEndpointTestIT extends PlainTestBase {
         AdminClient kafkaClient = AdminClient.create(RequestUtils.getKafkaAdminConfig(DEPLOYMENT_MANAGER
                 .getKafkaContainer(extensionContext).getBootstrapServers()));
         int publishedAdminPort = DEPLOYMENT_MANAGER.getAdminPort(extensionContext);
-        Types.NewTopic topic = RequestUtils.getTopicObject(3, 4);
+        Types.NewTopic topic = RequestUtils.getTopicObject(3);
         topic.setName("__" + topic.getName());
 
         vertx.createHttpClient().request(HttpMethod.POST, publishedAdminPort, "localhost", "/rest/topics")
@@ -428,7 +437,7 @@ public class RestEndpointTestIT extends PlainTestBase {
         AdminClient kafkaClient = AdminClient.create(RequestUtils.getKafkaAdminConfig(DEPLOYMENT_MANAGER
                 .getKafkaContainer(extensionContext).getBootstrapServers()));
         int publishedAdminPort = DEPLOYMENT_MANAGER.getAdminPort(extensionContext);
-        Types.NewTopic topic = RequestUtils.getTopicObject(2, 1);
+        Types.NewTopic topic = RequestUtils.getTopicObject(2);
 
         kafkaClient.createTopics(Collections.singletonList(
                 new NewTopic(topic.getName(), 2, (short) 1)

@@ -59,7 +59,7 @@ public class RestEndpointInternalIT extends PlainTestBase {
         AdminClient kafkaClient = AdminClient.create(RequestUtils.getKafkaAdminConfig(DEPLOYMENT_MANAGER
                 .getKafkaContainer(extensionContext).getBootstrapServers()));
         int publishedAdminPort = DEPLOYMENT_MANAGER.getAdminPort(extensionContext);
-        Types.NewTopic topic = RequestUtils.getTopicObject(3, 4);
+        Types.NewTopic topic = RequestUtils.getTopicObject(3);
         topic.setName("__" + topic.getName());
 
         vertx.createHttpClient().request(HttpMethod.POST, publishedAdminPort, "localhost", "/rest/topics")
