@@ -5,7 +5,7 @@ set -e
 openssl genrsa -out ca.key 4096
 
 # create CA certificate
-openssl req -x509 -new -nodes -sha256 -days 3650 -subj "/CN=strimzi.io" -key ca.key -out ca.crt
+openssl req -x509 -new -nodes -sha256 -days 3650 -subj "/CN=KafkaAdmin.io" -key ca.key -out ca.crt
 
 
 PASSWORD=testpassword

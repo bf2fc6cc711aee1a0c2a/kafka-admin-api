@@ -26,7 +26,7 @@
 
         <!-- Dependency Versions -->
         <vertx.version>3.9.4</vertx.version>
-        <log4j.version>2.13.3</log4j.version>
+        <log4j.version>2.14.0</log4j.version>
         <kafka.version>2.6.0</kafka.version>
         <strimzi-oauth.version>0.7.0</strimzi-oauth.version>
         <fasterxml.version>2.11.3</fasterxml.version>
@@ -52,12 +52,12 @@
             </dependency>
             <dependency>
                 <groupId>org.apache.logging.log4j</groupId>
-                <artifactId>log4j-api</artifactId>
+                <artifactId>log4j-core</artifactId>
                 <version>${log4j.version}</version>
             </dependency>
             <dependency>
                 <groupId>org.apache.logging.log4j</groupId>
-                <artifactId>log4j-core</artifactId>
+                <artifactId>log4j-api</artifactId>
                 <version>${log4j.version}</version>
             </dependency>
             <dependency>
