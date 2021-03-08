@@ -65,7 +65,7 @@ public class RestEndpointInternalIT extends PlainTestBase {
         vertx.createHttpClient().request(HttpMethod.POST, publishedAdminPort, "localhost", "/rest/topics")
                 .compose(req -> req.putHeader("content-type", "application/json")
                         .send(MODEL_DESERIALIZER.serializeBody(topic)).onSuccess(response -> {
-                            if (response.statusCode() !=  ReturnCodes.SUCCESS.code) {
+                            if (response.statusCode() !=  ReturnCodes.TOPIC_CREATED.code) {
                                 testContext.failNow("Status code " + response.statusCode() + " is not correct");
                             }
                         }).onFailure(testContext::failNow).compose(HttpClientResponse::body))

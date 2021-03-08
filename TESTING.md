@@ -12,11 +12,12 @@ For cleaning
 ```
 make clean-test 
 ```
-Add hostname resolution for OAUTH tests into your /etc/hosts
+Add hostname resolution for OAUTH tests into your /etc/hosts.
 ```
 127.0.0.1            keycloak
 127.0.0.1            hydra
 ```
+Config is only necessary for running OAUTH tests, if you run tests without OAUTH you don't have to run add that config.
 ### Running tests
 Parallel execution
 ```
