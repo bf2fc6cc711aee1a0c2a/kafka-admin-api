@@ -386,12 +386,14 @@ public class RestEndpointTestIT extends PlainTestBase {
 
         final String topicName = UUID.randomUUID().toString();
         final String configKey = "cleanup.policy";
-        Types.Topic topic = new Types.Topic();
+        Types.NewTopic topic = new Types.NewTopic();
         topic.setName(topicName);
-        Types.ConfigEntry conf = new Types.ConfigEntry();
+        Types.NewTopicInput input = new Types.NewTopicInput();
+        Types.NewTopicConfigEntry conf = new Types.NewTopicConfigEntry();
         conf.setKey(configKey);
         conf.setValue("true");
-        topic.setConfig(Collections.singletonList(conf));
+        input.setConfig(Collections.singletonList(conf));
+        topic.setSettings(input);
 
 
         vertx.createHttpClient().request(HttpMethod.POST, publishedAdminPort, "localhost", "/rest/topics")
