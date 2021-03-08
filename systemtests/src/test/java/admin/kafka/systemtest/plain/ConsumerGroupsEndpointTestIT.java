@@ -1,6 +1,7 @@
 package admin.kafka.systemtest.plain;
 
 import admin.kafka.admin.model.Types;
+import admin.kafka.systemtest.annotations.ParallelTest;
 import admin.kafka.systemtest.enums.ReturnCodes;
 import admin.kafka.systemtest.utils.RequestUtils;
 import admin.kafka.systemtest.bases.PlainTestBase;
@@ -13,7 +14,6 @@ import org.apache.kafka.clients.admin.AdminClient;
 import org.apache.kafka.clients.admin.ConsumerGroupDescription;
 import org.apache.kafka.clients.admin.ConsumerGroupListing;
 import org.apache.kafka.clients.admin.DescribeConsumerGroupsResult;
-import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtensionContext;
 
 import java.util.Collections;
@@ -26,7 +26,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 public class ConsumerGroupsEndpointTestIT extends PlainTestBase {
 
-    @Test
+    @ParallelTest
     void testListConsumerGroups(Vertx vertx, VertxTestContext testContext, ExtensionContext extensionContext) throws Exception {
         String bootstrap = DEPLOYMENT_MANAGER.getKafkaContainer(extensionContext).getBootstrapServers();
         AdminClient kafkaClient = AdminClient.create(RequestUtils.getKafkaAdminConfig(bootstrap));
@@ -51,7 +51,7 @@ public class ConsumerGroupsEndpointTestIT extends PlainTestBase {
         assertThat(testContext.awaitCompletion(1, TimeUnit.MINUTES)).isTrue();
     }
 
-    @Test
+    @ParallelTest
     void testDeleteConsumerGroup(Vertx vertx, VertxTestContext testContext, ExtensionContext extensionContext) throws Exception {
         String bootstrap = DEPLOYMENT_MANAGER
                 .getKafkaContainer(extensionContext).getBootstrapServers();
@@ -79,7 +79,7 @@ public class ConsumerGroupsEndpointTestIT extends PlainTestBase {
         assertThat(testContext.awaitCompletion(1, TimeUnit.MINUTES)).isTrue();
     }
 
-    @Test
+    @ParallelTest
     void testDescribeConsumerGroup(Vertx vertx, VertxTestContext testContext, ExtensionContext extensionContext) throws Exception {
         String bootstrap = DEPLOYMENT_MANAGER
                 .getKafkaContainer(extensionContext).getBootstrapServers();
