@@ -156,13 +156,13 @@ public class MetricsEndpointTestIT extends PlainTestBase {
                 put(patternSucc.matcher(metrics), "5.0");
             }};
 
-        matchers.forEach((matcher, expected) -> {
+        matchers.forEach((matcher, expected) -> testContext.verify(() -> {
             if (matcher.find()) {
                 assertThat(matcher.group(1)).isEqualTo(expected);
             } else {
                 testContext.failNow("Could not find correct metric");
             }
-        });
+        }));
         client.close();
         kafkaClient.close();
         testContext.completeNow();

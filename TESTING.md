@@ -1,7 +1,7 @@
 # Testing kafka-admin-api
 ## Running systemtests
 ### Requirements
-Docker environment with at least 2GB of RAM
+Docker environment with at least 2 GB of RAM
 
 ### Prerequisition
 Prepare images
@@ -15,7 +15,7 @@ make clean-test
 Add hostname resolution for OAUTH tests into your /etc/hosts.
 ```
 127.0.0.1            keycloak
-127.0.0.1            hydra
+127.0.0.1            kafka
 ```
 Config is only necessary for running OAUTH tests, if you run tests without OAUTH you don't have to run add that config.
 ### Running tests
