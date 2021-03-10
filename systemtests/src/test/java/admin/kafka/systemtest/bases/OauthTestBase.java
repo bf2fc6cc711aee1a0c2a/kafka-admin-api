@@ -1,5 +1,6 @@
 package admin.kafka.systemtest.bases;
 
+import admin.kafka.systemtest.TestTag;
 import admin.kafka.systemtest.json.ModelDeserializer;
 import admin.kafka.systemtest.json.TokenModel;
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -16,12 +17,14 @@ import org.apache.kafka.clients.admin.KafkaAdminClient;
 import org.apache.kafka.common.config.SaslConfigs;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.extension.ExtensionContext;
 
 import java.util.Properties;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
+@Tag(TestTag.OAUTH)
 public class OauthTestBase extends TestBase {
     protected static final ModelDeserializer MODEL_DESERIALIZER = new ModelDeserializer();
     protected static TokenModel token = new TokenModel();

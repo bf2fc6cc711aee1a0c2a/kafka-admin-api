@@ -298,4 +298,24 @@
             </plugin>
         </plugins>
     </build>
+    <profiles>
+        <profile>
+            <id>default</id>
+            <properties>
+                <groups>plain,oauth</groups>
+            </properties>
+        </profile>
+        <profile>
+            <id>plain</id>
+            <properties>
+                <groups>plain</groups>
+            </properties>
+        </profile>
+        <profile>
+            <id>oauth</id>
+            <properties>
+                <groups>oauth</groups>
+            </properties>
+        </profile>
+    </profiles>
 </project>
