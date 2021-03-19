@@ -27,6 +27,13 @@ spec:
               value: "false"
             - name: INTERNAL_TOPICS_ENABLED
               value: "false"
+          resources:
+            limits:
+              memory: 512Mi
+              cpu: 500m
+            requests:
+              memory: 256Mi
+              cpu: 250m
 ---
 apiVersion: v1
 kind: Service
