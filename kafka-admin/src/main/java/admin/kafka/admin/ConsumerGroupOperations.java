@@ -109,6 +109,7 @@ public class ConsumerGroupOperations {
                 member.setClientId(mem.getClientId());
                 member.setConsumerId(mem.getConsumerId());
                 member.setHost(mem.getHost());
+
                 member.setAssignment(mem.getAssignment().getTopicPartitions().stream().map(part -> part.getPartition()).collect(Collectors.toList()));
                 return member;
             }).collect(Collectors.toList());

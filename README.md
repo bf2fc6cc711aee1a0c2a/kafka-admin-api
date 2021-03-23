@@ -7,7 +7,7 @@ Kafka Admin API provides a way for managing Kafka topics.
 
 ## Getting Started
 
-### Prerequisites
+###_Prerequisites_
 
 There are a few things you need to have installed to run this project:
 
@@ -29,7 +29,7 @@ cd kafka-admin-api
 Now you can install the required dependencies with Maven:
 
 ```shell
-mvn install
+mvn install -DskipTests
 ```
 
 ### Start a local Kafka cluster
