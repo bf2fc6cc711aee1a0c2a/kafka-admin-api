@@ -9,7 +9,6 @@ import io.vertx.core.Vertx;
 import io.vertx.core.http.HttpClient;
 import io.vertx.core.http.HttpClientResponse;
 import io.vertx.core.http.HttpMethod;
-import io.vertx.junit5.Checkpoint;
 import io.vertx.junit5.VertxTestContext;
 import org.apache.kafka.clients.admin.NewTopic;
 import org.apache.kafka.clients.admin.TopicDescription;
@@ -326,14 +325,8 @@ public class RestOAuthTestIT extends OauthTestBase {
         latch.await(1, TimeUnit.MINUTES);
 
         client.request(HttpMethod.GET, publishedAdminPort, "localhost", "/rest/topics")
-                .compose(req -> req.send().onSuccess(response -> {
-                    if (response.statusCode() != ReturnCodes.UNAUTHORIZED.code) {
-                        testContext.failNow("Status code not correct");
-                    }
-                }).onFailure(testContext::failNow).compose(HttpClientResponse::body))
-                .onComplete(testContext.succeeding(buffer -> testContext.verify(() -> {
-                    Set<String> actualRestNames = kafkaClient.listTopics().names().get();
-                    assertThat(MODEL_DESERIALIZER.getNames(buffer)).hasSameElementsAs(actualRestNames);
+                .compose(req -> req.send().onSuccess(response -> testContext.verify(() -> {
+                    assertThat(response.statusCode()).isEqualTo(ReturnCodes.UNAUTHORIZED.code);
                     testContext.completeNow();
                 })));
         assertThat(testContext.awaitCompletion(1, TimeUnit.MINUTES)).isTrue();
