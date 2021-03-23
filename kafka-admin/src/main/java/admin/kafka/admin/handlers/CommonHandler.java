@@ -13,6 +13,7 @@ import io.strimzi.kafka.oauth.validator.TokenExpiredException;
 import io.vertx.core.Future;
 import io.vertx.core.Promise;
 import io.vertx.core.Vertx;
+import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.RoutingContext;
 import io.vertx.kafka.admin.KafkaAdminClient;
 import org.apache.kafka.common.KafkaException;
@@ -101,7 +102,11 @@ public class CommonHandler {
                     log.error("Unknown exception {}", res.cause());
                     routingContext.response().setStatusCode(HttpResponseStatus.INTERNAL_SERVER_ERROR.code());
                 }
-                routingContext.response().end(res.cause().getMessage());
+
+                JsonObject jo = new JsonObject();
+                jo.put("code", routingContext.response().getStatusCode());
+                jo.put("error", res.cause().getMessage());
+                routingContext.response().end(jo.toBuffer());
                 httpMetrics.getFailedRequestsCounter().increment();
                 requestTimerSample.stop(timer);
                 log.error("{} {}", res.cause().getClass(), res.cause().getMessage());
@@ -112,7 +117,10 @@ public class CommonHandler {
                     json = ow.writeValueAsString(res.result());
                 } catch (JsonProcessingException e) {
                     routingContext.response().setStatusCode(HttpResponseStatus.INTERNAL_SERVER_ERROR.code());
-                    routingContext.response().end(e.getMessage());
+                    JsonObject jsonObject = new JsonObject();
+                    jsonObject.put("code", routingContext.response().getStatusCode());
+                    jsonObject.put("error", e.getMessage());
+                    routingContext.response().end(jsonObject.toBuffer());
                     httpMetrics.getFailedRequestsCounter().increment();
                     requestTimerSample.stop(timer);
                     return;

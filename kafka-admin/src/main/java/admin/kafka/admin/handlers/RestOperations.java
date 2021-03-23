@@ -14,6 +14,7 @@ import io.vertx.core.Handler;
 import io.vertx.core.Promise;
 import io.vertx.core.Vertx;
 import io.vertx.core.file.FileSystem;
+import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.RoutingContext;
 import org.apache.kafka.common.errors.InvalidRequestException;
 
@@ -40,7 +41,10 @@ public class RestOperations extends CommonHandler implements OperationsHandler<H
                     inputTopic = mapper.readValue(routingContext.getBody().getBytes(), Types.NewTopic.class);
                 } catch (IOException e) {
                     routingContext.response().setStatusCode(HttpResponseStatus.INTERNAL_SERVER_ERROR.code());
-                    routingContext.response().end(e.getMessage());
+                    JsonObject jsonObject = new JsonObject();
+                    jsonObject.put("code", routingContext.response().getStatusCode());
+                    jsonObject.put("error", e.getMessage());
+                    routingContext.response().end(jsonObject.toBuffer());
                     prom.fail(e);
                     httpMetrics.getFailedRequestsCounter().increment();
                     requestTimerSample.stop(httpMetrics.getCreateTopicRequestTimer());
@@ -128,7 +132,10 @@ public class RestOperations extends CommonHandler implements OperationsHandler<H
                         updatedTopic.setName(topicToUpdate);
                     } catch (IOException e) {
                         routingContext.response().setStatusCode(HttpResponseStatus.INTERNAL_SERVER_ERROR.code());
-                        routingContext.response().end(e.getMessage());
+                        JsonObject jsonObject = new JsonObject();
+                        jsonObject.put("code", routingContext.response().getStatusCode());
+                        jsonObject.put("error", e.getMessage());
+                        routingContext.response().end(jsonObject.toBuffer());
                         requestTimerSample.stop(httpMetrics.getUpdateTopicRequestTimer());
                         httpMetrics.getFailedRequestsCounter().increment();
                         prom.fail(e);
