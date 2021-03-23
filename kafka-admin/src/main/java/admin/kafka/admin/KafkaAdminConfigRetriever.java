@@ -59,7 +59,7 @@ public class KafkaAdminConfigRetriever {
     }
 
     public Map getAcConfig() {
-        return config;
+        return new HashMap(config);
     }
 }
 

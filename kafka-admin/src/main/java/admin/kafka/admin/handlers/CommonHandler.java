@@ -1,5 +1,7 @@
 package admin.kafka.admin.handlers;
 
+import admin.kafka.admin.InvalidConsumerGroupException;
+import admin.kafka.admin.InvalidTopicException;
 import admin.kafka.admin.HttpMetrics;
 import admin.kafka.admin.model.Types;
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -19,7 +21,6 @@ import org.apache.kafka.common.errors.AuthorizationException;
 import org.apache.kafka.common.errors.InvalidConfigurationException;
 import org.apache.kafka.common.errors.InvalidReplicationFactorException;
 import org.apache.kafka.common.errors.InvalidRequestException;
-import org.apache.kafka.common.errors.InvalidTopicException;
 import org.apache.kafka.common.errors.TimeoutException;
 import org.apache.kafka.common.errors.TopicExistsException;
 import org.apache.kafka.common.errors.UnknownTopicOrPartitionException;
@@ -75,7 +76,7 @@ public class CommonHandler {
                     res.cause() instanceof AuthorizationException ||
                     res.cause() instanceof TokenExpiredException) {
                     routingContext.response().setStatusCode(HttpResponseStatus.UNAUTHORIZED.code());
-                } else if (res.cause() instanceof InvalidTopicException) {
+                } else if (res.cause() instanceof org.apache.kafka.common.errors.InvalidTopicException) {
                     routingContext.response().setStatusCode(HttpResponseStatus.BAD_REQUEST.code());
                 } else if (res.cause() instanceof InvalidReplicationFactorException) {
                     routingContext.response().setStatusCode(HttpResponseStatus.BAD_REQUEST.code());
@@ -85,8 +86,17 @@ public class CommonHandler {
                     routingContext.response().setStatusCode(HttpResponseStatus.BAD_REQUEST.code());
                 } else if (res.cause() instanceof InvalidConfigurationException) {
                     routingContext.response().setStatusCode(HttpResponseStatus.BAD_REQUEST.code());
+                } else if (res.cause() instanceof IllegalArgumentException) {
+                    routingContext.response().setStatusCode(HttpResponseStatus.BAD_REQUEST.code());
+                } else if (res.cause() instanceof IllegalStateException) {
+                    routingContext.response().setStatusCode(HttpResponseStatus.UNAUTHORIZED.code());
+                } else if (res.cause() instanceof InvalidTopicException) {
+                    routingContext.response().setStatusCode(HttpResponseStatus.BAD_REQUEST.code());
+                } else if (res.cause() instanceof InvalidConsumerGroupException) {
+                    routingContext.response().setStatusCode(HttpResponseStatus.BAD_REQUEST.code());
                 } else {
-                    routingContext.response().setStatusCode(responseStatus.code());
+                    log.error("Unknown exception {}", res.cause());
+                    routingContext.response().setStatusCode(HttpResponseStatus.INTERNAL_SERVER_ERROR.code());
                 }
                 routingContext.response().end(res.cause().getMessage());
                 httpMetrics.getFailedRequestsCounter().increment();
