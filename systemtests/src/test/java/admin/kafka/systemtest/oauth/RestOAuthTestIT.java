@@ -9,6 +9,7 @@ import io.vertx.core.Vertx;
 import io.vertx.core.http.HttpClient;
 import io.vertx.core.http.HttpClientResponse;
 import io.vertx.core.http.HttpMethod;
+import io.vertx.junit5.Checkpoint;
 import io.vertx.junit5.VertxTestContext;
 import org.apache.kafka.clients.admin.NewTopic;
 import org.apache.kafka.clients.admin.TopicDescription;
@@ -22,6 +23,7 @@ import java.util.List;
 import java.util.Random;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -294,6 +296,46 @@ public class RestOAuthTestIT extends OauthTestBase {
                             assertThat(response.statusCode()).isEqualTo(ReturnCodes.UNAUTHORIZED.code);
                             testContext.completeNow();
                         })));
+        assertThat(testContext.awaitCompletion(1, TimeUnit.MINUTES)).isTrue();
+    }
+
+    @Test
+    void testIndependenceOfRequests(Vertx vertx, VertxTestContext testContext) throws Exception {
+        List<String> topicNames = new ArrayList<>();
+        topicNames.add(UUID.randomUUID().toString());
+        topicNames.add(UUID.randomUUID().toString());
+
+        kafkaClient.createTopics(Arrays.asList(
+                new NewTopic(topicNames.get(0), 1, (short) 1),
+                new NewTopic(topicNames.get(1), 1, (short) 1)
+        ));
+        DynamicWait.waitForTopicsExists(topicNames, kafkaClient);
+        HttpClient client = vertx.createHttpClient();
+        CountDownLatch latch = new CountDownLatch(1);
+        client.request(HttpMethod.GET, publishedAdminPort, "localhost", "/rest/topics")
+                .compose(req -> req.putHeader("Authorization", "Bearer " + token.getAccessToken()).send().onSuccess(response -> {
+                    if (response.statusCode() != ReturnCodes.SUCCESS.code) {
+                        testContext.failNow("Status code not correct");
+                    }
+                }).onFailure(testContext::failNow).compose(HttpClientResponse::body))
+                .onComplete(testContext.succeeding(buffer -> testContext.verify(() -> {
+                    Set<String> actualRestNames = kafkaClient.listTopics().names().get();
+                    assertThat(MODEL_DESERIALIZER.getNames(buffer)).hasSameElementsAs(actualRestNames);
+                    latch.countDown();
+                })));
+        latch.await(1, TimeUnit.MINUTES);
+
+        client.request(HttpMethod.GET, publishedAdminPort, "localhost", "/rest/topics")
+                .compose(req -> req.send().onSuccess(response -> {
+                    if (response.statusCode() != ReturnCodes.UNAUTHORIZED.code) {
+                        testContext.failNow("Status code not correct");
+                    }
+                }).onFailure(testContext::failNow).compose(HttpClientResponse::body))
+                .onComplete(testContext.succeeding(buffer -> testContext.verify(() -> {
+                    Set<String> actualRestNames = kafkaClient.listTopics().names().get();
+                    assertThat(MODEL_DESERIALIZER.getNames(buffer)).hasSameElementsAs(actualRestNames);
+                    testContext.completeNow();
+                })));
         assertThat(testContext.awaitCompletion(1, TimeUnit.MINUTES)).isTrue();
     }
 }
