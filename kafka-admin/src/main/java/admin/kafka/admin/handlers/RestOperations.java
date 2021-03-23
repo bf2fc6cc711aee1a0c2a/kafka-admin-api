@@ -178,6 +178,8 @@ public class RestOperations extends CommonHandler implements OperationsHandler<H
             String filter = routingContext.queryParams().get("filter");
             String limit = routingContext.queryParams().get("limit") == null ? "0" : routingContext.queryParams().get("limit");
             String offset = routingContext.queryParams().get("offset") == null ? "0" : routingContext.queryParams().get("offset");
+            Types.SortDirectionEnum sortReverse = routingContext.queryParams().get("order") == null ?
+                Types.SortDirectionEnum.ASC : "asc".equals(routingContext.queryParams().get("order")) ? Types.SortDirectionEnum.ASC : Types.SortDirectionEnum.DESC;
             final Pattern pattern;
             Promise<Types.TopicList> prom = Promise.promise();
             if (filter != null && !filter.isEmpty()) {
@@ -194,7 +196,7 @@ public class RestOperations extends CommonHandler implements OperationsHandler<H
                         if (Integer.parseInt(offset) < 0 || Integer.parseInt(limit) < 0) {
                             throw new InvalidRequestException("Offset and limit have to be positive integers.");
                         }
-                        TopicOperations.getTopicList(ac.result(), prom, pattern, Integer.parseInt(offset), Integer.parseInt(limit));
+                        TopicOperations.getTopicList(ac.result(), prom, pattern, Integer.parseInt(offset), Integer.parseInt(limit), sortReverse);
                     } catch (NumberFormatException | InvalidRequestException e) {
                         prom.fail(e);
                         processResponse(prom, routingContext, HttpResponseStatus.BAD_REQUEST, httpMetrics, httpMetrics.getListTopicRequestTimer(), requestTimerSample);

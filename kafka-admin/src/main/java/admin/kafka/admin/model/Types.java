@@ -265,7 +265,7 @@ public class Types {
             this.offset = offset;
         }
     }
-    enum SortDirectionEnum {
+    public enum SortDirectionEnum {
         DESC,
         ASC
     }
