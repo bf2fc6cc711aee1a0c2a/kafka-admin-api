@@ -1,6 +1,9 @@
 package admin.kafka.admin.handlers;
 
 import admin.kafka.admin.ConsumerGroupOperations;
+import admin.kafka.admin.InvalidConsumerGroupException;
+import admin.kafka.admin.InvalidTopicException;
+import admin.kafka.admin.KafkaAdminConfigRetriever;
 import admin.kafka.admin.TopicOperations;
 import admin.kafka.admin.model.Types;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -11,6 +14,7 @@ import io.vertx.core.Handler;
 import io.vertx.core.Promise;
 import io.vertx.core.Vertx;
 import io.vertx.core.file.FileSystem;
+import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.RoutingContext;
 import org.apache.kafka.common.errors.InvalidRequestException;
 
@@ -22,8 +26,9 @@ import java.util.regex.Pattern;
 
 public class RestOperations extends CommonHandler implements OperationsHandler<Handler<RoutingContext>> {
     @Override
-    public Handler<RoutingContext> createTopic(Map<String, Object> acConfig, Vertx vertx, HttpMetrics httpMetrics) {
+    public Handler<RoutingContext> createTopic(KafkaAdminConfigRetriever kaConfig, Vertx vertx, HttpMetrics httpMetrics) {
         return routingContext -> {
+            Map<String, Object> acConfig = kaConfig.getAcConfig();
             httpMetrics.getCreateTopicCounter().increment();
             httpMetrics.getRequestsCounter().increment();
             Timer.Sample requestTimerSample = Timer.start(httpMetrics.getRegistry());
@@ -36,7 +41,10 @@ public class RestOperations extends CommonHandler implements OperationsHandler<H
                     inputTopic = mapper.readValue(routingContext.getBody().getBytes(), Types.NewTopic.class);
                 } catch (IOException e) {
                     routingContext.response().setStatusCode(HttpResponseStatus.INTERNAL_SERVER_ERROR.code());
-                    routingContext.response().end(e.getMessage());
+                    JsonObject jsonObject = new JsonObject();
+                    jsonObject.put("code", routingContext.response().getStatusCode());
+                    jsonObject.put("error", e.getMessage());
+                    routingContext.response().end(jsonObject.toBuffer());
                     prom.fail(e);
                     httpMetrics.getFailedRequestsCounter().increment();
                     requestTimerSample.stop(httpMetrics.getCreateTopicRequestTimer());
@@ -44,7 +52,7 @@ public class RestOperations extends CommonHandler implements OperationsHandler<H
                 }
 
                 if (!internalTopicsAllowed() && inputTopic.getName().startsWith("__")) {
-                    prom.fail("Topic " + inputTopic.getName() + " cannot be created");
+                    prom.fail(new InvalidTopicException("Topic " + inputTopic.getName() + " cannot be created"));
                     processResponse(prom, routingContext, HttpResponseStatus.BAD_REQUEST, httpMetrics, httpMetrics.getCreateTopicRequestTimer(), requestTimerSample);
                     return;
                 }
@@ -60,8 +68,9 @@ public class RestOperations extends CommonHandler implements OperationsHandler<H
     }
 
     @Override
-    public Handler<RoutingContext> describeTopic(Map<String, Object> acConfig, Vertx vertx, HttpMetrics httpMetrics) {
+    public Handler<RoutingContext> describeTopic(KafkaAdminConfigRetriever kaConfig, Vertx vertx, HttpMetrics httpMetrics) {
         return routingContext -> {
+            Map<String, Object> acConfig = kaConfig.getAcConfig();
             httpMetrics.getDescribeTopicCounter().increment();
             httpMetrics.getRequestsCounter().increment();
             Timer.Sample requestTimerSample = Timer.start(httpMetrics.getRegistry());
@@ -70,11 +79,11 @@ public class RestOperations extends CommonHandler implements OperationsHandler<H
             String topicToDescribe = uri.substring(uri.lastIndexOf("/") + 1);
             Promise<Types.Topic> prom = Promise.promise();
             if (topicToDescribe == null || topicToDescribe.isEmpty()) {
-                prom.fail("Topic to describe has not been specified.");
+                prom.fail(new InvalidTopicException("Topic to describe has not been specified."));
                 processResponse(prom, routingContext, HttpResponseStatus.BAD_REQUEST, httpMetrics, httpMetrics.getDescribeTopicRequestTimer(), requestTimerSample);
             }
             if (!internalTopicsAllowed() && topicToDescribe.startsWith("__")) {
-                prom.fail("Topic " + topicToDescribe + " cannot be described");
+                prom.fail(new InvalidTopicException("Topic " + topicToDescribe + " cannot be described"));
                 processResponse(prom, routingContext, HttpResponseStatus.BAD_REQUEST, httpMetrics, httpMetrics.getDescribeTopicRequestTimer(), requestTimerSample);
                 return;
             }
@@ -91,8 +100,9 @@ public class RestOperations extends CommonHandler implements OperationsHandler<H
     }
 
     @Override
-    public Handler<RoutingContext> updateTopic(Map<String, Object> acConfig, Vertx vertx, HttpMetrics httpMetrics) {
+    public Handler<RoutingContext> updateTopic(KafkaAdminConfigRetriever kaConfig, Vertx vertx, HttpMetrics httpMetrics) {
         return routingContext -> {
+            Map<String, Object> acConfig = kaConfig.getAcConfig();
             httpMetrics.getUpdateTopicCounter().increment();
             httpMetrics.getRequestsCounter().increment();
             Timer.Sample requestTimerSample = Timer.start(httpMetrics.getRegistry());
@@ -101,12 +111,12 @@ public class RestOperations extends CommonHandler implements OperationsHandler<H
             String uri = routingContext.request().uri();
             String topicToUpdate = uri.substring(uri.lastIndexOf("/") + 1);
             if (topicToUpdate == null || topicToUpdate.isEmpty()) {
-                prom.fail("Topic to update has not been specified.");
+                prom.fail(new InvalidTopicException("Topic to update has not been specified."));
                 processResponse(prom, routingContext, HttpResponseStatus.BAD_REQUEST, httpMetrics, httpMetrics.getUpdateTopicRequestTimer(), requestTimerSample);
             }
 
             if (!internalTopicsAllowed() && topicToUpdate.startsWith("__")) {
-                prom.fail("Topic " + topicToUpdate + " cannot be updated");
+                prom.fail(new InvalidTopicException("Topic " + topicToUpdate + " cannot be updated"));
                 processResponse(prom, routingContext, HttpResponseStatus.BAD_REQUEST, httpMetrics, httpMetrics.getUpdateTopicRequestTimer(), requestTimerSample);
                 return;
             }
@@ -122,7 +132,10 @@ public class RestOperations extends CommonHandler implements OperationsHandler<H
                         updatedTopic.setName(topicToUpdate);
                     } catch (IOException e) {
                         routingContext.response().setStatusCode(HttpResponseStatus.INTERNAL_SERVER_ERROR.code());
-                        routingContext.response().end(e.getMessage());
+                        JsonObject jsonObject = new JsonObject();
+                        jsonObject.put("code", routingContext.response().getStatusCode());
+                        jsonObject.put("error", e.getMessage());
+                        routingContext.response().end(jsonObject.toBuffer());
                         requestTimerSample.stop(httpMetrics.getUpdateTopicRequestTimer());
                         httpMetrics.getFailedRequestsCounter().increment();
                         prom.fail(e);
@@ -136,8 +149,9 @@ public class RestOperations extends CommonHandler implements OperationsHandler<H
     }
 
     @Override
-    public Handler<RoutingContext> deleteTopic(Map<String, Object> acConfig, Vertx vertx, HttpMetrics httpMetrics) {
+    public Handler<RoutingContext> deleteTopic(KafkaAdminConfigRetriever kaConfig, Vertx vertx, HttpMetrics httpMetrics) {
         return routingContext -> {
+            Map<String, Object> acConfig = kaConfig.getAcConfig();
             httpMetrics.getDeleteTopicCounter().increment();
             httpMetrics.getRequestsCounter().increment();
             Timer.Sample requestTimerSample = Timer.start(httpMetrics.getRegistry());
@@ -146,13 +160,13 @@ public class RestOperations extends CommonHandler implements OperationsHandler<H
             String topicToDelete = uri.substring(uri.lastIndexOf("/") + 1);
             Promise<List<String>> prom = Promise.promise();
             if (topicToDelete == null || topicToDelete.isEmpty()) {
-                prom.fail("Topic to delete has not been specified.");
+                prom.fail(new InvalidTopicException("Topic to delete has not been specified."));
                 processResponse(prom, routingContext, HttpResponseStatus.BAD_REQUEST, httpMetrics, httpMetrics.getDeleteTopicRequestTimer(), requestTimerSample);
                 return;
             }
 
             if (!internalTopicsAllowed() && topicToDelete.startsWith("__")) {
-                prom.fail("Topic " + topicToDelete + " cannot be deleted");
+                prom.fail(new InvalidTopicException("Topic " + topicToDelete + " cannot be deleted"));
                 processResponse(prom, routingContext, HttpResponseStatus.BAD_REQUEST, httpMetrics, httpMetrics.getDeleteTopicRequestTimer(), requestTimerSample);
                 return;
             }
@@ -169,8 +183,9 @@ public class RestOperations extends CommonHandler implements OperationsHandler<H
     }
 
     @Override
-    public Handler<RoutingContext> listTopics(Map<String, Object> acConfig, Vertx vertx, HttpMetrics httpMetrics) {
+    public Handler<RoutingContext> listTopics(KafkaAdminConfigRetriever kaConfig, Vertx vertx, HttpMetrics httpMetrics) {
         return routingContext -> {
+            Map<String, Object> acConfig = kaConfig.getAcConfig();
             Timer.Sample requestTimerSample = Timer.start(httpMetrics.getRegistry());
             httpMetrics.getListTopicsCounter().increment();
             httpMetrics.getRequestsCounter().increment();
@@ -206,8 +221,9 @@ public class RestOperations extends CommonHandler implements OperationsHandler<H
     }
 
     @Override
-    public Handler<RoutingContext> listGroups(Map<String, Object> acConfig, Vertx vertx, HttpMetrics httpMetrics) {
+    public Handler<RoutingContext> listGroups(KafkaAdminConfigRetriever kaConfig, Vertx vertx, HttpMetrics httpMetrics) {
         return routingContext -> {
+            Map<String, Object> acConfig = kaConfig.getAcConfig();
             Timer.Sample requestTimerSample = Timer.start(httpMetrics.getRegistry());
             httpMetrics.getListGroupsCounter().increment();
             httpMetrics.getRequestsCounter().increment();
@@ -243,8 +259,9 @@ public class RestOperations extends CommonHandler implements OperationsHandler<H
     }
 
     @Override
-    public Handler<RoutingContext> describeGroup(Map<String, Object> acConfig, Vertx vertx, HttpMetrics httpMetrics) {
+    public Handler<RoutingContext> describeGroup(KafkaAdminConfigRetriever kaConfig, Vertx vertx, HttpMetrics httpMetrics) {
         return routingContext -> {
+            Map<String, Object> acConfig = kaConfig.getAcConfig();
             httpMetrics.getDescribeGroupCounter().increment();
             httpMetrics.getRequestsCounter().increment();
             Timer.Sample requestTimerSample = Timer.start(httpMetrics.getRegistry());
@@ -253,7 +270,7 @@ public class RestOperations extends CommonHandler implements OperationsHandler<H
             String groupToDescribe = uri.substring(uri.lastIndexOf("/") + 1);
             Promise<Types.Topic> prom = Promise.promise();
             if (groupToDescribe == null || groupToDescribe.isEmpty()) {
-                prom.fail("Consumer ConsumerGroup to describe has not been specified.");
+                prom.fail(new InvalidConsumerGroupException("Consumer ConsumerGroup to describe has not been specified."));
                 processResponse(prom, routingContext, HttpResponseStatus.BAD_REQUEST, httpMetrics, httpMetrics.getDescribeGroupRequestTimer(), requestTimerSample);
             }
             createAdminClient(vertx, acConfig).onComplete(ac -> {
@@ -268,8 +285,9 @@ public class RestOperations extends CommonHandler implements OperationsHandler<H
     }
 
     @Override
-    public Handler<RoutingContext> deleteGroup(Map<String, Object> acConfig, Vertx vertx, HttpMetrics httpMetrics) {
+    public Handler<RoutingContext> deleteGroup(KafkaAdminConfigRetriever kaConfig, Vertx vertx, HttpMetrics httpMetrics) {
         return routingContext -> {
+            Map<String, Object> acConfig = kaConfig.getAcConfig();
             httpMetrics.getDeleteGroupCounter().increment();
             httpMetrics.getRequestsCounter().increment();
             Timer.Sample requestTimerSample = Timer.start(httpMetrics.getRegistry());
@@ -278,7 +296,7 @@ public class RestOperations extends CommonHandler implements OperationsHandler<H
             String groupToDelete = uri.substring(uri.lastIndexOf("/") + 1);
             Promise<List<String>> prom = Promise.promise();
             if (groupToDelete == null || groupToDelete.isEmpty()) {
-                prom.fail("Consumer ConsumerGroup to delete has not been specified.");
+                prom.fail(new InvalidConsumerGroupException("Consumer ConsumerGroup to delete has not been specified."));
                 processResponse(prom, routingContext, HttpResponseStatus.BAD_REQUEST, httpMetrics, httpMetrics.getDeleteGroupRequestTimer(), requestTimerSample);
                 return;
             }

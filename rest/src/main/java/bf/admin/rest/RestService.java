@@ -50,17 +50,17 @@ public class RestService implements RouteRegistration {
 
     private void assignRoutes(final OpenAPI3RouterFactory routerFactory, final Vertx vertx) {
         RestOperations ro = new RestOperations();
-        routerFactory.addHandlerByOperationId(Operations.GET_TOPIC, ro.describeTopic(kaConfig.getAcConfig(), vertx, httpMetrics));
-        routerFactory.addHandlerByOperationId(Operations.GET_TOPICS_LIST, ro.listTopics(kaConfig.getAcConfig(), vertx, httpMetrics));
+        routerFactory.addHandlerByOperationId(Operations.GET_TOPIC, ro.describeTopic(kaConfig, vertx, httpMetrics));
+        routerFactory.addHandlerByOperationId(Operations.GET_TOPICS_LIST, ro.listTopics(kaConfig, vertx, httpMetrics));
 
-        routerFactory.addHandlerByOperationId(Operations.DELETE_TOPIC, ro.deleteTopic(kaConfig.getAcConfig(), vertx, httpMetrics));
-        routerFactory.addHandlerByOperationId(Operations.CREATE_TOPIC, ro.createTopic(kaConfig.getAcConfig(), vertx, httpMetrics));
-        routerFactory.addHandlerByOperationId(Operations.UPDATE_TOPIC, ro.updateTopic(kaConfig.getAcConfig(), vertx, httpMetrics));
+        routerFactory.addHandlerByOperationId(Operations.DELETE_TOPIC, ro.deleteTopic(kaConfig, vertx, httpMetrics));
+        routerFactory.addHandlerByOperationId(Operations.CREATE_TOPIC, ro.createTopic(kaConfig, vertx, httpMetrics));
+        routerFactory.addHandlerByOperationId(Operations.UPDATE_TOPIC, ro.updateTopic(kaConfig, vertx, httpMetrics));
 
-        routerFactory.addHandlerByOperationId(Operations.GET_CONSUMER_GROUP, ro.describeGroup(kaConfig.getAcConfig(), vertx, httpMetrics));
-        routerFactory.addHandlerByOperationId(Operations.GET_CONSUMER_GROUPS_LIST, ro.listGroups(kaConfig.getAcConfig(), vertx, httpMetrics));
+        routerFactory.addHandlerByOperationId(Operations.GET_CONSUMER_GROUP, ro.describeGroup(kaConfig, vertx, httpMetrics));
+        routerFactory.addHandlerByOperationId(Operations.GET_CONSUMER_GROUPS_LIST, ro.listGroups(kaConfig, vertx, httpMetrics));
 
-        routerFactory.addHandlerByOperationId(Operations.DELETE_CONSUMER_GROUP, ro.deleteGroup(kaConfig.getAcConfig(), vertx, httpMetrics));
+        routerFactory.addHandlerByOperationId(Operations.DELETE_CONSUMER_GROUP, ro.deleteGroup(kaConfig, vertx, httpMetrics));
 
         routerFactory.addHandlerByOperationId(Operations.OPEN_API, ro.openApi(vertx, httpMetrics));
 

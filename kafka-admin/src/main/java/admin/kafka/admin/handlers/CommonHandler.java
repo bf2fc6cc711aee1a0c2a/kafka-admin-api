@@ -1,5 +1,7 @@
 package admin.kafka.admin.handlers;
 
+import admin.kafka.admin.InvalidConsumerGroupException;
+import admin.kafka.admin.InvalidTopicException;
 import admin.kafka.admin.HttpMetrics;
 import admin.kafka.admin.model.Types;
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -11,15 +13,16 @@ import io.strimzi.kafka.oauth.validator.TokenExpiredException;
 import io.vertx.core.Future;
 import io.vertx.core.Promise;
 import io.vertx.core.Vertx;
+import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.RoutingContext;
 import io.vertx.kafka.admin.KafkaAdminClient;
+import org.apache.kafka.common.KafkaException;
 import org.apache.kafka.common.config.SaslConfigs;
 import org.apache.kafka.common.errors.AuthenticationException;
 import org.apache.kafka.common.errors.AuthorizationException;
 import org.apache.kafka.common.errors.InvalidConfigurationException;
 import org.apache.kafka.common.errors.InvalidReplicationFactorException;
 import org.apache.kafka.common.errors.InvalidRequestException;
-import org.apache.kafka.common.errors.InvalidTopicException;
 import org.apache.kafka.common.errors.TimeoutException;
 import org.apache.kafka.common.errors.TopicExistsException;
 import org.apache.kafka.common.errors.UnknownTopicOrPartitionException;
@@ -75,7 +78,7 @@ public class CommonHandler {
                     res.cause() instanceof AuthorizationException ||
                     res.cause() instanceof TokenExpiredException) {
                     routingContext.response().setStatusCode(HttpResponseStatus.UNAUTHORIZED.code());
-                } else if (res.cause() instanceof InvalidTopicException) {
+                } else if (res.cause() instanceof org.apache.kafka.common.errors.InvalidTopicException) {
                     routingContext.response().setStatusCode(HttpResponseStatus.BAD_REQUEST.code());
                 } else if (res.cause() instanceof InvalidReplicationFactorException) {
                     routingContext.response().setStatusCode(HttpResponseStatus.BAD_REQUEST.code());
@@ -85,10 +88,25 @@ public class CommonHandler {
                     routingContext.response().setStatusCode(HttpResponseStatus.BAD_REQUEST.code());
                 } else if (res.cause() instanceof InvalidConfigurationException) {
                     routingContext.response().setStatusCode(HttpResponseStatus.BAD_REQUEST.code());
+                } else if (res.cause() instanceof IllegalArgumentException) {
+                    routingContext.response().setStatusCode(HttpResponseStatus.BAD_REQUEST.code());
+                } else if (res.cause() instanceof IllegalStateException) {
+                    routingContext.response().setStatusCode(HttpResponseStatus.UNAUTHORIZED.code());
+                } else if (res.cause() instanceof InvalidTopicException) {
+                    routingContext.response().setStatusCode(HttpResponseStatus.BAD_REQUEST.code());
+                } else if (res.cause() instanceof InvalidConsumerGroupException) {
+                    routingContext.response().setStatusCode(HttpResponseStatus.BAD_REQUEST.code());
+                } else if (res.cause() instanceof KafkaException) {
+                    routingContext.response().setStatusCode(HttpResponseStatus.UNAUTHORIZED.code());
                 } else {
-                    routingContext.response().setStatusCode(responseStatus.code());
+                    log.error("Unknown exception {}", res.cause());
+                    routingContext.response().setStatusCode(HttpResponseStatus.INTERNAL_SERVER_ERROR.code());
                 }
-                routingContext.response().end(res.cause().getMessage());
+
+                JsonObject jo = new JsonObject();
+                jo.put("code", routingContext.response().getStatusCode());
+                jo.put("error", res.cause().getMessage());
+                routingContext.response().end(jo.toBuffer());
                 httpMetrics.getFailedRequestsCounter().increment();
                 requestTimerSample.stop(timer);
                 log.error("{} {}", res.cause().getClass(), res.cause().getMessage());
@@ -99,7 +117,10 @@ public class CommonHandler {
                     json = ow.writeValueAsString(res.result());
                 } catch (JsonProcessingException e) {
                     routingContext.response().setStatusCode(HttpResponseStatus.INTERNAL_SERVER_ERROR.code());
-                    routingContext.response().end(e.getMessage());
+                    JsonObject jsonObject = new JsonObject();
+                    jsonObject.put("code", routingContext.response().getStatusCode());
+                    jsonObject.put("error", e.getMessage());
+                    routingContext.response().end(jsonObject.toBuffer());
                     httpMetrics.getFailedRequestsCounter().increment();
                     requestTimerSample.stop(timer);
                     return;
