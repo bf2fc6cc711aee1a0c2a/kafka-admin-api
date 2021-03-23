@@ -179,7 +179,7 @@ public class RestOperations extends CommonHandler implements OperationsHandler<H
             String limit = routingContext.queryParams().get("limit") == null ? "0" : routingContext.queryParams().get("limit");
             String offset = routingContext.queryParams().get("offset") == null ? "0" : routingContext.queryParams().get("offset");
             Types.SortDirectionEnum sortReverse = routingContext.queryParams().get("order") == null ?
-                Types.SortDirectionEnum.ASC : "asc".equals(routingContext.queryParams().get("order")) ? Types.SortDirectionEnum.ASC : Types.SortDirectionEnum.DESC;
+                Types.SortDirectionEnum.ASC : "desc".equals(routingContext.queryParams().get("order")) ? Types.SortDirectionEnum.DESC : Types.SortDirectionEnum.ASC;
             final Pattern pattern;
             Promise<Types.TopicList> prom = Promise.promise();
             if (filter != null && !filter.isEmpty()) {
