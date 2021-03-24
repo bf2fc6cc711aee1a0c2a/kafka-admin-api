@@ -16,7 +16,7 @@ RUN echo "${TINI_SHA256} */usr/bin/tini" | sha256sum -c \
 
 RUN useradd -r -m -u 1001 -g 0 user
 
-ARG kafka_admin_api_version=1.0-SNAPSHOT
+ARG kafka_admin_api_version=0.0.6-SNAPSHOT
 ENV KAFKA_ADMIN_API_VERSION ${kafka_admin_api_version}
 ENV KAFKA_ADMIN_HOME=/opt/kafka_admin
 RUN mkdir -p ${KAFKA_ADMIN_HOME}

@@ -23,7 +23,6 @@ public class RestService implements RouteRegistration {
     protected final Logger log = LogManager.getLogger(RestService.class);
     KafkaAdminConfigRetriever kaConfig;
     HttpMetrics httpMetrics = new HttpMetrics();
-    protected final String version = "0.0.5";
 
     @Override
     public Future<RouteRegistrationDescriptor> getRegistrationDescriptor(final Vertx vertx) {
@@ -40,7 +39,7 @@ public class RestService implements RouteRegistration {
                 OpenAPI3RouterFactory routerFactory = ar.result();
                 assignRoutes(routerFactory, vertx);
                 promise.complete(RouteRegistrationDescriptor.create("/rest", routerFactory.getRouter()));
-                log.info("Rest server v{} started.", version);
+                log.info("Rest server version {} started.", RestService.class.getPackage().getImplementationVersion());
             } else {
                 promise.fail(ar.cause());
             }
