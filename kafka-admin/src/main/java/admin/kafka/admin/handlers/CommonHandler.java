@@ -123,6 +123,7 @@ public class CommonHandler {
                     routingContext.response().end(jsonObject.toBuffer());
                     httpMetrics.getFailedRequestsCounter().increment();
                     requestTimerSample.stop(timer);
+                    log.error(e);
                     return;
                 }
                 routingContext.response().setStatusCode(responseStatus.code());

@@ -45,6 +45,7 @@ public class RestOperations extends CommonHandler implements OperationsHandler<H
                     jsonObject.put("code", routingContext.response().getStatusCode());
                     jsonObject.put("error", e.getMessage());
                     routingContext.response().end(jsonObject.toBuffer());
+                    log.error(e);
                     prom.fail(e);
                     httpMetrics.getFailedRequestsCounter().increment();
                     requestTimerSample.stop(httpMetrics.getCreateTopicRequestTimer());
@@ -139,6 +140,7 @@ public class RestOperations extends CommonHandler implements OperationsHandler<H
                         requestTimerSample.stop(httpMetrics.getUpdateTopicRequestTimer());
                         httpMetrics.getFailedRequestsCounter().increment();
                         prom.fail(e);
+                        log.error(e);
                         return;
                     }
                     TopicOperations.updateTopic(ac.result(), updatedTopic, prom);
