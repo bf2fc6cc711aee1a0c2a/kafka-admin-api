@@ -140,11 +140,11 @@ public class ConsumerGroupOperations {
                         member.setTopic(pa.getTopic());
                         member.setPartition(pa.getPartition());
                         member.setGroupId(group.getValue().getGroupId());
-                        long currentOffset = topicPartitionOffsetAndMetadataMap.get(pa).getOffset();
+                        long currentOffset = topicPartitionOffsetAndMetadataMap.get(pa) == null ? 0 : topicPartitionOffsetAndMetadataMap.get(pa).getOffset();
                         long lag = 0; // TODO!
                         member.setLag(lag);
                         member.setLogEndOffset(currentOffset + lag);
-                        member.setOffset(topicPartitionOffsetAndMetadataMap.get(pa).getOffset());
+                        member.setOffset(currentOffset);
                         members.add(member);
                     });
                 } else {
