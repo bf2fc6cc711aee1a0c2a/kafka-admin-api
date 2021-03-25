@@ -39,7 +39,7 @@ public class RestService implements RouteRegistration {
                 OpenAPI3RouterFactory routerFactory = ar.result();
                 assignRoutes(routerFactory, vertx);
                 promise.complete(RouteRegistrationDescriptor.create("/rest", routerFactory.getRouter()));
-                log.info("Rest server started.");
+                log.info("Rest server version {} started.", RestService.class.getPackage().getImplementationVersion());
             } else {
                 promise.fail(ar.cause());
             }
