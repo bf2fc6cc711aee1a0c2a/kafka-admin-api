@@ -4,15 +4,19 @@ import org.bf2.admin.kafka.admin.model.Types;
 import org.bf2.admin.kafka.admin.handlers.CommonHandler;
 import io.vertx.core.Future;
 import io.vertx.core.Promise;
+import io.vertx.kafka.admin.ConsumerGroupDescription;
 import io.vertx.kafka.admin.ConsumerGroupListing;
 import io.vertx.kafka.admin.KafkaAdminClient;
 import io.vertx.kafka.client.common.TopicPartition;
 import io.vertx.kafka.client.consumer.OffsetAndMetadata;
+import org.apache.commons.lang3.NotImplementedException;
+import org.apache.kafka.common.errors.GroupIdNotFoundException;
 import org.apache.kafka.common.errors.InvalidRequestException;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.regex.Pattern;
@@ -24,7 +28,6 @@ public class ConsumerGroupOperations {
 
     public static void getGroupList(KafkaAdminClient ac, Promise prom, Pattern pattern, int offset, final int limit) {
         Promise<List<ConsumerGroupListing>> listConsumerGroupsFuture = Promise.promise();
-        Promise<Map<String, io.vertx.kafka.admin.ConsumerGroupDescription>> describeConsumerGroupsFuture = Promise.promise();
 
         ac.listConsumerGroups(listConsumerGroupsFuture);
         listConsumerGroupsFuture.future()
@@ -39,11 +42,26 @@ public class ConsumerGroupOperations {
                 return Future.succeededFuture(mappedList);
             })
             .compose(list -> {
-                ac.describeConsumerGroups(list.stream().map(l -> l.getGroupId()).collect(Collectors.toList()), describeConsumerGroupsFuture);
-                return describeConsumerGroupsFuture.future();
+                List promises = new ArrayList();
+                list.forEach(item -> {
+                    Promise<Map<String, ConsumerGroupDescription>> describeConsumerGroupsFuture = Promise.promise();
+                    Promise<Map<TopicPartition, OffsetAndMetadata>> listOffsetsPromise = Promise.promise();
+
+                    ac.describeConsumerGroups(Collections.singletonList(item.getGroupId()), describeConsumerGroupsFuture);
+                    ac.listConsumerGroupOffsets(item.getGroupId(), listOffsetsPromise);
+
+                    promises.add(describeConsumerGroupsFuture);
+                    promises.add(listOffsetsPromise);
+                });
+                return CompositeFuture.join(promises);
             })
             .compose(descriptions -> {
-                List<Types.ConsumerGroupDescription> list = getConsumerGroupsDescription(descriptions);
+                List<Types.ConsumerGroupDescription> list = new ArrayList<>();
+                for (int i = 0; i < descriptions.result().size(); i += 2) {
+                    Map<String, ConsumerGroupDescription> desc = descriptions.resultAt(i);
+                    Map<TopicPartition, OffsetAndMetadata> off = descriptions.resultAt(i + 1);
+                    list.add(getConsumerGroupsDescription(desc, off).get(0));
+                }
                 list.sort(new CommonHandler.ConsumerGroupComparator());
 
                 if (offset > list.size()) {
@@ -78,16 +96,11 @@ public class ConsumerGroupOperations {
         });
     }
 
-    public static void resetGroupOffset(KafkaAdminClient ac, List<String> groupsToDelete, Promise prom) {
-        //TODO
-        /*ac.deleteConsumerGroups(groupsToDelete, res -> {
-            if (res.failed()) {
-                prom.fail(res.cause());
-            } else {
-                prom.complete(groupsToDelete);
-            }
-            ac.close();
-        });*/
+    public static void resetGroupOffset(KafkaAdminClient ac, String groupsToDelete, Promise prom) {
+        // TODO!
+        prom.fail(new NotImplementedException("reseting offsets of consumer group " + groupsToDelete + " has not been implemented yet"));
+        ac.close();
+        //ac.deleteConsumerGroupOffsets();
     }
 
     public static void describeGroup(KafkaAdminClient ac, Promise prom, List<String> groupToDescribe) {
@@ -102,6 +115,9 @@ public class ConsumerGroupOperations {
                         prom.fail(res.cause());
                     } else {
                         Types.ConsumerGroupDescription groupDescription = getConsumerGroupsDescription(res.result().resultAt(0), res.result().resultAt(1)).get(0);
+                        if ("dead".equalsIgnoreCase(groupDescription.getState())) {
+                            prom.fail(new GroupIdNotFoundException("Group " + groupDescription.getGroupId() + " does not exist"));
+                        }
                         prom.complete(groupDescription);
                     }
                     ac.close();

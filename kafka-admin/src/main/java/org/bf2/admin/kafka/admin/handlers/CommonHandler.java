@@ -19,10 +19,12 @@ import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.RoutingContext;
 import io.vertx.ext.web.api.validation.ValidationException;
 import io.vertx.kafka.admin.KafkaAdminClient;
+import org.apache.commons.lang3.NotImplementedException;
 import org.apache.kafka.common.KafkaException;
 import org.apache.kafka.common.config.SaslConfigs;
 import org.apache.kafka.common.errors.AuthenticationException;
 import org.apache.kafka.common.errors.AuthorizationException;
+import org.apache.kafka.common.errors.GroupIdNotFoundException;
 import org.apache.kafka.common.errors.InvalidConfigurationException;
 import org.apache.kafka.common.errors.InvalidReplicationFactorException;
 import org.apache.kafka.common.errors.InvalidRequestException;
@@ -76,6 +78,8 @@ public class CommonHandler {
             if (res.failed()) {
                 if (res.cause() instanceof UnknownTopicOrPartitionException) {
                     routingContext.response().setStatusCode(HttpResponseStatus.NOT_FOUND.code());
+                } else if (res.cause() instanceof GroupIdNotFoundException) {
+                    routingContext.response().setStatusCode(HttpResponseStatus.NOT_FOUND.code());
                 } else if (res.cause() instanceof TimeoutException) {
                     routingContext.response().setStatusCode(HttpResponseStatus.SERVICE_UNAVAILABLE.code());
                 } else if (res.cause() instanceof AuthenticationException ||
@@ -108,6 +112,8 @@ public class CommonHandler {
                     routingContext.response().setStatusCode(HttpResponseStatus.BAD_REQUEST.code());
                 } else if (res.cause() instanceof BodyProcessorException) {
                     routingContext.response().setStatusCode(HttpResponseStatus.BAD_REQUEST.code());
+                } else if (res.cause() instanceof NotImplementedException) {
+                    routingContext.response().setStatusCode(HttpResponseStatus.NOT_IMPLEMENTED.code());
                 } else {
                     log.error("Unknown exception ", res.cause());
                     routingContext.response().setStatusCode(HttpResponseStatus.INTERNAL_SERVER_ERROR.code());

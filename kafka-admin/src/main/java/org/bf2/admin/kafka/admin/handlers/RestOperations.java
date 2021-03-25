@@ -338,7 +338,7 @@ public class RestOperations extends CommonHandler implements OperationsHandler<H
                 if (ac.failed()) {
                     prom.fail(ac.cause());
                 } else {
-                    ConsumerGroupOperations.resetGroupOffset(ac.result(), Collections.singletonList(groupToReset), prom);
+                    ConsumerGroupOperations.resetGroupOffset(ac.result(), groupToReset, prom);
                 }
                 processResponse(prom, routingContext, HttpResponseStatus.OK, httpMetrics, httpMetrics.getResetGroupOffsetRequestTimer(), requestTimerSample);
             });

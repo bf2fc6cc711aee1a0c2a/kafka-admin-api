@@ -142,10 +142,16 @@ paths:
           description: 'Unauthorized, unable to retrieve topics.'
         '404':
           description: Topic not found.
+          content:
+            application/json: { }
         '500':
           description: Internal server error.
+          content:
+            application/json: { }
         '503':
           description: Unable to connect to the Kafka cluster.
+          content:
+            application/json: { }
       operationId: getTopic
       summary: Retrieves the topic with the specified name.
       description: Topic
@@ -165,10 +171,16 @@ paths:
           description: 'Unathorized, unable to delete topic.'
         '404':
           description: Topic not found.
+          content:
+            application/json: { }
         '500':
           description: Internal server error.
+          content:
+            application/json: { }
         '503':
           description: Unable to connect to the Kafka cluster.
+          content:
+            application/json: { }
       operationId: deleteTopic
       summary: Deletes a  topic
       description: Deletes the topic with the specified name.
@@ -196,12 +208,20 @@ paths:
           description: Topic updated successfully.
         '400':
           description: Unable to update topic.
+          content:
+            application/json: { }
         '401':
           description: 'Unauthroized, unable to update topic.'
+          content:
+            application/json: { }
         '404':
           description: Topic not found.
+          content:
+            application/json: { }
         '500':
           description: Internal server error.
+          content:
+            application/json: { }
         '503':
           description: Unable to connect to the Kafka cluster.
       operationId: updateTopic
