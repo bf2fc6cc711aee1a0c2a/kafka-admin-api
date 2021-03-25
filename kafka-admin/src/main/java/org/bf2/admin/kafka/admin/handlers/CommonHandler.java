@@ -159,7 +159,7 @@ public class CommonHandler {
     public static class ConsumerGroupComparator implements Comparator<Types.ConsumerGroup> {
         @Override
         public int compare(Types.ConsumerGroup firstConsumerGroup, Types.ConsumerGroup secondConsumerGroup) {
-            return firstConsumerGroup.getId().compareTo(secondConsumerGroup.getId());
+            return firstConsumerGroup.getGroupId().compareTo(secondConsumerGroup.getGroupId());
         }
     }
 

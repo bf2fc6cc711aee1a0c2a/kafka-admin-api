@@ -18,6 +18,7 @@ public class HttpMetrics {
     private Counter describeTopicCounter;
 
     private Counter describeGroupCounter;
+    private Counter resetGroupOffsetCounter;
     private Counter listGroupsCounter;
     private Counter deleteGroupCounter;
 
@@ -30,6 +31,7 @@ public class HttpMetrics {
     private Timer describeGroupRequestTimer;
     private Timer listGroupsRequestTimer;
     private Timer deleteGroupRequestTimer;
+    private Timer resetGroupOffsetRequestTimer;
 
     public HttpMetrics() {
         this.meterRegistry = (PrometheusMeterRegistry) BackendRegistries.getDefaultNow();
@@ -50,6 +52,7 @@ public class HttpMetrics {
         listGroupsCounter = meterRegistry.counter("list_groups_requests");
         describeGroupCounter = meterRegistry.counter("get_group_requests");
         deleteGroupCounter = meterRegistry.counter("delete_group_requests");
+        resetGroupOffsetCounter = meterRegistry.counter("reset_group_offset_requests");
 
         listTopicRequestTimer = meterRegistry.timer("list_topics_request_time");
         createTopicRequestTimer = meterRegistry.timer("create_topic_request_time");
@@ -60,6 +63,7 @@ public class HttpMetrics {
         describeGroupRequestTimer = meterRegistry.timer("describe_group_request_time");
         listGroupsRequestTimer = meterRegistry.timer("list_groups_request_time");
         deleteGroupRequestTimer = meterRegistry.timer("delete_group_request_time");
+        resetGroupOffsetRequestTimer = meterRegistry.timer("reset_group_offset_request_time");
     }
 
     public PrometheusMeterRegistry getRegistry() {
@@ -81,10 +85,6 @@ public class HttpMetrics {
     public Counter getSucceededRequestsCounter() {
         return succeededRequestsCounter;
     }
-
-    /*public Timer getRequestTimer() {
-        return requestTimer;
-    }*/
 
     public Counter getCreateTopicCounter() {
         return createTopicCounter;
@@ -152,5 +152,13 @@ public class HttpMetrics {
 
     public Timer getDeleteGroupRequestTimer() {
         return deleteGroupRequestTimer;
+    }
+
+    public Counter getResetGroupOffsetCounter() {
+        return resetGroupOffsetCounter;
+    }
+
+    public Timer getResetGroupOffsetRequestTimer() {
+        return resetGroupOffsetRequestTimer;
     }
 }

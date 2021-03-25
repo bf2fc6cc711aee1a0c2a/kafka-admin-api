@@ -62,6 +62,7 @@ public class RestService implements RouteRegistration {
         routerFactory.operation(Operations.GET_CONSUMER_GROUPS_LIST).handler(ro.listGroups(kaConfig, vertx, httpMetrics)).failureHandler(ro.errorHandler(httpMetrics));
 
         routerFactory.operation(Operations.DELETE_CONSUMER_GROUP).handler(ro.deleteGroup(kaConfig, vertx, httpMetrics)).failureHandler(ro.errorHandler(httpMetrics));
+        routerFactory.operation(Operations.RESET_CONSUMER_GROUP_OFFSET).handler(ro.resetGroupOffset(kaConfig, vertx, httpMetrics)).failureHandler(ro.errorHandler(httpMetrics));
 
         routerFactory.operation(Operations.OPEN_API).handler(ro.openApi(vertx, httpMetrics)).failureHandler(ro.errorHandler(httpMetrics));
 

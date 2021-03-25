@@ -13,4 +13,5 @@ public interface OperationsHandler<T extends Object> {
     T listGroups(KafkaAdminConfigRetriever kaConfig, Vertx vertx, HttpMetrics httpMetrics);
     T describeGroup(KafkaAdminConfigRetriever kaConfig, Vertx vertx, HttpMetrics httpMetrics);
     T deleteGroup(KafkaAdminConfigRetriever kaConfig, Vertx vertx, HttpMetrics httpMetrics);
+    T resetGroupOffset(KafkaAdminConfigRetriever kaConfig, Vertx vertx, HttpMetrics httpMetrics);
 }

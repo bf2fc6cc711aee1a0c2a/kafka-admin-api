@@ -101,8 +101,7 @@ public class ConsumerGroupsEndpointTestIT extends PlainTestBase {
                     Types.ConsumerGroupDescription groupDescription = MODEL_DESERIALIZER.getGroupDesc(buffer);
                     assertThat(groupDescription.getState().toLowerCase(Locale.ROOT))
                             .isEqualTo(groupDescAct.state().toString().toLowerCase(Locale.ROOT));
-                    assertThat(groupDescription.getMembers().size()).isEqualTo(groupDescAct.members().size());
-                    assertThat(groupDescription.getSimple()).isEqualTo(groupDescAct.isSimpleConsumerGroup());
+                    assertThat(groupDescription.getConsumers().size()).isEqualTo(groupDescAct.members().size());
                     testContext.completeNow();
                 })));
         assertThat(testContext.awaitCompletion(1, TimeUnit.MINUTES)).isTrue();

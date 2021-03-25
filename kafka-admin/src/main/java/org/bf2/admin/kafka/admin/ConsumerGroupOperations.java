@@ -6,10 +6,13 @@ import io.vertx.core.Future;
 import io.vertx.core.Promise;
 import io.vertx.kafka.admin.ConsumerGroupListing;
 import io.vertx.kafka.admin.KafkaAdminClient;
+import io.vertx.kafka.client.common.TopicPartition;
+import io.vertx.kafka.client.consumer.OffsetAndMetadata;
 import org.apache.kafka.common.errors.InvalidRequestException;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.regex.Pattern;
@@ -30,18 +33,17 @@ public class ConsumerGroupOperations {
 
                 List<Types.ConsumerGroup> mappedList = filteredList.stream().map(item -> {
                     Types.ConsumerGroup consumerGroup = new Types.ConsumerGroup();
-                    consumerGroup.setId(item.getGroupId());
-                    consumerGroup.setSimple(item.isSimpleConsumerGroup());
+                    consumerGroup.setGroupId(item.getGroupId());
                     return consumerGroup;
                 }).collect(Collectors.toList());
                 return Future.succeededFuture(mappedList);
             })
             .compose(list -> {
-                ac.describeConsumerGroups(list.stream().map(l -> l.getId()).collect(Collectors.toList()), describeConsumerGroupsFuture);
+                ac.describeConsumerGroups(list.stream().map(l -> l.getGroupId()).collect(Collectors.toList()), describeConsumerGroupsFuture);
                 return describeConsumerGroupsFuture.future();
             })
             .compose(descriptions -> {
-                List<Types.ConsumerGroupDescription> list = getGroupsDescriptions(descriptions);
+                List<Types.ConsumerGroupDescription> list = getConsumerGroupsDescription(descriptions);
                 list.sort(new CommonHandler.ConsumerGroupComparator());
 
                 if (offset > list.size()) {
@@ -76,43 +78,72 @@ public class ConsumerGroupOperations {
         });
     }
 
-    public static void describeGroup(KafkaAdminClient ac, Promise prom, List<String> groupToDescribe) {
-        ac.describeConsumerGroups(groupToDescribe, res -> {
+    public static void resetGroupOffset(KafkaAdminClient ac, List<String> groupsToDelete, Promise prom) {
+        //TODO
+        /*ac.deleteConsumerGroups(groupsToDelete, res -> {
             if (res.failed()) {
                 prom.fail(res.cause());
             } else {
-                Types.ConsumerGroupDescription groupDescription = getGroupsDescriptions(res.result()).get(0);
-                prom.complete(groupDescription);
+                prom.complete(groupsToDelete);
             }
             ac.close();
-        });
+        });*/
     }
 
-    private static List<Types.ConsumerGroupDescription> getGroupsDescriptions(Map<String, io.vertx.kafka.admin.ConsumerGroupDescription> asyncResult) {
-        return asyncResult.entrySet().stream().map(group -> {
-            Types.ConsumerGroupDescription grp = new Types.ConsumerGroupDescription();
-            grp.setId(group.getValue().getGroupId());
-            grp.setSimple(group.getValue().isSimpleConsumerGroup());
+    public static void describeGroup(KafkaAdminClient ac, Promise prom, List<String> groupToDescribe) {
+        Promise describeGroupPromise = Promise.promise();
+        Promise listOffsetsPromise = Promise.promise();
+        ac.describeConsumerGroups(groupToDescribe, describeGroupPromise);
+        ac.listConsumerGroupOffsets(groupToDescribe.get(0), listOffsetsPromise);
 
-            Types.Coordinator coordinator = new Types.Coordinator();
-            coordinator.setId(group.getValue().getCoordinator().getId());
-            coordinator.setEmpty(group.getValue().getCoordinator().isEmpty());
-            coordinator.setHasRack(group.getValue().getCoordinator().hasRack());
-            coordinator.setHost(group.getValue().getCoordinator().getHost());
-            coordinator.setPort(group.getValue().getCoordinator().getPort());
-            coordinator.setRack(group.getValue().getCoordinator().rack());
-            grp.setCoordinator(coordinator);
+        CompositeFuture.join(describeGroupPromise.future(), listOffsetsPromise.future())
+                .onComplete(res -> {
+                    if (res.failed()) {
+                        prom.fail(res.cause());
+                    } else {
+                        Types.ConsumerGroupDescription groupDescription = getConsumerGroupsDescription(res.result().resultAt(0), res.result().resultAt(1)).get(0);
+                        prom.complete(groupDescription);
+                    }
+                    ac.close();
+                });
+    }
+
+    private static List<Types.ConsumerGroupDescription> getConsumerGroupsDescription(Map<String, io.vertx.kafka.admin.ConsumerGroupDescription> consumerGroupDescriptionMap,
+                                                                                     Map<TopicPartition, OffsetAndMetadata> topicPartitionOffsetAndMetadataMap) {
+        return consumerGroupDescriptionMap.entrySet().stream().map(group -> {
+            Types.ConsumerGroupDescription grp = new Types.ConsumerGroupDescription();
+            grp.setGroupId(group.getValue().getGroupId());
             grp.setState(group.getValue().getState().name());
 
-            List<Types.MemberDesc> members = group.getValue().getMembers().stream().map(mem -> {
-                Types.MemberDesc member = new Types.MemberDesc();
-                member.setClientId(mem.getClientId());
-                member.setConsumerId(mem.getConsumerId());
-                member.setHost(mem.getHost());
-                member.setAssignment(mem.getAssignment().getTopicPartitions().stream().map(part -> part.getPartition()).collect(Collectors.toList()));
-                return member;
-            }).collect(Collectors.toList());
-            grp.setMembers(members);
+            List<Types.ConsumerGroupConsumers> members = new ArrayList<>();
+            group.getValue().getMembers().stream().forEach(mem -> {
+                if (mem.getAssignment().getTopicPartitions().size() > 0) {
+                    mem.getAssignment().getTopicPartitions().forEach(pa -> {
+                        Types.ConsumerGroupConsumers member = new Types.ConsumerGroupConsumers();
+                        member.setMemberId(mem.getConsumerId());
+                        member.setTopic(pa.getTopic());
+                        member.setPartition(pa.getPartition());
+                        member.setGroupId(group.getValue().getGroupId());
+                        long currentOffset = topicPartitionOffsetAndMetadataMap.get(pa).getOffset();
+                        long lag = 0; // TODO!
+                        member.setLag(lag);
+                        member.setLogEndOffset(currentOffset + lag);
+                        member.setOffset(topicPartitionOffsetAndMetadataMap.get(pa).getOffset());
+                        members.add(member);
+                    });
+                } else {
+                    Types.ConsumerGroupConsumers member = new Types.ConsumerGroupConsumers();
+                    member.setMemberId(mem.getConsumerId());
+                    member.setTopic(null);
+                    member.setPartition(-1);
+                    member.setGroupId(group.getValue().getGroupId());
+                    member.setLogEndOffset(0);
+                    member.setLag(0);
+                    member.setOffset(0);
+                    members.add(member);
+                }
+            });
+            grp.setConsumers(members);
             return grp;
         }).collect(Collectors.toList());
     }

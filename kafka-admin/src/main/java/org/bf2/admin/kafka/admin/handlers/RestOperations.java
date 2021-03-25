@@ -274,7 +274,7 @@ public class RestOperations extends CommonHandler implements OperationsHandler<H
             String groupToDescribe = uri.substring(uri.lastIndexOf("/") + 1);
             Promise<Types.Topic> prom = Promise.promise();
             if (groupToDescribe == null || groupToDescribe.isEmpty()) {
-                prom.fail(new InvalidConsumerGroupException("Consumer ConsumerGroup to describe has not been specified."));
+                prom.fail(new InvalidConsumerGroupException("ConsumerGroup to describe has not been specified."));
                 processResponse(prom, routingContext, HttpResponseStatus.BAD_REQUEST, httpMetrics, httpMetrics.getDescribeGroupRequestTimer(), requestTimerSample);
             }
             createAdminClient(vertx, acConfig).onComplete(ac -> {
@@ -300,7 +300,7 @@ public class RestOperations extends CommonHandler implements OperationsHandler<H
             String groupToDelete = uri.substring(uri.lastIndexOf("/") + 1);
             Promise<List<String>> prom = Promise.promise();
             if (groupToDelete == null || groupToDelete.isEmpty()) {
-                prom.fail(new InvalidConsumerGroupException("Consumer ConsumerGroup to delete has not been specified."));
+                prom.fail(new InvalidConsumerGroupException("ConsumerGroup to delete has not been specified."));
                 processResponse(prom, routingContext, HttpResponseStatus.BAD_REQUEST, httpMetrics, httpMetrics.getDeleteGroupRequestTimer(), requestTimerSample);
                 return;
             }
@@ -312,6 +312,35 @@ public class RestOperations extends CommonHandler implements OperationsHandler<H
                     ConsumerGroupOperations.deleteGroup(ac.result(), Collections.singletonList(groupToDelete), prom);
                 }
                 processResponse(prom, routingContext, HttpResponseStatus.OK, httpMetrics, httpMetrics.getDeleteGroupRequestTimer(), requestTimerSample);
+            });
+        };
+    }
+
+    @Override
+    public Handler<RoutingContext> resetGroupOffset(KafkaAdminConfigRetriever kaConfig, Vertx vertx, HttpMetrics httpMetrics) {
+        return routingContext -> {
+            Map<String, Object> acConfig = kaConfig.getAcConfig();
+            httpMetrics.getRequestsCounter().increment();
+            httpMetrics.getRequestsCounter().increment();
+            Timer.Sample requestTimerSample = Timer.start(httpMetrics.getRegistry());
+            setOAuthToken(acConfig, routingContext);
+            String uri = routingContext.request().uri();
+            String groupToReset = uri.substring("/rest/consumer-groups/".length(), uri.lastIndexOf("/"));
+
+            Promise<List<String>> prom = Promise.promise();
+            if (groupToReset == null || groupToReset.isEmpty()) {
+                prom.fail(new InvalidConsumerGroupException("ConsumerGroup to reset Offset has not been specified."));
+                processResponse(prom, routingContext, HttpResponseStatus.BAD_REQUEST, httpMetrics, httpMetrics.getResetGroupOffsetRequestTimer(), requestTimerSample);
+                return;
+            }
+
+            createAdminClient(vertx, acConfig).onComplete(ac -> {
+                if (ac.failed()) {
+                    prom.fail(ac.cause());
+                } else {
+                    ConsumerGroupOperations.resetGroupOffset(ac.result(), Collections.singletonList(groupToReset), prom);
+                }
+                processResponse(prom, routingContext, HttpResponseStatus.OK, httpMetrics, httpMetrics.getResetGroupOffsetRequestTimer(), requestTimerSample);
             });
         };
     }
