@@ -106,13 +106,18 @@ public class CommonHandler {
                 } else if (res.cause() instanceof ValidationException) {
                     routingContext.response().setStatusCode(HttpResponseStatus.BAD_REQUEST.code());
                 } else {
-                    log.error("Unknown exception {}", res.cause());
+                    log.error("Unknown exception ", res.cause());
                     routingContext.response().setStatusCode(HttpResponseStatus.INTERNAL_SERVER_ERROR.code());
                 }
 
                 JsonObject jo = new JsonObject();
                 jo.put("code", routingContext.response().getStatusCode());
-                jo.put("error", res.cause().getMessage());
+                if (routingContext.response().getStatusCode() == HttpResponseStatus.INTERNAL_SERVER_ERROR.code()) {
+                    jo.put("error_message", HttpResponseStatus.INTERNAL_SERVER_ERROR.reasonPhrase());
+                } else {
+                    jo.put("error_message", res.cause().getMessage());
+                    jo.put("class", res.cause().getClass().getSimpleName());
+                }
                 routingContext.response().end(jo.toBuffer());
                 httpMetrics.getFailedRequestsCounter().increment();
                 requestTimerSample.stop(timer);
