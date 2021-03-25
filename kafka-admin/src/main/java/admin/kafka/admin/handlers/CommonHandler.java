@@ -13,8 +13,10 @@ import io.strimzi.kafka.oauth.validator.TokenExpiredException;
 import io.vertx.core.Future;
 import io.vertx.core.Promise;
 import io.vertx.core.Vertx;
+import io.vertx.core.json.DecodeException;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.RoutingContext;
+import io.vertx.ext.web.api.validation.ValidationException;
 import io.vertx.kafka.admin.KafkaAdminClient;
 import org.apache.kafka.common.KafkaException;
 import org.apache.kafka.common.config.SaslConfigs;
@@ -37,6 +39,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.regex.PatternSyntaxException;
 
+@SuppressWarnings({"checkstyle:CyclomaticComplexity"})
 public class CommonHandler {
     protected static final Logger log = LogManager.getLogger(CommonHandler.class);
 
@@ -67,7 +70,7 @@ public class CommonHandler {
         }
     }
 
-    protected static <T> void processResponse(Promise<T> prom, RoutingContext routingContext, HttpResponseStatus responseStatus, HttpMetrics httpMetrics, Timer timer, Timer.Sample requestTimerSample) {
+    protected static <T> void processResponse(Promise<T> prom, RoutingContext routingContext, HttpResponseStatus successResponseStatus, HttpMetrics httpMetrics, Timer timer, Timer.Sample requestTimerSample) {
         prom.future().onComplete(res -> {
             if (res.failed()) {
                 if (res.cause() instanceof UnknownTopicOrPartitionException) {
@@ -98,14 +101,23 @@ public class CommonHandler {
                     routingContext.response().setStatusCode(HttpResponseStatus.BAD_REQUEST.code());
                 } else if (res.cause() instanceof KafkaException) {
                     routingContext.response().setStatusCode(HttpResponseStatus.UNAUTHORIZED.code());
+                } else if (res.cause() instanceof DecodeException) {
+                    routingContext.response().setStatusCode(HttpResponseStatus.BAD_REQUEST.code());
+                } else if (res.cause() instanceof ValidationException) {
+                    routingContext.response().setStatusCode(HttpResponseStatus.BAD_REQUEST.code());
                 } else {
-                    log.error("Unknown exception {}", res.cause());
+                    log.error("Unknown exception ", res.cause());
                     routingContext.response().setStatusCode(HttpResponseStatus.INTERNAL_SERVER_ERROR.code());
                 }
 
                 JsonObject jo = new JsonObject();
                 jo.put("code", routingContext.response().getStatusCode());
-                jo.put("error", res.cause().getMessage());
+                if (routingContext.response().getStatusCode() == HttpResponseStatus.INTERNAL_SERVER_ERROR.code()) {
+                    jo.put("error_message", HttpResponseStatus.INTERNAL_SERVER_ERROR.reasonPhrase());
+                } else {
+                    jo.put("error_message", res.cause().getMessage());
+                    jo.put("class", res.cause().getClass().getSimpleName());
+                }
                 routingContext.response().end(jo.toBuffer());
                 httpMetrics.getFailedRequestsCounter().increment();
                 requestTimerSample.stop(timer);
@@ -125,7 +137,7 @@ public class CommonHandler {
                     requestTimerSample.stop(timer);
                     return;
                 }
-                routingContext.response().setStatusCode(responseStatus.code());
+                routingContext.response().setStatusCode(successResponseStatus.code());
                 routingContext.response().end(json);
                 httpMetrics.getSucceededRequestsCounter().increment();
                 requestTimerSample.stop(timer);

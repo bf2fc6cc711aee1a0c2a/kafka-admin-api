@@ -353,7 +353,24 @@ public class RestEndpointTestIT extends PlainTestBase {
         vertx.createHttpClient().request(HttpMethod.POST, publishedAdminPort, "localhost", "/rest/topics")
                 .compose(req -> req.putHeader("content-type", "application/json")
                         .send(MODEL_DESERIALIZER.serializeBody(topic) + "{./as}").onSuccess(response -> {
-                            if (response.statusCode() !=  ReturnCodes.SERVER_ERROR.code) {
+                            if (response.statusCode() !=  ReturnCodes.FAILED_REQUEST.code) {
+                                testContext.failNow("Status code " + response.statusCode() + " is not correct");
+                            }
+                            testContext.completeNow();
+                        }).onFailure(testContext::failNow));
+        assertThat(testContext.awaitCompletion(1, TimeUnit.MINUTES)).isTrue();
+    }
+
+    @ParallelTest
+    void testCreateWithInvJson2(Vertx vertx, VertxTestContext testContext, ExtensionContext extensionContext) throws InterruptedException {
+        Types.NewTopic topic = RequestUtils.getTopicObject(3);
+        int publishedAdminPort = DEPLOYMENT_MANAGER.getAdminPort(extensionContext);
+
+
+        vertx.createHttpClient().request(HttpMethod.POST, publishedAdminPort, "localhost", "/rest/topics")
+                .compose(req -> req.putHeader("content-type", "application/json")
+                        .send("{" + MODEL_DESERIALIZER.serializeBody(topic)).onSuccess(response -> {
+                            if (response.statusCode() !=  ReturnCodes.FAILED_REQUEST.code) {
                                 testContext.failNow("Status code " + response.statusCode() + " is not correct");
                             }
                             testContext.completeNow();

@@ -40,7 +40,7 @@ public class RestOperations extends CommonHandler implements OperationsHandler<H
                 try {
                     inputTopic = mapper.readValue(routingContext.getBody().getBytes(), Types.NewTopic.class);
                 } catch (IOException e) {
-                    routingContext.response().setStatusCode(HttpResponseStatus.INTERNAL_SERVER_ERROR.code());
+                    routingContext.response().setStatusCode(HttpResponseStatus.BAD_REQUEST.code());
                     JsonObject jsonObject = new JsonObject();
                     jsonObject.put("code", routingContext.response().getStatusCode());
                     jsonObject.put("error", e.getMessage());
@@ -131,7 +131,7 @@ public class RestOperations extends CommonHandler implements OperationsHandler<H
                         updatedTopic = mapper.readValue(routingContext.getBody().getBytes(), Types.UpdatedTopic.class);
                         updatedTopic.setName(topicToUpdate);
                     } catch (IOException e) {
-                        routingContext.response().setStatusCode(HttpResponseStatus.INTERNAL_SERVER_ERROR.code());
+                        routingContext.response().setStatusCode(HttpResponseStatus.BAD_REQUEST.code());
                         JsonObject jsonObject = new JsonObject();
                         jsonObject.put("code", routingContext.response().getStatusCode());
                         jsonObject.put("error", e.getMessage());
@@ -337,5 +337,14 @@ public class RestOperations extends CommonHandler implements OperationsHandler<H
 
     private boolean internalTopicsAllowed() {
         return System.getenv("INTERNAL_TOPICS_ENABLED") == null ? false : Boolean.valueOf(System.getenv("INTERNAL_TOPICS_ENABLED"));
+    }
+
+    public Handler<RoutingContext> errorHandler(HttpMetrics httpMetrics) {
+        return routingContext -> {
+            Timer.Sample requestTimerSample = Timer.start(httpMetrics.getRegistry());
+            Promise<List<String>> prom = Promise.promise();
+            prom.fail(routingContext.failure());
+            processResponse(prom, routingContext, HttpResponseStatus.OK, httpMetrics, httpMetrics.getOpenApiRequestTimer(), requestTimerSample);
+        };
     }
 }

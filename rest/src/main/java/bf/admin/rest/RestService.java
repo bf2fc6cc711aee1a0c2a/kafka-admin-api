@@ -65,5 +65,18 @@ public class RestService implements RouteRegistration {
         routerFactory.addHandlerByOperationId(Operations.OPEN_API, ro.openApi(vertx, httpMetrics));
 
         routerFactory.addHandlerByOperationId(Operations.METRICS, routingContext -> routingContext.response().setStatusCode(HttpResponseStatus.OK.code()).end(httpMetrics.getRegistry().scrape()));
+
+
+        routerFactory.addFailureHandlerByOperationId(Operations.GET_TOPIC, ro.errorHandler(httpMetrics));
+        routerFactory.addFailureHandlerByOperationId(Operations.GET_TOPICS_LIST, ro.errorHandler(httpMetrics));
+
+        routerFactory.addFailureHandlerByOperationId(Operations.DELETE_TOPIC, ro.errorHandler(httpMetrics));
+        routerFactory.addFailureHandlerByOperationId(Operations.CREATE_TOPIC, ro.errorHandler(httpMetrics));
+        routerFactory.addFailureHandlerByOperationId(Operations.UPDATE_TOPIC, ro.errorHandler(httpMetrics));
+
+        routerFactory.addFailureHandlerByOperationId(Operations.GET_CONSUMER_GROUP, ro.errorHandler(httpMetrics));
+        routerFactory.addFailureHandlerByOperationId(Operations.GET_CONSUMER_GROUPS_LIST, ro.errorHandler(httpMetrics));
+
+        routerFactory.addFailureHandlerByOperationId(Operations.DELETE_CONSUMER_GROUP, ro.errorHandler(httpMetrics));
     }
 }

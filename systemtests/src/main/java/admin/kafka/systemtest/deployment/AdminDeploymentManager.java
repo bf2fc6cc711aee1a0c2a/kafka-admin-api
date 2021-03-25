@@ -180,7 +180,7 @@ public class AdminDeploymentManager {
                         .withPublishAllPorts(true)
                         .withNetworkMode(networkName))
                 .withCmd("/opt/kafka_admin/run.sh -e KAFKA_ADMIN_BOOTSTRAP_SERVERS='" + bootstrap
-                        + "' -e KAFKA_ADMIN_OAUTH_ENABLED='" + oauth + "' -e VERTXWEB_ENVIRONMENT='dev' -e INTERNAL_TOPICS_ENABLED='" + internal + "' -e REPLICATION_FACTOR='1'").exec();
+                        + "' -e KAFKA_ADMIN_OAUTH_ENABLED='" + oauth + "' -e INTERNAL_TOPICS_ENABLED='" + internal + "' -e REPLICATION_FACTOR='1'").exec();
         String adminContId = contResp.getId();
         client.startContainerCmd(contResp.getId()).exec();
         int adminPublishedPort = Integer.parseInt(client.inspectContainerCmd(contResp.getId()).exec().getNetworkSettings()
