@@ -34,7 +34,7 @@ public class ConsumerGroupsEndpointTestIT extends PlainTestBase {
 
         RequestUtils.createConsumerGroups(kafkaClient, 3, bootstrap);
         HttpClient client = vertx.createHttpClient();
-        client.request(HttpMethod.GET, publishedAdminPort, "localhost", "/rest/groups")
+        client.request(HttpMethod.GET, publishedAdminPort, "localhost", "/rest/consumer-groups")
                 .compose(req -> req.send().onSuccess(response -> {
                     if (response.statusCode() !=  ReturnCodes.SUCCESS.code) {
                         testContext.failNow("Status code not correct");
@@ -62,7 +62,7 @@ public class ConsumerGroupsEndpointTestIT extends PlainTestBase {
         List<String> expectedIDs = kafkaClient.listConsumerGroups().all()
                 .get().stream().map(ConsumerGroupListing::groupId).collect(Collectors.toList());
         HttpClient client = vertx.createHttpClient();
-        client.request(HttpMethod.DELETE, publishedAdminPort, "localhost", "/rest/groups/" + expectedIDs.get(0))
+        client.request(HttpMethod.DELETE, publishedAdminPort, "localhost", "/rest/consumer-groups/" + expectedIDs.get(0))
                 .compose(req -> req.send().onSuccess(response -> {
                     if (response.statusCode() !=  ReturnCodes.SUCCESS.code) {
                         testContext.failNow("Status code not correct");
@@ -90,7 +90,7 @@ public class ConsumerGroupsEndpointTestIT extends PlainTestBase {
         DescribeConsumerGroupsResult groupsResult = kafkaClient.describeConsumerGroups(Collections.singletonList(groupID));
         ConsumerGroupDescription groupDescAct = groupsResult.all().get().get(groupID);
         HttpClient client = vertx.createHttpClient();
-        client.request(HttpMethod.GET, publishedAdminPort, "localhost", "/rest/groups/" + groupID)
+        client.request(HttpMethod.GET, publishedAdminPort, "localhost", "/rest/consumer-groups/" + groupID)
                 .compose(req -> req.send().onSuccess(response -> {
                     if (response.statusCode() !=  ReturnCodes.SUCCESS.code) {
                         testContext.failNow("Status code not correct");

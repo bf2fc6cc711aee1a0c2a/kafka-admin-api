@@ -98,7 +98,7 @@ public class ConsumerGroupOperations {
 
     public static void resetGroupOffset(KafkaAdminClient ac, String groupsToDelete, Promise prom) {
         // TODO!
-        prom.fail(new NotImplementedException("reseting offsets of consumer group " + groupsToDelete + " has not been implemented yet"));
+        prom.fail(new NotImplementedException("resetting offsets of consumer group " + groupsToDelete + " has not been implemented yet"));
         ac.close();
         //ac.deleteConsumerGroupOffsets();
     }
