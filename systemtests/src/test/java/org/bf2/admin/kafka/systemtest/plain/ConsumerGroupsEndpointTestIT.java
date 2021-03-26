@@ -14,6 +14,7 @@ import org.apache.kafka.clients.admin.AdminClient;
 import org.apache.kafka.clients.admin.ConsumerGroupDescription;
 import org.apache.kafka.clients.admin.ConsumerGroupListing;
 import org.apache.kafka.clients.admin.DescribeConsumerGroupsResult;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.extension.ExtensionContext;
 
 import java.util.Collections;
@@ -26,6 +27,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 public class ConsumerGroupsEndpointTestIT extends PlainTestBase {
 
+    @Disabled
     @ParallelTest
     void testListConsumerGroups(Vertx vertx, VertxTestContext testContext, ExtensionContext extensionContext) throws Exception {
         String bootstrap = DEPLOYMENT_MANAGER.getKafkaContainer(extensionContext).getBootstrapServers();
@@ -51,6 +53,7 @@ public class ConsumerGroupsEndpointTestIT extends PlainTestBase {
         assertThat(testContext.awaitCompletion(1, TimeUnit.MINUTES)).isTrue();
     }
 
+    @Disabled
     @ParallelTest
     void testDeleteConsumerGroup(Vertx vertx, VertxTestContext testContext, ExtensionContext extensionContext) throws Exception {
         String bootstrap = DEPLOYMENT_MANAGER
@@ -79,6 +82,7 @@ public class ConsumerGroupsEndpointTestIT extends PlainTestBase {
         assertThat(testContext.awaitCompletion(1, TimeUnit.MINUTES)).isTrue();
     }
 
+    @Disabled
     @ParallelTest
     void testDescribeConsumerGroup(Vertx vertx, VertxTestContext testContext, ExtensionContext extensionContext) throws Exception {
         String bootstrap = DEPLOYMENT_MANAGER
