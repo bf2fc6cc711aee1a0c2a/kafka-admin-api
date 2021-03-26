@@ -1,6 +1,6 @@
 openapi: 3.0.0
 info:
-  title: Kafka Admon REST API
+  title: Kafka Admin REST API
   version: 0.1.0
   description: An API to provide REST endpoints for query Kafka for admin operations
   license:
@@ -18,6 +18,9 @@ servers:
     description: localhost
   -
     url: 'http://localhost:8000'
+    description: localhost
+  -
+    url: 'http://localhost:8080/rest'
     description: localhost
 paths:
   /topics:
@@ -81,7 +84,6 @@ paths:
                   name: my-topic
                   settings:
                     numPartitions: 3
-                    replicationFactor: 4
                     config:
                       -
                         key: min.insync.replicas
