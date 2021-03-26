@@ -179,8 +179,11 @@ public class AdminDeploymentManager {
                 .withHostConfig(new HostConfig()
                         .withPublishAllPorts(true)
                         .withNetworkMode(networkName))
-                .withCmd("/opt/kafka_admin/run.sh -e KAFKA_ADMIN_BOOTSTRAP_SERVERS='" + bootstrap
-                        + "' -e KAFKA_ADMIN_OAUTH_ENABLED='" + oauth + "' -e INTERNAL_TOPICS_ENABLED='" + internal + "' -e REPLICATION_FACTOR='1'").exec();
+                .withCmd("/home/jboss/run.sh",
+                     "-e", String.format("KAFKA_ADMIN_BOOTSTRAP_SERVERS=%s", bootstrap),
+                     "-e", String.format("KAFKA_ADMIN_OAUTH_ENABLED=%s", oauth),
+                     "-e", String.format("INTERNAL_TOPICS_ENABLED=%s", internal),
+                     "-e", "REPLICATION_FACTOR=1").exec();
         String adminContId = contResp.getId();
         client.startContainerCmd(contResp.getId()).exec();
         int adminPublishedPort = Integer.parseInt(client.inspectContainerCmd(contResp.getId()).exec().getNetworkSettings()
