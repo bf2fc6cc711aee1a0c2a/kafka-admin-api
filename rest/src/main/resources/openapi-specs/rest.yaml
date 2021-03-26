@@ -258,6 +258,12 @@ paths:
           schema:
             type: integer
           in: query
+        -
+          name: topic
+          description: Filter to apply when returning the list of consumer groups
+          schema:
+            type: string
+          in: query
       responses:
         '200':
           content:

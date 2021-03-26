@@ -232,15 +232,15 @@ public class RestOperations extends CommonHandler implements OperationsHandler<H
             httpMetrics.getListGroupsCounter().increment();
             httpMetrics.getRequestsCounter().increment();
             setOAuthToken(acConfig, routingContext);
-            String filter = routingContext.queryParams().get("filter");
+            String topicFilter = routingContext.queryParams().get("topic");
             String limit = routingContext.queryParams().get("limit") == null ? "0" : routingContext.queryParams().get("limit");
             String offset = routingContext.queryParams().get("offset") == null ? "0" : routingContext.queryParams().get("offset");
             final Pattern pattern;
             Promise<Types.TopicList> prom = Promise.promise();
-            if (filter != null && !filter.isEmpty()) {
-                pattern = Pattern.compile(filter);
+            if (topicFilter != null && !topicFilter.isEmpty()) {
+                pattern = Pattern.compile(topicFilter);
             } else {
-                pattern = null;
+                pattern = Pattern.compile(".*");
             }
 
             createAdminClient(vertx, acConfig).onComplete(ac -> {

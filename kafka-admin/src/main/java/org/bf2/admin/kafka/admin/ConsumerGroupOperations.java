@@ -32,9 +32,7 @@ public class ConsumerGroupOperations {
         ac.listConsumerGroups(listConsumerGroupsFuture);
         listConsumerGroupsFuture.future()
             .compose(groups -> {
-                List<ConsumerGroupListing> filteredList = groups.stream().filter(groupId -> CommonHandler.byName(pattern, prom).test(groupId.getGroupId())).collect(Collectors.toList());
-
-                List<Types.ConsumerGroup> mappedList = filteredList.stream().map(item -> {
+                List<Types.ConsumerGroup> mappedList = groups.stream().map(item -> {
                     Types.ConsumerGroup consumerGroup = new Types.ConsumerGroup();
                     consumerGroup.setGroupId(item.getGroupId());
                     return consumerGroup;
@@ -60,7 +58,10 @@ public class ConsumerGroupOperations {
                 for (int i = 0; i < descriptions.result().size(); i += 2) {
                     Map<String, ConsumerGroupDescription> desc = descriptions.resultAt(i);
                     Map<TopicPartition, OffsetAndMetadata> off = descriptions.resultAt(i + 1);
-                    list.add(getConsumerGroupsDescription(desc, off).get(0));
+                    Types.ConsumerGroupDescription item = getConsumerGroupsDescription(pattern, desc, off).get(0);
+                    if (item != null) {
+                        list.add(item);
+                    }
                 }
                 list.sort(new CommonHandler.ConsumerGroupComparator());
 
@@ -114,7 +115,7 @@ public class ConsumerGroupOperations {
                     if (res.failed()) {
                         prom.fail(res.cause());
                     } else {
-                        Types.ConsumerGroupDescription groupDescription = getConsumerGroupsDescription(res.result().resultAt(0), res.result().resultAt(1)).get(0);
+                        Types.ConsumerGroupDescription groupDescription = getConsumerGroupsDescription(Pattern.compile(".*"), res.result().resultAt(0), res.result().resultAt(1)).get(0);
                         if ("dead".equalsIgnoreCase(groupDescription.getState())) {
                             prom.fail(new GroupIdNotFoundException("Group " + groupDescription.getGroupId() + " does not exist"));
                         }
@@ -124,10 +125,15 @@ public class ConsumerGroupOperations {
                 });
     }
 
-    private static List<Types.ConsumerGroupDescription> getConsumerGroupsDescription(Map<String, io.vertx.kafka.admin.ConsumerGroupDescription> consumerGroupDescriptionMap,
+    private static List<Types.ConsumerGroupDescription> getConsumerGroupsDescription(Pattern pattern, Map<String, io.vertx.kafka.admin.ConsumerGroupDescription> consumerGroupDescriptionMap,
                                                                                      Map<TopicPartition, OffsetAndMetadata> topicPartitionOffsetAndMetadataMap) {
         return consumerGroupDescriptionMap.entrySet().stream().map(group -> {
+            // there are no topics to filter by so the consumer group is not listed
             Types.ConsumerGroupDescription grp = new Types.ConsumerGroupDescription();
+
+            if (group.getValue().getState().name().equalsIgnoreCase("empty") && !pattern.pattern().equals(".*")) {
+                return null;
+            }
             grp.setGroupId(group.getValue().getGroupId());
             grp.setState(group.getValue().getState().name());
 
@@ -145,7 +151,10 @@ public class ConsumerGroupOperations {
                         member.setLag(lag);
                         member.setLogEndOffset(currentOffset + lag);
                         member.setOffset(currentOffset);
-                        members.add(member);
+                        if (pattern.matcher(pa.getTopic()).matches()) {
+                            log.debug("Topic matches desired pattern");
+                            members.add(member);
+                        }
                     });
                 } else {
                     Types.ConsumerGroupConsumers member = new Types.ConsumerGroupConsumers();
@@ -159,6 +168,10 @@ public class ConsumerGroupOperations {
                     members.add(member);
                 }
             });
+
+            if (!pattern.pattern().equals(".*") && members.size() == 0) {
+                return null;
+            }
             grp.setConsumers(members);
             return grp;
         }).collect(Collectors.toList());
