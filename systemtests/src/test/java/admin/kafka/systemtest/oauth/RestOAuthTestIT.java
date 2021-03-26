@@ -101,7 +101,7 @@ public class RestOAuthTestIT extends OauthTestBase {
     @Test
     public void testListWithExpiredToken(Vertx vertx, VertxTestContext testContext) throws InterruptedException {
         // Wait for token to expire
-        Thread.sleep(60_000);
+        Thread.sleep(120_000);
         HttpClient client = vertx.createHttpClient();
         client.request(HttpMethod.GET, publishedAdminPort, "localhost", "/rest/topics")
                 .compose(req -> req.putHeader("Authorization", "Bearer " + token.getAccessToken()).send()
