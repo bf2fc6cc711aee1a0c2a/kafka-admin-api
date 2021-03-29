@@ -47,6 +47,15 @@ paths:
             format: int32
             type: integer
           in: query
+        -
+          name: order
+          description: >-
+            Order of the items sorting. If "asc" is set as a value, ascending order is used,
+            descending otherwise.
+          schema:
+            type: string
+          in: query
+          required: false
       responses:
         '200':
           content:

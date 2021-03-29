@@ -110,7 +110,7 @@ public class TopicOperations {
         return result;
     }
 
-    public static void getTopicList(KafkaAdminClient ac, Promise prom, Pattern pattern, int offset, final int limit) {
+    public static void getTopicList(KafkaAdminClient ac, Promise prom, Pattern pattern, int offset, final int limit, Types.SortDirectionEnum sortDirection) {
         Promise<Set<String>> describeTopicsNamesPromise = Promise.promise();
         Promise<Map<String, io.vertx.kafka.admin.TopicDescription>> describeTopicsPromise = Promise.promise();
         Promise<Map<ConfigResource, Config>> describeTopicConfigPromise = Promise.promise();
@@ -144,7 +144,11 @@ public class TopicOperations {
                     fullTopicDescriptions.add(topicWithDescription);
                 });
                 Types.TopicList topicList = new Types.TopicList();
-                fullTopicDescriptions.sort(new CommonHandler.TopicComparator());
+                if (sortDirection.equals(Types.SortDirectionEnum.ASC)) {
+                    fullTopicDescriptions.sort(new CommonHandler.TopicComparator());
+                } else {
+                    fullTopicDescriptions.sort(new CommonHandler.TopicComparator().reversed());
+                }
 
                 if (offset > fullTopicDescriptions.size()) {
                     return Future.failedFuture(new InvalidRequestException("Offset (" + offset + ") cannot be greater than topic list size (" + fullTopicDescriptions.size() + ")"));
@@ -156,7 +160,7 @@ public class TopicOperations {
 
                 List<Types.Topic> croppedList = fullTopicDescriptions.subList(offset, Math.min(offset + tmpLimit, fullTopicDescriptions.size()));
                 topicList.setItems(croppedList);
-                topicList.setCount(croppedList.size()); // TODO do we want to return full list count or filtered?
+                topicList.setCount(croppedList.size());
                 topicList.setLimit(tmpLimit);
                 topicList.setOffset(offset);
                 return Future.succeededFuture(topicList);
