@@ -340,7 +340,7 @@ public class RestOperations extends CommonHandler implements OperationsHandler<H
     }
 
     private boolean internalTopicsAllowed() {
-        return System.getenv("INTERNAL_TOPICS_ENABLED") == null ? false : Boolean.valueOf(System.getenv("INTERNAL_TOPICS_ENABLED"));
+        return System.getenv("KAFKA_ADMIN_INTERNAL_TOPICS_ENABLED") == null ? false : Boolean.valueOf(System.getenv("KAFKA_ADMIN_INTERNAL_TOPICS_ENABLED"));
     }
 
     public Handler<RoutingContext> errorHandler(HttpMetrics httpMetrics) {
