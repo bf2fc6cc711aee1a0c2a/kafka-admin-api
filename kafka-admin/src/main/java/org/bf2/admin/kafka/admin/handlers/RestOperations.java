@@ -76,8 +76,7 @@ public class RestOperations extends CommonHandler implements OperationsHandler<H
             httpMetrics.getRequestsCounter().increment();
             Timer.Sample requestTimerSample = Timer.start(httpMetrics.getRegistry());
             setOAuthToken(acConfig, routingContext);
-            String uri = routingContext.request().uri();
-            String topicToDescribe = uri.substring(uri.lastIndexOf("/") + 1);
+            String topicToDescribe = routingContext.pathParam("topicName");
             Promise<Types.Topic> prom = Promise.promise();
             if (topicToDescribe == null || topicToDescribe.isEmpty()) {
                 prom.fail(new InvalidTopicException("Topic to describe has not been specified."));
@@ -109,8 +108,7 @@ public class RestOperations extends CommonHandler implements OperationsHandler<H
             Timer.Sample requestTimerSample = Timer.start(httpMetrics.getRegistry());
             setOAuthToken(acConfig, routingContext);
             Promise<Types.UpdatedTopic> prom = Promise.promise();
-            String uri = routingContext.request().uri();
-            String topicToUpdate = uri.substring(uri.lastIndexOf("/") + 1);
+            String topicToUpdate = routingContext.pathParam("topicName");
             if (topicToUpdate == null || topicToUpdate.isEmpty()) {
                 prom.fail(new InvalidTopicException("Topic to update has not been specified."));
                 processResponse(prom, routingContext, HttpResponseStatus.BAD_REQUEST, httpMetrics, httpMetrics.getUpdateTopicRequestTimer(), requestTimerSample);
@@ -158,8 +156,7 @@ public class RestOperations extends CommonHandler implements OperationsHandler<H
             httpMetrics.getRequestsCounter().increment();
             Timer.Sample requestTimerSample = Timer.start(httpMetrics.getRegistry());
             setOAuthToken(acConfig, routingContext);
-            String uri = routingContext.request().uri();
-            String topicToDelete = uri.substring(uri.lastIndexOf("/") + 1);
+            String topicToDelete = routingContext.pathParam("topicName");
             Promise<List<String>> prom = Promise.promise();
             if (topicToDelete == null || topicToDelete.isEmpty()) {
                 prom.fail(new InvalidTopicException("Topic to delete has not been specified."));
@@ -270,8 +267,7 @@ public class RestOperations extends CommonHandler implements OperationsHandler<H
             httpMetrics.getRequestsCounter().increment();
             Timer.Sample requestTimerSample = Timer.start(httpMetrics.getRegistry());
             setOAuthToken(acConfig, routingContext);
-            String uri = routingContext.request().uri();
-            String groupToDescribe = uri.substring(uri.lastIndexOf("/") + 1);
+            String groupToDescribe = routingContext.pathParam("consumerGroupId");
             Promise<Types.Topic> prom = Promise.promise();
             if (groupToDescribe == null || groupToDescribe.isEmpty()) {
                 prom.fail(new InvalidConsumerGroupException("ConsumerGroup to describe has not been specified."));
@@ -296,8 +292,7 @@ public class RestOperations extends CommonHandler implements OperationsHandler<H
             httpMetrics.getRequestsCounter().increment();
             Timer.Sample requestTimerSample = Timer.start(httpMetrics.getRegistry());
             setOAuthToken(acConfig, routingContext);
-            String uri = routingContext.request().uri();
-            String groupToDelete = uri.substring(uri.lastIndexOf("/") + 1);
+            String groupToDelete = routingContext.pathParam("consumerGroupId");
             Promise<List<String>> prom = Promise.promise();
             if (groupToDelete == null || groupToDelete.isEmpty()) {
                 prom.fail(new InvalidConsumerGroupException("ConsumerGroup to delete has not been specified."));
@@ -324,8 +319,7 @@ public class RestOperations extends CommonHandler implements OperationsHandler<H
             httpMetrics.getRequestsCounter().increment();
             Timer.Sample requestTimerSample = Timer.start(httpMetrics.getRegistry());
             setOAuthToken(acConfig, routingContext);
-            String uri = routingContext.request().uri();
-            String groupToReset = uri.substring("/rest/consumer-groups/".length(), uri.lastIndexOf("/"));
+            String groupToReset = routingContext.pathParam("consumerGroupId");
 
             Promise<List<String>> prom = Promise.promise();
             if (groupToReset == null || groupToReset.isEmpty()) {
