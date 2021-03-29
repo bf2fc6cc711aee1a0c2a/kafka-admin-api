@@ -1,9 +1,9 @@
 <component name="ProjectRunConfigurationManager">
   <configuration default="false" name="Main (EnvFile)" type="Application" factoryName="Application">
-    <option name="MAIN_CLASS_NAME" value="bf.admin.Main" />
+    <option name="MAIN_CLASS_NAME" value="org.bf2.admin.Main" />
     <module name="http-server" />
-    <option name="PROGRAM_PARAMETERS" value="bf.admin.Main" />
-    <option name="VM_PARAMETERS" value="-cp kafka-admin/target/kafka-admin-1.0-SNAPSHOT-fat.jar:health/target/health-1.0-SNAPSHOT-fat.jar:rest/target/rest-1.0-SNAPSHOT-fat.jar:http-server/target/http-server-1.0-SNAPSHOT-fat.jar bf.admin.Main" />
+    <option name="PROGRAM_PARAMETERS" value="org.bf2.admin.Main" />
+    <option name="VM_PARAMETERS" value="-cp kafka-admin/target/kafka-admin-1.0-SNAPSHOT-fat.jar:health/target/health-1.0-SNAPSHOT-fat.jar:rest/target/rest-1.0-SNAPSHOT-fat.jar:http-server/target/http-server-1.0-SNAPSHOT-fat.jar org.bf2.admin.Main" />
     <extension name="net.ashald.envfile">
       <option name="IS_ENABLED" value="true" />
       <option name="IS_SUBST" value="false" />

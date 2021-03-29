@@ -5,7 +5,7 @@
 
     <modelVersion>4.0.0</modelVersion>
 
-    <groupId>bf</groupId>
+    <groupId>org.bf2</groupId>
     <artifactId>kafka-admin-api</artifactId>
     <packaging>pom</packaging>
     <version>0.0.6-SNAPSHOT</version>
@@ -63,7 +63,7 @@
                 <version>${log4j.version}</version>
             </dependency>
             <dependency>
-                <groupId>bf</groupId>
+                <groupId>org.bf2</groupId>
                 <artifactId>http-server</artifactId>
                 <version>${project.version}</version>
             </dependency>
