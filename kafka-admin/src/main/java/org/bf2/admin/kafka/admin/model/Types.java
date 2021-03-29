@@ -304,13 +304,13 @@ public class Types {
     }
 
     public static class ConsumerGroupDescription extends ConsumerGroup {
-        private List<ConsumerGroupConsumers> consumers;
+        private List<Consumer> consumers;
 
-        public List<ConsumerGroupConsumers> getConsumers() {
+        public List<Consumer> getConsumers() {
             return consumers;
         }
 
-        public void setConsumers(List<ConsumerGroupConsumers> consumers) {
+        public void setConsumers(List<Consumer> consumers) {
             this.consumers = consumers;
         }
 
@@ -325,7 +325,7 @@ public class Types {
         private String state;
     }
 
-    public static class ConsumerGroupConsumers {
+    public static class Consumer {
         private String memberId;
         private String groupId;
         private String topic;

@@ -137,11 +137,11 @@ public class ConsumerGroupOperations {
             grp.setGroupId(group.getValue().getGroupId());
             grp.setState(group.getValue().getState().name());
 
-            List<Types.ConsumerGroupConsumers> members = new ArrayList<>();
+            List<Types.Consumer> members = new ArrayList<>();
             group.getValue().getMembers().stream().forEach(mem -> {
                 if (mem.getAssignment().getTopicPartitions().size() > 0) {
                     mem.getAssignment().getTopicPartitions().forEach(pa -> {
-                        Types.ConsumerGroupConsumers member = new Types.ConsumerGroupConsumers();
+                        Types.Consumer member = new Types.Consumer();
                         member.setMemberId(mem.getConsumerId());
                         member.setTopic(pa.getTopic());
                         member.setPartition(pa.getPartition());
@@ -157,7 +157,7 @@ public class ConsumerGroupOperations {
                         }
                     });
                 } else {
-                    Types.ConsumerGroupConsumers member = new Types.ConsumerGroupConsumers();
+                    Types.Consumer member = new Types.Consumer();
                     member.setMemberId(mem.getConsumerId());
                     member.setTopic(null);
                     member.setPartition(-1);
