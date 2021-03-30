@@ -18,7 +18,6 @@
         <testcontainers.version>1.15.1</testcontainers.version>
         <docker-java.version>3.2.7</docker-java.version>
         <assertj.version>3.4.1</assertj.version>
-        <jackson-annotations.version>2.11.3</jackson-annotations.version>
         <hamcrest.version>2.2</hamcrest.version>
         <awaitility.version>4.0.3</awaitility.version>
         <guava.version>19.0</guava.version>
@@ -28,17 +27,14 @@
         <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>
             <artifactId>jackson-databind</artifactId>
-            <version>${jackson-annotations.version}</version>
         </dependency>
         <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>
             <artifactId>jackson-annotations</artifactId>
-            <version>${jackson-annotations.version}</version>
         </dependency>
         <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>
             <artifactId>jackson-core</artifactId>
-            <version>${jackson-annotations.version}</version>
         </dependency>
         <dependency>
             <groupId>org.apache.logging.log4j</groupId>
@@ -68,12 +64,10 @@
         <dependency>
             <groupId>io.vertx</groupId>
             <artifactId>vertx-core</artifactId>
-            <version>${vertx.version}</version>
         </dependency>
         <dependency>
             <groupId>io.vertx</groupId>
             <artifactId>vertx-circuit-breaker</artifactId>
-            <version>${vertx.version}</version>
         </dependency>
         <dependency>
             <groupId>org.junit.jupiter</groupId>
