@@ -1,5 +1,6 @@
 package org.bf2.admin.kafka.admin;
 
+import io.vertx.core.CompositeFuture;
 import org.bf2.admin.kafka.admin.model.Types;
 import org.bf2.admin.kafka.admin.handlers.CommonHandler;
 import io.vertx.core.Future;
