@@ -14,7 +14,6 @@
         <maven.compiler.target>1.8</maven.compiler.target>
         <maven.compiler.source>1.8</maven.compiler.source>
         <junit.platform.version>1.5.2</junit.platform.version>
-        <vertx.version>4.0.0</vertx.version>
         <strimzi-test-container.version>0.20.0</strimzi-test-container.version>
         <testcontainers.version>1.15.1</testcontainers.version>
         <docker-java.version>3.2.7</docker-java.version>
@@ -28,7 +27,12 @@
     <dependencies>
         <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>
-            <artifactId>jackson-annotations</artifactId>
+            <artifactId>jackson-databind</artifactId>
+            <version>${jackson-annotations.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-core</artifactId>
             <version>${jackson-annotations.version}</version>
         </dependency>
         <dependency>
@@ -46,7 +50,10 @@
         <dependency>
             <groupId>io.vertx</groupId>
             <artifactId>vertx-junit5</artifactId>
-            <version>${vertx.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>io.vertx</groupId>
+            <artifactId>vertx-core</artifactId>
         </dependency>
         <dependency>
             <groupId>org.testcontainers</groupId>
