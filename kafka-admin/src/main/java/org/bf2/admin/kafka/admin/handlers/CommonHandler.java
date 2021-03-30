@@ -1,5 +1,6 @@
 package org.bf2.admin.kafka.admin.handlers;
 
+import io.vertx.ext.web.validation.BodyProcessorException;
 import org.bf2.admin.kafka.admin.InvalidConsumerGroupException;
 import org.bf2.admin.kafka.admin.InvalidTopicException;
 import org.bf2.admin.kafka.admin.HttpMetrics;
@@ -104,6 +105,8 @@ public class CommonHandler {
                 } else if (res.cause() instanceof DecodeException) {
                     routingContext.response().setStatusCode(HttpResponseStatus.BAD_REQUEST.code());
                 } else if (res.cause() instanceof ValidationException) {
+                    routingContext.response().setStatusCode(HttpResponseStatus.BAD_REQUEST.code());
+                } else if (res.cause() instanceof BodyProcessorException) {
                     routingContext.response().setStatusCode(HttpResponseStatus.BAD_REQUEST.code());
                 } else {
                     log.error("Unknown exception ", res.cause());

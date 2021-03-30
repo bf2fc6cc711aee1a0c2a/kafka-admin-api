@@ -66,5 +66,6 @@ public class RestService implements RouteRegistration {
         routerFactory.operation(Operations.OPEN_API).handler(ro.openApi(vertx, httpMetrics)).failureHandler(ro.errorHandler(httpMetrics));
 
         routerFactory.operation(Operations.METRICS).handler(routingContext -> routingContext.response().setStatusCode(HttpResponseStatus.OK.code()).end(httpMetrics.getRegistry().scrape()));
+
     }
 }
