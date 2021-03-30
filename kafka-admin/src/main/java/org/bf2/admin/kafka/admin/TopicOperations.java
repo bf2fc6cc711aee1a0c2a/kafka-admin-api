@@ -27,7 +27,7 @@ public class TopicOperations {
     protected static final Logger log = LogManager.getLogger(TopicOperations.class);
     private static final short DEFAULT_REPLICATION_FACTOR = 3;
     private static final short DEFAULT_PARTITIONS = 1;
-    private static final short REPLICATION_FACTOR = System.getenv("REPLICATION_FACTOR") == null ? DEFAULT_REPLICATION_FACTOR : Short.valueOf(System.getenv("REPLICATION_FACTOR"));
+    private static final short REPLICATION_FACTOR = System.getenv("KAFKA_ADMIN_REPLICATION_FACTOR") == null ? DEFAULT_REPLICATION_FACTOR : Short.valueOf(System.getenv("KAFKA_ADMIN_REPLICATION_FACTOR"));
 
     public static void createTopic(KafkaAdminClient ac, Promise prom, Types.NewTopic inputTopic) {
         NewTopic newKafkaTopic = new NewTopic();
@@ -121,7 +121,7 @@ public class TopicOperations {
         ac.listTopics(describeTopicsNamesPromise);
         describeTopicsNamesPromise.future()
             .compose(topics -> {
-                boolean internalTopicsAllowed = System.getenv("INTERNAL_TOPICS_ENABLED") == null ? false : Boolean.valueOf(System.getenv("INTERNAL_TOPICS_ENABLED"));
+                boolean internalTopicsAllowed = System.getenv("KAFKA_ADMIN_INTERNAL_TOPICS_ENABLED") == null ? false : Boolean.valueOf(System.getenv("KAFKA_ADMIN_INTERNAL_TOPICS_ENABLED"));
                 List<String> filteredList = topics.stream().filter(topicName -> CommonHandler.byName(pattern, prom).test(topicName))
                         .filter(topicName -> !internalTopicsAllowed ? !topicName.startsWith("__") : true).collect(Collectors.toList());
                 ac.describeTopics(filteredList, describeTopicsPromise);

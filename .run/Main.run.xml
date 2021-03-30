@@ -3,8 +3,8 @@
     <envs>
       <env name="KAFKA_ADMIN_BOOTSTRAP_SERVERS" value="localhost:9092" />
       <env name="KAFKA_ADMIN_OAUTH_ENABLED" value="false" />
-      <env name="INTERNAL_TOPICS_ENABLED" value="true" />
-      <env name="REPLICATION_FACTOR" value="1" />
+      <env name="KAFKA_ADMIN_INTERNAL_TOPICS_ENABLED" value="true" />
+      <env name="KAFKA_ADMIN_REPLICATION_FACTOR" value="1" />
     </envs>
     <option name="MAIN_CLASS_NAME" value="org.bf2.admin.Main" />
     <module name="http-server" />
