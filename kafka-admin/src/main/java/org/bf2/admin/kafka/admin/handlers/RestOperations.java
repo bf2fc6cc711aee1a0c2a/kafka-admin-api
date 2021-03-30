@@ -306,7 +306,7 @@ public class RestOperations extends CommonHandler implements OperationsHandler<H
                 } else {
                     ConsumerGroupOperations.deleteGroup(ac.result(), Collections.singletonList(groupToDelete), prom);
                 }
-                processResponse(prom, routingContext, HttpResponseStatus.OK, httpMetrics, httpMetrics.getDeleteGroupRequestTimer(), requestTimerSample);
+                processResponse(prom, routingContext, HttpResponseStatus.NO_CONTENT, httpMetrics, httpMetrics.getDeleteGroupRequestTimer(), requestTimerSample);
             });
         };
     }

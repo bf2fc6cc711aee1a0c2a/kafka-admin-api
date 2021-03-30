@@ -69,7 +69,7 @@ public class CommonHandler {
             if (adminClient != null) {
                 adminClient.close();
             }
-            return Future.failedFuture(e);
+            return Future.failedFuture(new KafkaException(e.getCause().getMessage()));
         }
     }
 
@@ -105,7 +105,11 @@ public class CommonHandler {
                 } else if (res.cause() instanceof InvalidConsumerGroupException) {
                     routingContext.response().setStatusCode(HttpResponseStatus.BAD_REQUEST.code());
                 } else if (res.cause() instanceof KafkaException) {
-                    routingContext.response().setStatusCode(HttpResponseStatus.UNAUTHORIZED.code());
+                    if (res.cause().getMessage().contains("Failed to find brokers to send")) {
+                        routingContext.response().setStatusCode(HttpResponseStatus.SERVICE_UNAVAILABLE.code());
+                    } else if (res.cause().getMessage().contains("JAAS configuration")) {
+                        routingContext.response().setStatusCode(HttpResponseStatus.UNAUTHORIZED.code());
+                    }
                 } else if (res.cause() instanceof DecodeException) {
                     routingContext.response().setStatusCode(HttpResponseStatus.BAD_REQUEST.code());
                 } else if (res.cause() instanceof ValidationException) {

@@ -128,10 +128,10 @@ public class ConsumerGroupOperations {
     private static List<Types.ConsumerGroupDescription> getConsumerGroupsDescription(Pattern pattern, Map<String, io.vertx.kafka.admin.ConsumerGroupDescription> consumerGroupDescriptionMap,
                                                                                      Map<TopicPartition, OffsetAndMetadata> topicPartitionOffsetAndMetadataMap) {
         return consumerGroupDescriptionMap.entrySet().stream().map(group -> {
-            // there are no topics to filter by so the consumer group is not listed
             Types.ConsumerGroupDescription grp = new Types.ConsumerGroupDescription();
 
             if (group.getValue().getState().name().equalsIgnoreCase("empty") && !pattern.pattern().equals(".*")) {
+                // there are no topics to filter by so the consumer group is not listed
                 return null;
             }
             grp.setGroupId(group.getValue().getGroupId());
