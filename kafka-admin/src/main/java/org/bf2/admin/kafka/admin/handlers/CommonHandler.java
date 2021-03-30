@@ -1,6 +1,7 @@
 package org.bf2.admin.kafka.admin.handlers;
 
 import io.vertx.ext.web.validation.BodyProcessorException;
+import org.apache.kafka.common.errors.GroupNotEmptyException;
 import org.bf2.admin.kafka.admin.InvalidConsumerGroupException;
 import org.bf2.admin.kafka.admin.InvalidTopicException;
 import org.bf2.admin.kafka.admin.HttpMetrics;
@@ -82,6 +83,8 @@ public class CommonHandler {
                     routingContext.response().setStatusCode(HttpResponseStatus.NOT_FOUND.code());
                 } else if (res.cause() instanceof TimeoutException) {
                     routingContext.response().setStatusCode(HttpResponseStatus.SERVICE_UNAVAILABLE.code());
+                } else if (res.cause() instanceof GroupNotEmptyException) {
+                    routingContext.response().setStatusCode(HttpResponseStatus.LOCKED.code());
                 } else if (res.cause() instanceof AuthenticationException ||
                     res.cause() instanceof AuthorizationException ||
                     res.cause() instanceof TokenExpiredException) {
