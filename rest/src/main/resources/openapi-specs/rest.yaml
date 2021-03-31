@@ -11,8 +11,6 @@ servers:
     description: Main (production) server
   - url: 'https://api.stage.openshift.com'
     description: Staging server
-  - url: 'http://localhost:8001'
-    description: localhost
   - url: 'http://localhost:8000'
     description: localhost
 paths:
@@ -61,8 +59,12 @@ paths:
             application/json: {}
           description: 'Unauthorized, unable to retrive topics.'
         '500':
+          content:
+            application/json: {}
           description: Internal server error.
         '503':
+          content:
+            application/json: {}
           description: Unable to connect to the Kafka cluster.
       security:
         - Bearer: []
@@ -130,12 +132,20 @@ paths:
                 $ref: '#/components/schemas/Topic'
           description: Kakfa topic details.
         '401':
+          content:
+            application/json: {}
           description: 'Unauthorized, unable to retrieve topics.'
         '404':
+          content:
+            application/json: {}
           description: Topic not found.
         '500':
+          content:
+            application/json: {}
           description: Internal server error.
         '503':
+          content:
+            application/json: {}
           description: Unable to connect to the Kafka cluster.
       security:
         - Bearer: []
