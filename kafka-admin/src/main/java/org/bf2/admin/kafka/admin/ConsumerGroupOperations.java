@@ -103,7 +103,7 @@ public class ConsumerGroupOperations {
 
         listProm.future().onComplete(list -> {
             Map<TopicPartition, OffsetAndMetadata> l = (Map<TopicPartition, OffsetAndMetadata>) list;
-            l.entrySet().forEach(entry -> entry.getValue().setOffset(0));
+            l.entrySet().forEach(entry -> entry.getValue().setOffset(0)); //TODO
             ac.alterConsumerGroupOffsets(groupToReset, l, res -> {
                 if (res.succeeded()) {
                     prom.complete();

@@ -66,8 +66,8 @@ paths:
           content:
             application/json: {}
           description: Unable to connect to the Kafka cluster.
-      security:
-        - Bearer: []
+      # security:
+        # - Bearer: []
       operationId: getTopicsList
       summary: List of topics
       description: >-
@@ -110,8 +110,8 @@ paths:
           description: Internal server error.
         '503':
           description: Unable to connect to the Kafka cluster.
-      security:
-        - Bearer: []
+      # security:
+        # - Bearer: []
       operationId: createTopic
       summary: Creates a new topic
       description: Creates a new topic for Kafka.
@@ -147,8 +147,8 @@ paths:
           content:
             application/json: {}
           description: Unable to connect to the Kafka cluster.
-      security:
-        - Bearer: []
+      # security:
+        # - Bearer: []
       operationId: getTopic
       summary: Retrieves the topic with the specified name.
       description: Topic
@@ -171,8 +171,8 @@ paths:
           description: Internal server error.
         '503':
           description: Unable to connect to the Kafka cluster.
-      security:
-        - Bearer: []
+      # security:
+        # - Bearer: []
       operationId: deleteTopic
       summary: Deletes a  topic
       description: Deletes the topic with the specified name.
@@ -207,8 +207,8 @@ paths:
           description: Internal server error.
         '503':
           description: Unable to connect to the Kafka cluster.
-      security:
-        - Bearer: []
+      # security:
+        # - Bearer: []
       operationId: updateTopic
       summary: Updates the topic with the specified name.
       description: updates the topic with the new data.
@@ -233,8 +233,8 @@ paths:
           content:
             application/json: {}
           description: OpenAPI spec
-      security:
-        - Bearer: []
+      # security:
+        # - Bearer: []
       operationId: openApi
   '/consumer-groups/{consumerGroupId}':
     get:
@@ -306,8 +306,8 @@ paths:
           content:
             application/json: {}
           description: Unable to connect to the Kafka cluster.
-      security:
-        - Bearer: []
+      # security:
+        # - Bearer: []
       operationId: getConsumerGroupById
       summary: Get a single consumer group by its unique ID.
     delete:
@@ -347,8 +347,8 @@ paths:
           content:
             application/json: {}
           description: Unable to connect to the Kafka cluster.
-      security:
-        - Bearer: []
+      # security:
+        # - Bearer: []
       operationId: deleteConsumerGroupById
       summary: Delete a consumer group.
       description: 'Delete a consumer group, along with its consumers.'
@@ -393,8 +393,8 @@ paths:
           content:
             application/json: {}
           description: Unable to connect to the Kafka cluster.
-      security:
-        - Bearer: []
+      # security:
+        # - Bearer: []
       operationId: resetConsumerGroupOffset
       summary: Reset the offset for a consumer group.
       description: Reset the offset for a particular consumer group.
@@ -478,8 +478,8 @@ paths:
           content:
             application/json: {}
           description: Unable to connect to the Kafka cluster.
-      security:
-        - Bearer: []
+      # security:
+        # - Bearer: []
       operationId: getConsumerGroupList
       summary: List of consumer groups in the Kafka instance.
       description: Returns a list of all consumer groups for a particular Kafka instance.
