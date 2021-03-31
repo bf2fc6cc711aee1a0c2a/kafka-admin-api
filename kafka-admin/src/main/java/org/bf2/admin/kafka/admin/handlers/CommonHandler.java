@@ -20,7 +20,6 @@ import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.RoutingContext;
 import io.vertx.ext.web.api.validation.ValidationException;
 import io.vertx.kafka.admin.KafkaAdminClient;
-import org.apache.commons.lang3.NotImplementedException;
 import org.apache.kafka.common.KafkaException;
 import org.apache.kafka.common.config.SaslConfigs;
 import org.apache.kafka.common.errors.AuthenticationException;
@@ -119,8 +118,6 @@ public class CommonHandler {
                     routingContext.response().setStatusCode(HttpResponseStatus.BAD_REQUEST.code());
                 } else if (res.cause() instanceof BodyProcessorException) {
                     routingContext.response().setStatusCode(HttpResponseStatus.BAD_REQUEST.code());
-                } else if (res.cause() instanceof NotImplementedException) {
-                    routingContext.response().setStatusCode(HttpResponseStatus.NOT_IMPLEMENTED.code());
                 } else {
                     log.error("Unknown exception ", res.cause());
                     routingContext.response().setStatusCode(HttpResponseStatus.INTERNAL_SERVER_ERROR.code());

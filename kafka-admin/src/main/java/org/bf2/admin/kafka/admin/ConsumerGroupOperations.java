@@ -10,7 +10,6 @@ import io.vertx.kafka.admin.ConsumerGroupListing;
 import io.vertx.kafka.admin.KafkaAdminClient;
 import io.vertx.kafka.client.common.TopicPartition;
 import io.vertx.kafka.client.consumer.OffsetAndMetadata;
-import org.apache.commons.lang3.NotImplementedException;
 import org.apache.kafka.common.errors.GroupIdNotFoundException;
 import org.apache.kafka.common.errors.InvalidRequestException;
 import org.apache.logging.log4j.LogManager;
@@ -98,11 +97,22 @@ public class ConsumerGroupOperations {
         });
     }
 
-    public static void resetGroupOffset(KafkaAdminClient ac, String groupsToDelete, Promise prom) {
-        // TODO!
-        prom.fail(new NotImplementedException("resetting offsets of consumer group " + groupsToDelete + " has not been implemented yet"));
-        ac.close();
-        //ac.deleteConsumerGroupOffsets();
+    public static void resetGroupOffset(KafkaAdminClient ac, String groupToReset, Promise prom) {
+        Promise listProm = Promise.promise();
+        ac.listConsumerGroupOffsets(groupToReset, listProm);
+
+        listProm.future().onComplete(list -> {
+            Map<TopicPartition, OffsetAndMetadata> l = (Map<TopicPartition, OffsetAndMetadata>) list;
+            l.entrySet().forEach(entry -> entry.getValue().setOffset(0));
+            ac.alterConsumerGroupOffsets(groupToReset, l, res -> {
+                if (res.succeeded()) {
+                    prom.complete();
+                } else {
+                    prom.fail(res.cause());
+                }
+                ac.close();
+            });
+        });
     }
 
     public static void describeGroup(KafkaAdminClient ac, Promise prom, List<String> groupToDescribe) {
