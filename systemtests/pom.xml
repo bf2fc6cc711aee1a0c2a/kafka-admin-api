@@ -14,12 +14,10 @@
         <maven.compiler.target>1.8</maven.compiler.target>
         <maven.compiler.source>1.8</maven.compiler.source>
         <junit.platform.version>1.5.2</junit.platform.version>
-        <vertx.version>4.0.0</vertx.version>
         <strimzi-test-container.version>0.20.0</strimzi-test-container.version>
         <testcontainers.version>1.15.1</testcontainers.version>
         <docker-java.version>3.2.7</docker-java.version>
         <assertj.version>3.4.1</assertj.version>
-        <jackson-annotations.version>2.11.3</jackson-annotations.version>
         <hamcrest.version>2.2</hamcrest.version>
         <awaitility.version>4.0.3</awaitility.version>
         <guava.version>19.0</guava.version>
@@ -28,8 +26,15 @@
     <dependencies>
         <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-databind</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
             <artifactId>jackson-annotations</artifactId>
-            <version>${jackson-annotations.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-core</artifactId>
         </dependency>
         <dependency>
             <groupId>org.apache.logging.log4j</groupId>
@@ -46,7 +51,10 @@
         <dependency>
             <groupId>io.vertx</groupId>
             <artifactId>vertx-junit5</artifactId>
-            <version>${vertx.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>io.vertx</groupId>
+            <artifactId>vertx-core</artifactId>
         </dependency>
         <dependency>
             <groupId>org.testcontainers</groupId>
@@ -56,12 +64,10 @@
         <dependency>
             <groupId>io.vertx</groupId>
             <artifactId>vertx-core</artifactId>
-            <version>${vertx.version}</version>
         </dependency>
         <dependency>
             <groupId>io.vertx</groupId>
             <artifactId>vertx-circuit-breaker</artifactId>
-            <version>${vertx.version}</version>
         </dependency>
         <dependency>
             <groupId>org.junit.jupiter</groupId>
