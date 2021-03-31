@@ -177,7 +177,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/TopicSettings'
+              $ref: '#/components/schemas/UpdateTopicInput'
         required: true
       parameters:
         -
@@ -437,6 +437,8 @@ components:
     TopicSettings:
       title: Root Type for NewTopicInput
       description: Kafka Topic (A feed where records are stored and published)
+      required:
+        - numPartitions
       type: object
       properties:
         numPartitions:
@@ -463,6 +465,7 @@ components:
       description: Input object to create a new topic.
       required:
         - name
+        - settings
       type: object
       properties:
         name:
@@ -484,3 +487,21 @@ components:
             -
               key: max.message.bytes
               value: '1050000'
+    UpdateTopicInput:
+      title: Root Type for UpdateTopicInput
+      description: Kafka Topic (A feed where records are stored and published)
+      type: object
+      properties:
+        config:
+          description: Topic configuration entry.
+          type: array
+          items:
+            $ref: '#/components/schemas/ConfigEntry'
+      example:
+        config:
+          -
+            key: min.insync.replicas
+            value: '1'
+          -
+            key: max.message.bytes
+            value: '1050000'
