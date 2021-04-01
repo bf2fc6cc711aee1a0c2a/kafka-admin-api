@@ -17,6 +17,7 @@ import org.apache.logging.log4j.Logger;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.regex.Pattern;
@@ -98,19 +99,37 @@ public class ConsumerGroupOperations {
     }
 
     public static void resetGroupOffset(KafkaAdminClient ac, String groupToReset, Promise prom) {
-        Promise listProm = Promise.promise();
-        ac.listConsumerGroupOffsets(groupToReset, listProm);
-
-        listProm.future().onComplete(list -> {
-            Map<TopicPartition, OffsetAndMetadata> l = (Map<TopicPartition, OffsetAndMetadata>) list;
-            l.entrySet().forEach(entry -> entry.getValue().setOffset(0)); //TODO
-            ac.alterConsumerGroupOffsets(groupToReset, l, res -> {
-                if (res.succeeded()) {
-                    prom.complete();
-                } else {
-                    prom.fail(res.cause());
+        ac.listConsumerGroupOffsets(groupToReset, list -> {
+            Map<TopicPartition, OffsetAndMetadata> newOffsets = new HashMap<>();
+            list.result().entrySet().forEach(entry -> {
+                newOffsets.put(entry.getKey(), new OffsetAndMetadata(0, entry.getValue().getMetadata()));
+            });
+            ac.alterConsumerGroupOffsets(groupToReset, newOffsets, i -> {
+                if (i.failed()) {
+                    prom.fail(i.cause());
+                    ac.close();
+                    return;
                 }
-                ac.close();
+                Promise describeGroupPromise = Promise.promise();
+                Promise listOffsetsPromise = Promise.promise();
+                ac.describeConsumerGroups(Collections.singletonList(groupToReset), describeGroupPromise);
+                ac.listConsumerGroupOffsets(groupToReset, listOffsetsPromise);
+
+                CompositeFuture.join(describeGroupPromise.future(), listOffsetsPromise.future())
+                    .onComplete(res -> {
+                        if (res.failed()) {
+                            prom.fail(res.cause());
+                        } else {
+                            Types.ConsumerGroupDescription groupDescription = getConsumerGroupsDescription(Pattern.compile(".*"), res.result().resultAt(0), res.result().resultAt(1)).get(0);
+                            if ("dead".equalsIgnoreCase(groupDescription.getState())) {
+                                prom.fail(new GroupIdNotFoundException("Group " + groupDescription.getGroupId() + " does not exist"));
+                                ac.close();
+                                return;
+                            }
+                            prom.complete(groupDescription);
+                        }
+                        ac.close();
+                    });
             });
         });
     }

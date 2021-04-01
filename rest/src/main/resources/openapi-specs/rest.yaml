@@ -393,8 +393,6 @@ paths:
           content:
             application/json: {}
           description: Unable to connect to the Kafka cluster.
-      # security:
-        # - Bearer: []
       operationId: resetConsumerGroupOffset
       summary: Reset the offset for a consumer group.
       description: Reset the offset for a particular consumer group.

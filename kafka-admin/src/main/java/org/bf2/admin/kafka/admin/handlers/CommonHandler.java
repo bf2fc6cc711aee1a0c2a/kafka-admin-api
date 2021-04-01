@@ -2,6 +2,7 @@ package org.bf2.admin.kafka.admin.handlers;
 
 import io.vertx.ext.web.validation.BodyProcessorException;
 import org.apache.kafka.common.errors.GroupNotEmptyException;
+import org.apache.kafka.common.errors.UnknownMemberIdException;
 import org.bf2.admin.kafka.admin.InvalidConsumerGroupException;
 import org.bf2.admin.kafka.admin.InvalidTopicException;
 import org.bf2.admin.kafka.admin.HttpMetrics;
@@ -106,18 +107,24 @@ public class CommonHandler {
                     routingContext.response().setStatusCode(HttpResponseStatus.BAD_REQUEST.code());
                 } else if (res.cause() instanceof InvalidConsumerGroupException) {
                     routingContext.response().setStatusCode(HttpResponseStatus.BAD_REQUEST.code());
-                } else if (res.cause() instanceof KafkaException) {
-                    if (res.cause().getMessage().contains("Failed to find brokers to send")) {
-                        routingContext.response().setStatusCode(HttpResponseStatus.SERVICE_UNAVAILABLE.code());
-                    } else if (res.cause().getMessage().contains("JAAS configuration")) {
-                        routingContext.response().setStatusCode(HttpResponseStatus.UNAUTHORIZED.code());
-                    }
+                } else if (res.cause() instanceof UnknownMemberIdException) {
+                    routingContext.response().setStatusCode(HttpResponseStatus.BAD_REQUEST.code());
                 } else if (res.cause() instanceof DecodeException) {
                     routingContext.response().setStatusCode(HttpResponseStatus.BAD_REQUEST.code());
                 } else if (res.cause() instanceof ValidationException) {
                     routingContext.response().setStatusCode(HttpResponseStatus.BAD_REQUEST.code());
                 } else if (res.cause() instanceof BodyProcessorException) {
                     routingContext.response().setStatusCode(HttpResponseStatus.BAD_REQUEST.code());
+                } else if (res.cause() instanceof KafkaException) {
+                    // Most of the kafka related exceptions are extended from KafkaException
+                    if (res.cause().getMessage().contains("Failed to find brokers to send")) {
+                        routingContext.response().setStatusCode(HttpResponseStatus.SERVICE_UNAVAILABLE.code());
+                    } else if (res.cause().getMessage().contains("JAAS configuration")) {
+                        routingContext.response().setStatusCode(HttpResponseStatus.UNAUTHORIZED.code());
+                    } else {
+                        log.error("Unknown exception ", res.cause());
+                        routingContext.response().setStatusCode(HttpResponseStatus.INTERNAL_SERVER_ERROR.code());
+                    }
                 } else {
                     log.error("Unknown exception ", res.cause());
                     routingContext.response().setStatusCode(HttpResponseStatus.INTERNAL_SERVER_ERROR.code());
