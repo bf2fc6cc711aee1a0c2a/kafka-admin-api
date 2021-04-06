@@ -1,6 +1,8 @@
 package org.bf2.admin.kafka.admin.handlers;
 
 import io.vertx.ext.web.validation.BodyProcessorException;
+import org.apache.kafka.common.errors.GroupNotEmptyException;
+import org.apache.kafka.common.errors.UnknownMemberIdException;
 import org.bf2.admin.kafka.admin.InvalidConsumerGroupException;
 import org.bf2.admin.kafka.admin.InvalidTopicException;
 import org.bf2.admin.kafka.admin.HttpMetrics;
@@ -23,6 +25,7 @@ import org.apache.kafka.common.KafkaException;
 import org.apache.kafka.common.config.SaslConfigs;
 import org.apache.kafka.common.errors.AuthenticationException;
 import org.apache.kafka.common.errors.AuthorizationException;
+import org.apache.kafka.common.errors.GroupIdNotFoundException;
 import org.apache.kafka.common.errors.InvalidConfigurationException;
 import org.apache.kafka.common.errors.InvalidReplicationFactorException;
 import org.apache.kafka.common.errors.InvalidRequestException;
@@ -67,7 +70,7 @@ public class CommonHandler {
             if (adminClient != null) {
                 adminClient.close();
             }
-            return Future.failedFuture(e);
+            return Future.failedFuture(new KafkaException(e.getCause().getMessage()));
         }
     }
 
@@ -76,8 +79,12 @@ public class CommonHandler {
             if (res.failed()) {
                 if (res.cause() instanceof UnknownTopicOrPartitionException) {
                     routingContext.response().setStatusCode(HttpResponseStatus.NOT_FOUND.code());
+                } else if (res.cause() instanceof GroupIdNotFoundException) {
+                    routingContext.response().setStatusCode(HttpResponseStatus.NOT_FOUND.code());
                 } else if (res.cause() instanceof TimeoutException) {
                     routingContext.response().setStatusCode(HttpResponseStatus.SERVICE_UNAVAILABLE.code());
+                } else if (res.cause() instanceof GroupNotEmptyException) {
+                    routingContext.response().setStatusCode(HttpResponseStatus.LOCKED.code());
                 } else if (res.cause() instanceof AuthenticationException ||
                     res.cause() instanceof AuthorizationException ||
                     res.cause() instanceof TokenExpiredException) {
@@ -100,14 +107,24 @@ public class CommonHandler {
                     routingContext.response().setStatusCode(HttpResponseStatus.BAD_REQUEST.code());
                 } else if (res.cause() instanceof InvalidConsumerGroupException) {
                     routingContext.response().setStatusCode(HttpResponseStatus.BAD_REQUEST.code());
-                } else if (res.cause() instanceof KafkaException) {
-                    routingContext.response().setStatusCode(HttpResponseStatus.UNAUTHORIZED.code());
+                } else if (res.cause() instanceof UnknownMemberIdException) {
+                    routingContext.response().setStatusCode(HttpResponseStatus.BAD_REQUEST.code());
                 } else if (res.cause() instanceof DecodeException) {
                     routingContext.response().setStatusCode(HttpResponseStatus.BAD_REQUEST.code());
                 } else if (res.cause() instanceof ValidationException) {
                     routingContext.response().setStatusCode(HttpResponseStatus.BAD_REQUEST.code());
                 } else if (res.cause() instanceof BodyProcessorException) {
                     routingContext.response().setStatusCode(HttpResponseStatus.BAD_REQUEST.code());
+                } else if (res.cause() instanceof KafkaException) {
+                    // Most of the kafka related exceptions are extended from KafkaException
+                    if (res.cause().getMessage().contains("Failed to find brokers to send")) {
+                        routingContext.response().setStatusCode(HttpResponseStatus.SERVICE_UNAVAILABLE.code());
+                    } else if (res.cause().getMessage().contains("JAAS configuration")) {
+                        routingContext.response().setStatusCode(HttpResponseStatus.UNAUTHORIZED.code());
+                    } else {
+                        log.error("Unknown exception ", res.cause());
+                        routingContext.response().setStatusCode(HttpResponseStatus.INTERNAL_SERVER_ERROR.code());
+                    }
                 } else {
                     log.error("Unknown exception ", res.cause());
                     routingContext.response().setStatusCode(HttpResponseStatus.INTERNAL_SERVER_ERROR.code());
@@ -159,7 +176,7 @@ public class CommonHandler {
     public static class ConsumerGroupComparator implements Comparator<Types.ConsumerGroup> {
         @Override
         public int compare(Types.ConsumerGroup firstConsumerGroup, Types.ConsumerGroup secondConsumerGroup) {
-            return firstConsumerGroup.getId().compareTo(secondConsumerGroup.getId());
+            return firstConsumerGroup.getGroupId().compareTo(secondConsumerGroup.getGroupId());
         }
     }
 

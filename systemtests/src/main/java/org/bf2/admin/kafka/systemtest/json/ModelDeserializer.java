@@ -57,7 +57,7 @@ public class ModelDeserializer {
         List<String> groupsID = null;
         try {
             groupsID = MAPPER.readValue(responseBuffer.toString(), new TypeReference<List<Types.ConsumerGroupDescription>>() { })
-                    .stream().map(Types.ConsumerGroup::getId).collect(Collectors.toList());
+                    .stream().map(Types.ConsumerGroup::getGroupId).collect(Collectors.toList());
         } catch (JsonProcessingException e) {
             e.printStackTrace();
         }

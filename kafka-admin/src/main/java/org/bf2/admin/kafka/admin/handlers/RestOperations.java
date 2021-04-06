@@ -76,8 +76,7 @@ public class RestOperations extends CommonHandler implements OperationsHandler<H
             httpMetrics.getRequestsCounter().increment();
             Timer.Sample requestTimerSample = Timer.start(httpMetrics.getRegistry());
             setOAuthToken(acConfig, routingContext);
-            String uri = routingContext.request().uri();
-            String topicToDescribe = uri.substring(uri.lastIndexOf("/") + 1);
+            String topicToDescribe = routingContext.pathParam("topicName");
             Promise<Types.Topic> prom = Promise.promise();
             if (topicToDescribe == null || topicToDescribe.isEmpty()) {
                 prom.fail(new InvalidTopicException("Topic to describe has not been specified."));
@@ -109,8 +108,7 @@ public class RestOperations extends CommonHandler implements OperationsHandler<H
             Timer.Sample requestTimerSample = Timer.start(httpMetrics.getRegistry());
             setOAuthToken(acConfig, routingContext);
             Promise<Types.UpdatedTopic> prom = Promise.promise();
-            String uri = routingContext.request().uri();
-            String topicToUpdate = uri.substring(uri.lastIndexOf("/") + 1);
+            String topicToUpdate = routingContext.pathParam("topicName");
             if (topicToUpdate == null || topicToUpdate.isEmpty()) {
                 prom.fail(new InvalidTopicException("Topic to update has not been specified."));
                 processResponse(prom, routingContext, HttpResponseStatus.BAD_REQUEST, httpMetrics, httpMetrics.getUpdateTopicRequestTimer(), requestTimerSample);
@@ -158,8 +156,7 @@ public class RestOperations extends CommonHandler implements OperationsHandler<H
             httpMetrics.getRequestsCounter().increment();
             Timer.Sample requestTimerSample = Timer.start(httpMetrics.getRegistry());
             setOAuthToken(acConfig, routingContext);
-            String uri = routingContext.request().uri();
-            String topicToDelete = uri.substring(uri.lastIndexOf("/") + 1);
+            String topicToDelete = routingContext.pathParam("topicName");
             Promise<List<String>> prom = Promise.promise();
             if (topicToDelete == null || topicToDelete.isEmpty()) {
                 prom.fail(new InvalidTopicException("Topic to delete has not been specified."));
@@ -232,15 +229,15 @@ public class RestOperations extends CommonHandler implements OperationsHandler<H
             httpMetrics.getListGroupsCounter().increment();
             httpMetrics.getRequestsCounter().increment();
             setOAuthToken(acConfig, routingContext);
-            String filter = routingContext.queryParams().get("filter");
+            String topicFilter = routingContext.queryParams().get("topic");
             String limit = routingContext.queryParams().get("limit") == null ? "0" : routingContext.queryParams().get("limit");
             String offset = routingContext.queryParams().get("offset") == null ? "0" : routingContext.queryParams().get("offset");
             final Pattern pattern;
             Promise<Types.TopicList> prom = Promise.promise();
-            if (filter != null && !filter.isEmpty()) {
-                pattern = Pattern.compile(filter);
+            if (topicFilter != null && !topicFilter.isEmpty()) {
+                pattern = Pattern.compile(topicFilter);
             } else {
-                pattern = null;
+                pattern = Pattern.compile(".*");
             }
 
             createAdminClient(vertx, acConfig).onComplete(ac -> {
@@ -270,11 +267,10 @@ public class RestOperations extends CommonHandler implements OperationsHandler<H
             httpMetrics.getRequestsCounter().increment();
             Timer.Sample requestTimerSample = Timer.start(httpMetrics.getRegistry());
             setOAuthToken(acConfig, routingContext);
-            String uri = routingContext.request().uri();
-            String groupToDescribe = uri.substring(uri.lastIndexOf("/") + 1);
+            String groupToDescribe = routingContext.pathParam("consumerGroupId");
             Promise<Types.Topic> prom = Promise.promise();
             if (groupToDescribe == null || groupToDescribe.isEmpty()) {
-                prom.fail(new InvalidConsumerGroupException("Consumer ConsumerGroup to describe has not been specified."));
+                prom.fail(new InvalidConsumerGroupException("ConsumerGroup to describe has not been specified."));
                 processResponse(prom, routingContext, HttpResponseStatus.BAD_REQUEST, httpMetrics, httpMetrics.getDescribeGroupRequestTimer(), requestTimerSample);
             }
             createAdminClient(vertx, acConfig).onComplete(ac -> {
@@ -296,11 +292,10 @@ public class RestOperations extends CommonHandler implements OperationsHandler<H
             httpMetrics.getRequestsCounter().increment();
             Timer.Sample requestTimerSample = Timer.start(httpMetrics.getRegistry());
             setOAuthToken(acConfig, routingContext);
-            String uri = routingContext.request().uri();
-            String groupToDelete = uri.substring(uri.lastIndexOf("/") + 1);
+            String groupToDelete = routingContext.pathParam("consumerGroupId");
             Promise<List<String>> prom = Promise.promise();
             if (groupToDelete == null || groupToDelete.isEmpty()) {
-                prom.fail(new InvalidConsumerGroupException("Consumer ConsumerGroup to delete has not been specified."));
+                prom.fail(new InvalidConsumerGroupException("ConsumerGroup to delete has not been specified."));
                 processResponse(prom, routingContext, HttpResponseStatus.BAD_REQUEST, httpMetrics, httpMetrics.getDeleteGroupRequestTimer(), requestTimerSample);
                 return;
             }
@@ -311,7 +306,35 @@ public class RestOperations extends CommonHandler implements OperationsHandler<H
                 } else {
                     ConsumerGroupOperations.deleteGroup(ac.result(), Collections.singletonList(groupToDelete), prom);
                 }
-                processResponse(prom, routingContext, HttpResponseStatus.OK, httpMetrics, httpMetrics.getDeleteGroupRequestTimer(), requestTimerSample);
+                processResponse(prom, routingContext, HttpResponseStatus.NO_CONTENT, httpMetrics, httpMetrics.getDeleteGroupRequestTimer(), requestTimerSample);
+            });
+        };
+    }
+
+    @Override
+    public Handler<RoutingContext> resetGroupOffset(KafkaAdminConfigRetriever kaConfig, Vertx vertx, HttpMetrics httpMetrics) {
+        return routingContext -> {
+            Map<String, Object> acConfig = kaConfig.getAcConfig();
+            httpMetrics.getRequestsCounter().increment();
+            httpMetrics.getRequestsCounter().increment();
+            Timer.Sample requestTimerSample = Timer.start(httpMetrics.getRegistry());
+            setOAuthToken(acConfig, routingContext);
+            String groupToReset = routingContext.pathParam("consumerGroupId");
+
+            Promise<List<String>> prom = Promise.promise();
+            if (groupToReset == null || groupToReset.isEmpty()) {
+                prom.fail(new InvalidConsumerGroupException("ConsumerGroup to reset Offset has not been specified."));
+                processResponse(prom, routingContext, HttpResponseStatus.BAD_REQUEST, httpMetrics, httpMetrics.getResetGroupOffsetRequestTimer(), requestTimerSample);
+                return;
+            }
+
+            createAdminClient(vertx, acConfig).onComplete(ac -> {
+                if (ac.failed()) {
+                    prom.fail(ac.cause());
+                } else {
+                    ConsumerGroupOperations.resetGroupOffset(ac.result(), groupToReset, prom);
+                }
+                processResponse(prom, routingContext, HttpResponseStatus.OK, httpMetrics, httpMetrics.getResetGroupOffsetRequestTimer(), requestTimerSample);
             });
         };
     }
