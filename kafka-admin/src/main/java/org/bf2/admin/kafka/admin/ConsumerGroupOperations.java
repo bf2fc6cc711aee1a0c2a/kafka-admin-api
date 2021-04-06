@@ -102,6 +102,7 @@ public class ConsumerGroupOperations {
         ac.listConsumerGroupOffsets(groupToReset, list -> {
             Map<TopicPartition, OffsetAndMetadata> newOffsets = new HashMap<>();
             list.result().entrySet().forEach(entry -> {
+                // TODO figure out what offset we should reset to
                 newOffsets.put(entry.getKey(), new OffsetAndMetadata(0, entry.getValue().getMetadata()));
             });
             ac.alterConsumerGroupOffsets(groupToReset, newOffsets, i -> {
