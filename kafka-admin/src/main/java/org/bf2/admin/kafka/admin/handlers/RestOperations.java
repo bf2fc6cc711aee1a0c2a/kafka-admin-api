@@ -25,6 +25,13 @@ import java.util.Map;
 import java.util.regex.Pattern;
 
 public class RestOperations extends CommonHandler implements OperationsHandler<Handler<RoutingContext>> {
+
+    /**
+     * Default limit to the number of partitions that new topics may have configured.
+     * This value may be overridden via environment variable <code>KAFKA_ADMIN_NUM_PARTITIONS_MAX</code>.
+     */
+    private static final String DEFAULT_NUM_PARTITIONS_MAX = "100";
+
     @Override
     public Handler<RoutingContext> createTopic(KafkaAdminConfigRetriever kaConfig, Vertx vertx, HttpMetrics httpMetrics) {
         return routingContext -> {
@@ -58,8 +65,10 @@ public class RestOperations extends CommonHandler implements OperationsHandler<H
                     return;
                 }
 
-                if (!numPartitionsValid(inputTopic.getSettings())) {
-                    prom.fail(new InvalidTopicException("Number of partitions for topic " + inputTopic.getName() + " exceeds maximum allowed"));
+                int maxPartitions = getNumPartitionsMax();
+
+                if (!numPartitionsValid(inputTopic.getSettings(), maxPartitions)) {
+                    prom.fail(new InvalidTopicException("Number of partitions for topic " + inputTopic.getName() + " may not exceed " + maxPartitions));
                     processResponse(prom, routingContext, HttpResponseStatus.BAD_REQUEST, httpMetrics, httpMetrics.getCreateTopicRequestTimer(), requestTimerSample);
                     return;
                 }
@@ -372,13 +381,16 @@ public class RestOperations extends CommonHandler implements OperationsHandler<H
         return System.getenv("KAFKA_ADMIN_INTERNAL_TOPICS_ENABLED") == null ? false : Boolean.valueOf(System.getenv("KAFKA_ADMIN_INTERNAL_TOPICS_ENABLED"));
     }
 
-    private boolean numPartitionsValid(Types.NewTopicInput settings) {
-        int maxPartitions = Integer.parseInt(System.getenv().getOrDefault("KAFKA_ADMIN_NUM_PARTITIONS_MAX", "100"));
+    private boolean numPartitionsValid(Types.NewTopicInput settings, int maxPartitions) {
         int partitions = settings.getNumPartitions() != null ?
                 settings.getNumPartitions() :
                     TopicOperations.DEFAULT_PARTITIONS;
 
         return partitions <= maxPartitions;
+    }
+
+    private int getNumPartitionsMax() {
+        return Integer.parseInt(System.getenv().getOrDefault("KAFKA_ADMIN_NUM_PARTITIONS_MAX", DEFAULT_NUM_PARTITIONS_MAX));
     }
 
     public Handler<RoutingContext> errorHandler(HttpMetrics httpMetrics) {
