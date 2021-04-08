@@ -1,16 +1,15 @@
 # Maven build targets
-**/target/*
+target/
 
 # Maven release files
 *.releaseBackup
 release.properties
 
 # Eclipse specific
-**/.project
-**/.settings/*
-**/.prefs
-**/.classpath
-/target/
+.project
+.settings/
+.prefs
+.classpath
 
 # IntelliJ IDEA specific
 .idea/

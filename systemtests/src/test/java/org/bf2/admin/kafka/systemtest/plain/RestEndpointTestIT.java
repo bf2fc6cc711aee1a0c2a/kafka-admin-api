@@ -474,6 +474,28 @@ public class RestEndpointTestIT extends PlainTestBase {
     }
 
     @ParallelTest
+    void testCreateTopicWithExcessiveNumPartitions(Vertx vertx, VertxTestContext testContext, ExtensionContext extensionContext) throws InterruptedException {
+        AdminClient kafkaClient = AdminClient.create(RequestUtils.getKafkaAdminConfig(DEPLOYMENT_MANAGER
+                .getKafkaContainer(extensionContext).getBootstrapServers()));
+        int publishedAdminPort = DEPLOYMENT_MANAGER.getAdminPort(extensionContext);
+        Types.NewTopic topic = RequestUtils.getTopicObject(101);
+
+        vertx.createHttpClient().request(HttpMethod.POST, publishedAdminPort, "localhost", "/rest/topics")
+                .compose(req -> req.putHeader("content-type", "application/json")
+                        .send(MODEL_DESERIALIZER.serializeBody(topic)).onSuccess(response -> {
+                            if (response.statusCode() !=  ReturnCodes.FAILED_REQUEST.code) {
+                                testContext.failNow("Status code " + response.statusCode() + " is not correct");
+                            }
+                        }).onFailure(testContext::failNow).compose(HttpClientResponse::body))
+                .onComplete(testContext.succeeding(buffer -> testContext.verify(() -> {
+                    assertThat(testContext.failed()).isFalse();
+                    assertThat(kafkaClient.listTopics().names().get()).doesNotContain(topic.getName());
+                    testContext.completeNow();
+                })));
+        assertThat(testContext.awaitCompletion(1, TimeUnit.MINUTES)).isTrue();
+    }
+
+    @ParallelTest
     void testTopicDeleteSingle(Vertx vertx, VertxTestContext testContext, ExtensionContext extensionContext) throws Exception {
         AdminClient kafkaClient = AdminClient.create(RequestUtils.getKafkaAdminConfig(DEPLOYMENT_MANAGER
                 .getKafkaContainer(extensionContext).getBootstrapServers()));

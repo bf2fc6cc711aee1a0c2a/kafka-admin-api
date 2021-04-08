@@ -58,6 +58,12 @@ public class RestOperations extends CommonHandler implements OperationsHandler<H
                     return;
                 }
 
+                if (!numPartitionsValid(inputTopic.getSettings())) {
+                    prom.fail(new InvalidTopicException("Number of partitions for topic " + inputTopic.getName() + " exceeds maximum allowed"));
+                    processResponse(prom, routingContext, HttpResponseStatus.BAD_REQUEST, httpMetrics, httpMetrics.getCreateTopicRequestTimer(), requestTimerSample);
+                    return;
+                }
+
                 if (ac.failed()) {
                     prom.fail(ac.cause());
                 } else {
@@ -364,6 +370,15 @@ public class RestOperations extends CommonHandler implements OperationsHandler<H
 
     private boolean internalTopicsAllowed() {
         return System.getenv("KAFKA_ADMIN_INTERNAL_TOPICS_ENABLED") == null ? false : Boolean.valueOf(System.getenv("KAFKA_ADMIN_INTERNAL_TOPICS_ENABLED"));
+    }
+
+    private boolean numPartitionsValid(Types.NewTopicInput settings) {
+        int maxPartitions = Integer.parseInt(System.getenv().getOrDefault("KAFKA_ADMIN_NUM_PARTITIONS_MAX", "100"));
+        int partitions = settings.getNumPartitions() != null ?
+                settings.getNumPartitions() :
+                    TopicOperations.DEFAULT_PARTITIONS;
+
+        return partitions <= maxPartitions;
     }
 
     public Handler<RoutingContext> errorHandler(HttpMetrics httpMetrics) {
