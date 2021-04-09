@@ -26,7 +26,7 @@ import java.util.stream.Collectors;
 public class TopicOperations {
     protected static final Logger log = LogManager.getLogger(TopicOperations.class);
     private static final short DEFAULT_REPLICATION_FACTOR = 3;
-    private static final short DEFAULT_PARTITIONS = 1;
+    public static final short DEFAULT_PARTITIONS = 1;
     private static final short REPLICATION_FACTOR = System.getenv("KAFKA_ADMIN_REPLICATION_FACTOR") == null ? DEFAULT_REPLICATION_FACTOR : Short.valueOf(System.getenv("KAFKA_ADMIN_REPLICATION_FACTOR"));
 
     public static void createTopic(KafkaAdminClient ac, Promise prom, Types.NewTopic inputTopic) {
