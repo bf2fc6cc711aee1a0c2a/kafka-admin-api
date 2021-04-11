@@ -37,56 +37,45 @@ public class ConsumerGroupOperations {
 
         ac.listConsumerGroups(listConsumerGroupsFuture);
         listConsumerGroupsFuture.future()
-            .compose(groups -> {
-                List<Types.ConsumerGroup> mappedList = groups.stream().map(item -> {
-                    Types.ConsumerGroup consumerGroup = new Types.ConsumerGroup();
-                    consumerGroup.setGroupId(item.getGroupId());
-                    return consumerGroup;
-                }).collect(Collectors.toList());
-                return Future.succeededFuture(mappedList);
-            })
             .compose(list -> {
-                List promises = new ArrayList();
-                list.forEach(item -> {
+                List<Future> futures = list.stream().map(item -> {
                     Promise<Map<String, ConsumerGroupDescription>> describeConsumerGroupsFuture = Promise.promise();
                     Promise<Map<TopicPartition, OffsetAndMetadata>> listOffsetsPromise = Promise.promise();
 
                     ac.describeConsumerGroups(Collections.singletonList(item.getGroupId()), describeConsumerGroupsFuture);
                     ac.listConsumerGroupOffsets(item.getGroupId(), listOffsetsPromise);
 
-                    promises.add(describeConsumerGroupsFuture);
-                    promises.add(listOffsetsPromise);
-                });
-                return CompositeFuture.join(promises);
+                    return ConsumerGroupInfo.future(item.getGroupId(), describeConsumerGroupsFuture.future(), listOffsetsPromise.future());
+                }).collect(Collectors.toList());
+                return CompositeFuture.join(futures);
             })
-            .compose(descriptions -> {
-                Map<TopicPartition, OffsetSpec> topicPartitionOffsetSpecs = new HashMap<>();
-                Map<String, ConsumerGroupDescription> cgDescriptions = new HashMap<>();
-                Map<String, Map<TopicPartition, OffsetAndMetadata>> cgTopicPartitionOffsets = new HashMap<>();
-                for (int i = 0; i < descriptions.result().size(); i += 2) {
-                    Map<String, ConsumerGroupDescription> cgDescription = descriptions.resultAt(i);
-                    List<TopicPartition> topicPartitions = getTopicPartitions(cgDescription);
-                    topicPartitions.forEach(topicPartition -> topicPartitionOffsetSpecs.putIfAbsent(topicPartition, OffsetSpec.LATEST));
+            .compose(infos -> {
+                List<ConsumerGroupInfo> consumerGroupInfos = infos.list();
 
-                    cgDescriptions.putAll(cgDescription);
-                    cgTopicPartitionOffsets.put(cgDescription.keySet().iterator().next(), descriptions.resultAt(i + 1));
-                }
+                // Collect a distinct list of all TopicPartitions consumed by all the consumer
+                // groups in the list, then create a map them to `OffsetSpec.LATEST`. This mapping
+                // is just needed for the non-group-specific `ac.listOffsets` method, so that we
+                // only invoke it once rather than once per group (with potentially a lot of
+                // overlap).
+                Map<TopicPartition, OffsetSpec> topicPartitionOffsetSpecs = consumerGroupInfos.stream()
+                    .map(cgInfo -> getTopicPartitions(Collections.singletonMap(cgInfo.getGroupId(), cgInfo.getDescription())))
+                    .flatMap(List::stream)
+                    .distinct()
+                    .filter(topicPartition -> topicPartition != null)
+                    .collect(Collectors.toMap(tp -> tp, tp -> OffsetSpec.LATEST));
 
-                Map<TopicPartition, ListOffsetsResultInfo> topicPartitionListOffsetsResultInfo = new HashMap<>();
-                Promise<Map<TopicPartition, ListOffsetsResultInfo>> listOffsetsEndPromise = Promise.promise();
-                ac.listOffsets(topicPartitionOffsetSpecs, listOffsetsEndPromise);
+                Promise<Map<TopicPartition, ListOffsetsResultInfo>> latestOffsetsPromise = Promise.promise();
+                ac.listOffsets(topicPartitionOffsetSpecs, latestOffsetsPromise);
 
-                return CompositeFuture.join(Future.succeededFuture(cgDescriptions),
-                                            Future.succeededFuture(cgTopicPartitionOffsets),
-                                            listOffsetsEndPromise.future());
+                return CompositeFuture.join(Future.succeededFuture(consumerGroupInfos), latestOffsetsPromise.future());
             })
             .compose(composite -> {
-                Map<String, ConsumerGroupDescription> cgDescriptions = composite.resultAt(0);
-                Map<String, Map<TopicPartition, OffsetAndMetadata>> cgTopicPartitionOffsets = composite.resultAt(1);
-                Map<TopicPartition, ListOffsetsResultInfo> endOffsets = composite.resultAt(2);
+                List<ConsumerGroupInfo> consumerGroupInfos = composite.resultAt(0);
+                Map<TopicPartition, ListOffsetsResultInfo> latestOffsets = composite.resultAt(1);
 
-                List<Types.ConsumerGroupDescription> list = cgDescriptions.entrySet().stream()
-                    .map(e -> getConsumerGroupsDescription(pattern, Collections.singletonMap(e.getKey(), e.getValue()), cgTopicPartitionOffsets.get(e.getKey()), endOffsets).get(0))
+                List<Types.ConsumerGroupDescription> list = consumerGroupInfos.stream()
+                    .map(e -> getConsumerGroupsDescription(pattern, Collections.singletonMap(e.getGroupId(), e.getDescription()), e.getOffsets(), latestOffsets))
+                    .flatMap(List::stream)
                     .filter(i -> i != null)
                     .collect(Collectors.toList());
 
