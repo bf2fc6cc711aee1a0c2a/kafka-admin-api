@@ -38,14 +38,16 @@ public class ConsumerGroupOperations {
         ac.listConsumerGroups(listConsumerGroupsFuture);
         listConsumerGroupsFuture.future()
             .compose(list -> {
-                List<Future> futures = list.stream().map(item -> {
-                    Promise<Map<String, ConsumerGroupDescription>> describeConsumerGroupsFuture = Promise.promise();
+                List<String> groupIds = list.stream().map(group -> group.getGroupId()).collect(Collectors.toList());
+                Promise<Map<String, ConsumerGroupDescription>> describeConsumerGroupsPromise = Promise.promise();
+                ac.describeConsumerGroups(groupIds, describeConsumerGroupsPromise);
+                return describeConsumerGroupsPromise.future();
+            })
+            .compose(descriptionMap -> {
+                List<Future> futures = descriptionMap.entrySet().stream().map(entry -> {
                     Promise<Map<TopicPartition, OffsetAndMetadata>> listOffsetsPromise = Promise.promise();
-
-                    ac.describeConsumerGroups(Collections.singletonList(item.getGroupId()), describeConsumerGroupsFuture);
-                    ac.listConsumerGroupOffsets(item.getGroupId(), listOffsetsPromise);
-
-                    return ConsumerGroupInfo.future(item.getGroupId(), describeConsumerGroupsFuture.future(), listOffsetsPromise.future());
+                    ac.listConsumerGroupOffsets(entry.getKey(), listOffsetsPromise);
+                    return ConsumerGroupInfo.future(entry.getKey(), Future.succeededFuture(descriptionMap), listOffsetsPromise.future());
                 }).collect(Collectors.toList());
                 return CompositeFuture.join(futures);
             })
