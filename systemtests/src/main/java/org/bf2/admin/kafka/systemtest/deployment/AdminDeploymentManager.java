@@ -170,16 +170,20 @@ public class AdminDeploymentManager {
     public void deployAdminContainer(String bootstrap, Boolean oauth, Boolean internal, String networkName, ExtensionContext testContext, VertxTestContext vertxTestContext) throws Exception {
         TestUtils.logDeploymentPhase("Deploying kafka admin api container");
         ExposedPort adminPort = ExposedPort.tcp(8080);
-        Ports portBind = new Ports();
-        portBind.bind(adminPort, Ports.Binding.bindPort(8082));
+        ExposedPort debugPort = ExposedPort.tcp(5005);
+
+        Ports boundPorts = new Ports();
+        boundPorts.bind(debugPort, Ports.Binding.bindPort(5005));
 
         CreateContainerResponse contResp = client.createContainerCmd("kafka-admin")
-                .withExposedPorts(adminPort)
+                .withExposedPorts(adminPort, debugPort)
                 .withLabels(Collections.singletonMap("test-ident", testContext.getUniqueId()))
                 .withHostConfig(new HostConfig()
                         .withPublishAllPorts(true)
+                        .withPortBindings(boundPorts)
                         .withNetworkMode(networkName))
                 .withCmd("/home/jboss/run.sh",
+                     "-e", String.format("KAFKA_ADMIN_DEBUG=-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:%d", 5005),
                      "-e", String.format("KAFKA_ADMIN_BOOTSTRAP_SERVERS=%s", bootstrap),
                      "-e", String.format("KAFKA_ADMIN_OAUTH_ENABLED=%s", oauth),
                      "-e", String.format("KAFKA_ADMIN_INTERNAL_TOPICS_ENABLED=%s", internal),

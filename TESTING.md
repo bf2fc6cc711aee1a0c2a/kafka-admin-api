@@ -37,3 +37,6 @@ Single class/test execution for classic execution
 mvn clean verify -pl systemtests -Dit.test=RestEndpointTestIT
 mvn clean verify -pl systemtests -Dit.test=RestEndpointTestIT#testTopicListAfterCreation
 ```
+
+### Remote Debugging
+The system tests will run with remote debugging enabled on the host's port `5005`. You can attach your IDE to the remote debug port by first setting a breakpoint in the test method you would like to debug, then attach to the remote debugger on port `5005` once the test method breakpoint is hit.
