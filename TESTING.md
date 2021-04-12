@@ -10,7 +10,7 @@ make prepare-tests
 ```
 For cleaning
 ```
-make clean-test 
+make clean-tests
 ```
 Add hostname resolution for OAUTH tests into your /etc/hosts.
 ```
