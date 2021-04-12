@@ -33,9 +33,19 @@ public class OauthTestBase extends TestBase {
         DEPLOYMENT_MANAGER.deployOauthStack(vertxTestContext, extensionContext);
         publishedAdminPort = DEPLOYMENT_MANAGER.getAdminPort(extensionContext);
         // Get valid auth token
+        //String payload = "grant_type=client_credentials&client_id=kafka&client_secret=kafka-secret";
+        changeTokenToAuthorized(vertx, vertxTestContext);
+        createKafkaAdmin();
+    }
+
+    private void createKafkaAdmin() {
+        kafkaClient = KafkaAdminClient.create(ClientsConfig.getAdminConfigOauth(token));
+    }
+
+    protected void changeTokenToAuthorized(Vertx vertx, VertxTestContext testContext) throws InterruptedException {
         HttpClient client = vertx.createHttpClient();
         String payload = "grant_type=password&username=alice&password=alice-password&client_id=kafka-cli";
-        //String payload = "grant_type=client_credentials&client_id=kafka&client_secret=kafka-secret";
+
         CountDownLatch countDownLatch = new CountDownLatch(1);
         client.request(HttpMethod.POST, 8080, "localhost", "/auth/realms/kafka-authz/protocol/openid-connect/token")
                 .compose(req -> req.putHeader("Host", "keycloak:8080")
@@ -50,11 +60,6 @@ public class OauthTestBase extends TestBase {
                     }
                 });
         countDownLatch.await(30, TimeUnit.SECONDS);
-        createKafkaAdmin();
-    }
-
-    private void createKafkaAdmin() {
-        kafkaClient = KafkaAdminClient.create(ClientsConfig.getAdminConfigOauth(token));
     }
 
     protected void changeTokenToUnauthorized(Vertx vertx, VertxTestContext testContext) {
