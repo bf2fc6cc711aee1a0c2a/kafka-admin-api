@@ -1,8 +1,5 @@
 package org.bf2.admin.kafka.systemtest.bases;
 
-import org.bf2.admin.kafka.systemtest.TestTag;
-import org.bf2.admin.kafka.systemtest.json.ModelDeserializer;
-import org.bf2.admin.kafka.systemtest.json.TokenModel;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.vertx.core.Vertx;
@@ -10,17 +7,17 @@ import io.vertx.core.http.HttpClient;
 import io.vertx.core.http.HttpClientResponse;
 import io.vertx.core.http.HttpMethod;
 import io.vertx.junit5.VertxTestContext;
-import org.apache.kafka.clients.CommonClientConfigs;
 import org.apache.kafka.clients.admin.AdminClient;
-import org.apache.kafka.clients.admin.AdminClientConfig;
 import org.apache.kafka.clients.admin.KafkaAdminClient;
-import org.apache.kafka.common.config.SaslConfigs;
+import org.bf2.admin.kafka.systemtest.TestTag;
+import org.bf2.admin.kafka.systemtest.json.ModelDeserializer;
+import org.bf2.admin.kafka.systemtest.json.TokenModel;
+import org.bf2.admin.kafka.systemtest.utils.ClientsConfig;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.extension.ExtensionContext;
 
-import java.util.Properties;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
@@ -36,8 +33,19 @@ public class OauthTestBase extends TestBase {
         DEPLOYMENT_MANAGER.deployOauthStack(vertxTestContext, extensionContext);
         publishedAdminPort = DEPLOYMENT_MANAGER.getAdminPort(extensionContext);
         // Get valid auth token
+        //String payload = "grant_type=client_credentials&client_id=kafka&client_secret=kafka-secret";
+        changeTokenToAuthorized(vertx, vertxTestContext);
+        createKafkaAdmin();
+    }
+
+    private void createKafkaAdmin() {
+        kafkaClient = KafkaAdminClient.create(ClientsConfig.getAdminConfigOauth(token));
+    }
+
+    protected void changeTokenToAuthorized(Vertx vertx, VertxTestContext testContext) throws InterruptedException {
         HttpClient client = vertx.createHttpClient();
         String payload = "grant_type=password&username=alice&password=alice-password&client_id=kafka-cli";
+
         CountDownLatch countDownLatch = new CountDownLatch(1);
         client.request(HttpMethod.POST, 8080, "localhost", "/auth/realms/kafka-authz/protocol/openid-connect/token")
                 .compose(req -> req.putHeader("Host", "keycloak:8080")
@@ -52,25 +60,11 @@ public class OauthTestBase extends TestBase {
                     }
                 });
         countDownLatch.await(30, TimeUnit.SECONDS);
-        createKafkaAdmin();
-    }
-
-    private void createKafkaAdmin() {
-        Properties props = new Properties();
-        props.put(CommonClientConfigs.SECURITY_PROTOCOL_CONFIG, "SASL_PLAINTEXT");
-        props.put(AdminClientConfig.METADATA_MAX_AGE_CONFIG, "30000");
-        props.put(SaslConfigs.SASL_LOGIN_CALLBACK_HANDLER_CLASS, "io.strimzi.kafka.oauth.client.JaasClientOauthLoginCallbackHandler");
-        props.put(SaslConfigs.SASL_MECHANISM, "OAUTHBEARER");
-        props.put(AdminClientConfig.REQUEST_TIMEOUT_MS_CONFIG, "10000");
-        props.put(SaslConfigs.SASL_JAAS_CONFIG, "org.apache.kafka.common.security.oauthbearer.OAuthBearerLoginModule required oauth.access.token=\"" + token.getAccessToken() + "\";");
-        props.put(AdminClientConfig.BOOTSTRAP_SERVERS_CONFIG, "localhost:9092");
-        props.put(AdminClientConfig.DEFAULT_API_TIMEOUT_MS_CONFIG, "30000");
-        kafkaClient = KafkaAdminClient.create(props);
     }
 
     protected void changeTokenToUnauthorized(Vertx vertx, VertxTestContext testContext) {
         HttpClient client = vertx.createHttpClient();
-        String payload = "grant_type=client_credentials&client_secret=team-a-client-secret&client_id=team-a-client";
+        String payload = "grant_type=password&username=bob&password=bob-password&client_id=kafka-cli";
         CountDownLatch countDownLatch = new CountDownLatch(1);
         client.request(HttpMethod.POST, 8080, "localhost", "/auth/realms/kafka-authz/protocol/openid-connect/token")
                 .compose(req -> req.putHeader("Host", "keycloak:8080")

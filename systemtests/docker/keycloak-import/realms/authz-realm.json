@@ -264,6 +264,9 @@
             "uris": [],
             "scopes": [
               {
+                "name": "Delete"
+              },
+              {
                 "name": "Describe"
               },
               {
@@ -502,35 +505,6 @@
             }
           },
           {
-            "name": "ClusterManager of cluster2 Group has full access to topics on cluster2",
-            "type": "resource",
-            "logic": "POSITIVE",
-            "decisionStrategy": "UNANIMOUS",
-            "config": {
-              "resources": "[\"kafka-cluster:cluster2,Topic:*\"]",
-              "applyPolicies": "[\"ClusterManager of cluster2 Group\"]"
-            }
-          },
-          {
-            "name": "ClusterManager of cluster2 Group has full access to consumer groups on cluster2",
-            "type": "resource",
-            "logic": "POSITIVE",
-            "decisionStrategy": "UNANIMOUS",
-            "config": {
-              "resources": "[\"kafka-cluster:cluster2,Group:*\"]",
-              "applyPolicies": "[\"ClusterManager of cluster2 Group\"]"
-            }
-          },
-          {
-            "name": "ClusterManager of cluster2 Group has full access to cluster config on cluster2",
-            "type": "resource",
-            "logic": "POSITIVE",
-            "decisionStrategy": "UNANIMOUS",
-            "config": {
-              "resources": "[\"kafka-cluster:cluster2,Cluster:*\"]",
-              "applyPolicies": "[\"ClusterManager of cluster2 Group\"]"
-            }
-          }, {
             "name" : "ClusterManager Group has full access to manage and affect groups",
             "type" : "resource",
             "logic" : "POSITIVE",
