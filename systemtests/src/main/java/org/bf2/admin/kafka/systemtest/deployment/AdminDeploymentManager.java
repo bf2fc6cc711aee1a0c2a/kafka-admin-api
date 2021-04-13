@@ -22,9 +22,11 @@ import org.apache.logging.log4j.Logger;
 import org.junit.jupiter.api.extension.ExtensionContext;
 import org.testcontainers.containers.Network;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Stack;
 import java.util.concurrent.CountDownLatch;
@@ -37,7 +39,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.notNullValue;
-
 
 public class AdminDeploymentManager {
 
@@ -170,20 +171,37 @@ public class AdminDeploymentManager {
     public void deployAdminContainer(String bootstrap, Boolean oauth, Boolean internal, String networkName, ExtensionContext testContext, VertxTestContext vertxTestContext) throws Exception {
         TestUtils.logDeploymentPhase("Deploying kafka admin api container");
         ExposedPort adminPort = ExposedPort.tcp(8080);
-        Ports portBind = new Ports();
-        portBind.bind(adminPort, Ports.Binding.bindPort(8082));
+
+        List<ExposedPort> exposedPorts = new ArrayList<>(2);
+        Ports boundPorts = new Ports();
+
+        exposedPorts.add(adminPort);
+
+        List<String> cmd = new ArrayList<>(Arrays.asList("/home/jboss/run.sh",
+                "-e", String.format("KAFKA_ADMIN_BOOTSTRAP_SERVERS=%s", bootstrap),
+                "-e", String.format("KAFKA_ADMIN_OAUTH_ENABLED=%s", oauth),
+                "-e", String.format("KAFKA_ADMIN_INTERNAL_TOPICS_ENABLED=%s", internal),
+                "-e", "KAFKA_ADMIN_REPLICATION_FACTOR=1"));
+
+        Integer configuredDebugPort = Integer.getInteger("debugPort");
+
+        if (configuredDebugPort != null) {
+            ExposedPort debugPort = ExposedPort.tcp(configuredDebugPort);
+            boundPorts.bind(debugPort, Ports.Binding.bindPort(configuredDebugPort));
+            exposedPorts.add(debugPort);
+            cmd.add("-e");
+            cmd.add(String.format("KAFKA_ADMIN_DEBUG=-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:%d", configuredDebugPort));
+        }
 
         CreateContainerResponse contResp = client.createContainerCmd("kafka-admin")
-                .withExposedPorts(adminPort)
+                .withExposedPorts(exposedPorts)
                 .withLabels(Collections.singletonMap("test-ident", testContext.getUniqueId()))
                 .withHostConfig(new HostConfig()
                         .withPublishAllPorts(true)
+                        .withPortBindings(boundPorts)
                         .withNetworkMode(networkName))
-                .withCmd("/home/jboss/run.sh",
-                     "-e", String.format("KAFKA_ADMIN_BOOTSTRAP_SERVERS=%s", bootstrap),
-                     "-e", String.format("KAFKA_ADMIN_OAUTH_ENABLED=%s", oauth),
-                     "-e", String.format("KAFKA_ADMIN_INTERNAL_TOPICS_ENABLED=%s", internal),
-                     "-e", "KAFKA_ADMIN_REPLICATION_FACTOR=1").exec();
+                .withCmd(cmd).exec();
+
         String adminContId = contResp.getId();
         client.startContainerCmd(contResp.getId()).exec();
         int adminPublishedPort = Integer.parseInt(client.inspectContainerCmd(contResp.getId()).exec().getNetworkSettings()
