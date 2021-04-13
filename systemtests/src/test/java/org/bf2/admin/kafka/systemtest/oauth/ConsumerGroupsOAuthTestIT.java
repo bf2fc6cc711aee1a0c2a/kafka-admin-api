@@ -51,7 +51,7 @@ public class ConsumerGroupsOAuthTestIT extends OauthTestBase {
         client.request(HttpMethod.GET, publishedAdminPort, "localhost", "/rest/consumer-groups")
                 .compose(req -> req.putHeader("Authorization", "Bearer " + token.getAccessToken()).send()
                         .onSuccess(response -> testContext.verify(() -> {
-                            assertThat(response.statusCode()).isEqualTo(ReturnCodes.UNAUTHORIZED.code);
+                            assertThat(response.statusCode()).isEqualTo(ReturnCodes.AUTHENTICATION_ERROR.code);
                             testContext.completeNow();
                         })));
         assertThat(testContext.awaitCompletion(1, TimeUnit.MINUTES)).isTrue();
@@ -104,7 +104,7 @@ public class ConsumerGroupsOAuthTestIT extends OauthTestBase {
         client.request(HttpMethod.GET, publishedAdminPort, "localhost", "/rest/consumer-groups/" + groupIDS.get(0))
                 .compose(req -> req.putHeader("Authorization", "Bearer " + token.getAccessToken()).send()
                         .onSuccess(response -> testContext.verify(() -> {
-                            assertThat(response.statusCode()).isEqualTo(ReturnCodes.UNAUTHORIZED.code);
+                            assertThat(response.statusCode()).isEqualTo(ReturnCodes.AUTHENTICATION_ERROR.code);
                             testContext.completeNow();
                         })));
         assertThat(testContext.awaitCompletion(1, TimeUnit.MINUTES)).isTrue();
@@ -156,7 +156,7 @@ public class ConsumerGroupsOAuthTestIT extends OauthTestBase {
         HttpClient client = vertx.createHttpClient();
         client.request(HttpMethod.DELETE, publishedAdminPort, "localhost", "/rest/consumer-groups/" + groupIDS.get(0))
                 .compose(req -> req.putHeader("Authorization", "Bearer " + token.getAccessToken()).send().onSuccess(response -> {
-                    if (response.statusCode() !=  ReturnCodes.UNAUTHORIZED.code) {
+                    if (response.statusCode() !=  ReturnCodes.AUTHENTICATION_ERROR.code) {
                         testContext.failNow("Status code " + response.statusCode() + " is not correct");
                     }
                 }).onFailure(testContext::failNow).compose(HttpClientResponse::body))
