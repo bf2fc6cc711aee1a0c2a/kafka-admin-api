@@ -1,1 +1,2 @@
 org.bf2.admin.health.HealthService
+org.bf2.admin.rest.RestService

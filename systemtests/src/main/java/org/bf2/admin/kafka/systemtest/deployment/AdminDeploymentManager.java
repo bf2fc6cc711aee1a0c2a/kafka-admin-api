@@ -89,6 +89,7 @@ public class AdminDeploymentManager {
         vertxTestContext.verify(() -> {
             LOGGER.info("Deploying strimzi kafka test container.");
             Network network = Network.newNetwork();
+            @SuppressWarnings("resource")
             StrimziKafkaContainer kafka = new StrimziKafkaContainer().withLabels(Collections.singletonMap("test-ident", testContext.getUniqueId()))
                     .withNetwork(network);
             kafka.start();
@@ -177,11 +178,10 @@ public class AdminDeploymentManager {
 
         exposedPorts.add(adminPort);
 
-        List<String> cmd = new ArrayList<>(Arrays.asList("/home/jboss/run.sh",
-                "-e", String.format("KAFKA_ADMIN_BOOTSTRAP_SERVERS=%s", bootstrap),
-                "-e", String.format("KAFKA_ADMIN_OAUTH_ENABLED=%s", oauth),
-                "-e", String.format("KAFKA_ADMIN_INTERNAL_TOPICS_ENABLED=%s", internal),
-                "-e", "KAFKA_ADMIN_REPLICATION_FACTOR=1"));
+        List<String> env = new ArrayList<>(Arrays.asList(String.format("KAFKA_ADMIN_BOOTSTRAP_SERVERS=%s", bootstrap),
+                                                         String.format("KAFKA_ADMIN_OAUTH_ENABLED=%s", oauth),
+                                                         String.format("KAFKA_ADMIN_INTERNAL_TOPICS_ENABLED=%s", internal),
+                                                         "KAFKA_ADMIN_REPLICATION_FACTOR=1"));
 
         Integer configuredDebugPort = Integer.getInteger("debugPort");
 
@@ -189,8 +189,7 @@ public class AdminDeploymentManager {
             ExposedPort debugPort = ExposedPort.tcp(configuredDebugPort);
             boundPorts.bind(debugPort, Ports.Binding.bindPort(configuredDebugPort));
             exposedPorts.add(debugPort);
-            cmd.add("-e");
-            cmd.add(String.format("KAFKA_ADMIN_DEBUG=-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:%d", configuredDebugPort));
+            env.add(String.format("KAFKA_ADMIN_DEBUG=-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:%d", configuredDebugPort));
         }
 
         CreateContainerResponse contResp = client.createContainerCmd("kafka-admin")
@@ -200,17 +199,23 @@ public class AdminDeploymentManager {
                         .withPublishAllPorts(true)
                         .withPortBindings(boundPorts)
                         .withNetworkMode(networkName))
-                .withCmd(cmd).exec();
+                .withEnv(env)
+                .exec();
 
         String adminContId = contResp.getId();
+
+        synchronized (this) {
+            STORED_RESOURCES.computeIfAbsent(testContext.getDisplayName(), k -> new Stack<>());
+            STORED_RESOURCES.get(testContext.getDisplayName()).push(() -> deleteContainer(adminContId));
+        }
+
         client.startContainerCmd(contResp.getId()).exec();
+
         int adminPublishedPort = Integer.parseInt(client.inspectContainerCmd(contResp.getId()).exec().getNetworkSettings()
                 .getPorts().getBindings().get(adminPort)[0].getHostPortSpec());
         TestUtils.logDeploymentPhase("Waiting for admin to be up&running");
         waitForAdminReady(adminPublishedPort, vertxTestContext);
         synchronized (this) {
-            STORED_RESOURCES.computeIfAbsent(testContext.getDisplayName(), k -> new Stack<>());
-            STORED_RESOURCES.get(testContext.getDisplayName()).push(() -> deleteContainer(adminContId));
             ADMIN_PORTS.putIfAbsent(testContext.getDisplayName(), adminPublishedPort);
         }
     }

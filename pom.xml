@@ -11,10 +11,7 @@
     <version>0.0.8-SNAPSHOT</version>
 
     <modules>
-        <module>http-server</module>
-        <module>health</module>
         <module>kafka-admin</module>
-        <module>rest</module>
         <module>systemtests</module>
     </modules>
 
@@ -64,7 +61,7 @@
             </dependency>
             <dependency>
                 <groupId>org.bf2</groupId>
-                <artifactId>http-server</artifactId>
+                <artifactId>kafka-admin</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>
@@ -154,6 +151,7 @@
         <pluginManagement>
             <plugins>
                 <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-compiler-plugin</artifactId>
                     <version>${maven.compiler.version}</version>
                     <configuration>
@@ -164,32 +162,6 @@
             </plugins>
         </pluginManagement>
         <plugins>
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-shade-plugin</artifactId>
-                <version>3.2.1</version>
-                <executions>
-                    <execution>
-                        <phase>package</phase>
-                        <goals>
-                            <goal>shade</goal>
-                        </goals>
-                        <configuration>
-                            <filters>
-                                <filter>
-                                    <artifact>*:*</artifact>
-                                    <excludes>
-                                        <exclude>META-INF/*.SF</exclude>
-                                        <exclude>META-INF/*.DSA</exclude>
-                                        <exclude>META-INF/*.RSA</exclude>
-                                    </excludes>
-                                </filter>
-                            </filters>
-                            <outputFile>${project.build.directory}/${project.artifactId}-${project.version}-fat.jar</outputFile>
-                        </configuration>
-                    </execution>
-                </executions>
-            </plugin>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-dependency-plugin</artifactId>
@@ -287,7 +259,6 @@
                             <goal>verify</goal>
                         </goals>
                         <configuration>
-                            <forkCount>0</forkCount>
                             <includes>
                                 <include>**/IT*.java</include>
                                 <include>**/*IT.java</include>
@@ -323,6 +294,7 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-jar-plugin</artifactId>
+                <version>3.2.0</version>
                 <configuration>
                     <archive>
                         <manifest>
