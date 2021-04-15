@@ -139,7 +139,7 @@ public class CommonHandler {
                     jo.put("class", res.cause().getClass().getSimpleName());
                 }
                 routingContext.response().end(jo.toBuffer());
-                httpMetrics.getFailedRequestsCounter().increment();
+                httpMetrics.getFailedRequestsCounter(routingContext.response().getStatusCode()).increment();
                 requestTimerSample.stop(timer);
                 log.error("{} {}", res.cause().getClass(), res.cause().getMessage());
             } else {
@@ -153,7 +153,7 @@ public class CommonHandler {
                     jsonObject.put("code", routingContext.response().getStatusCode());
                     jsonObject.put("error", e.getMessage());
                     routingContext.response().end(jsonObject.toBuffer());
-                    httpMetrics.getFailedRequestsCounter().increment();
+                    httpMetrics.getFailedRequestsCounter(HttpResponseStatus.INTERNAL_SERVER_ERROR.code()).increment();
                     requestTimerSample.stop(timer);
                     log.error(e);
                     return;

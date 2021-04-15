@@ -145,14 +145,17 @@ public class MetricsEndpointTestIT extends PlainTestBase {
         RequestUtils.prepareAndExecuteFailDeleteRequest(testContext, 5, client, publishedAdminPort);
         RequestUtils.prepareAndExecuteDeleteRequest(testContext, 3, client, kafkaClient, publishedAdminPort);
         RequestUtils.prepareAndExecuteListRequest(testContext, 2, client, publishedAdminPort);
+        RequestUtils.prepareAndExecuteFailCreateTopicRequest(testContext, 4, client, publishedAdminPort);
 
         String metrics =  RequestUtils.retrieveMetrics(testContext, client, publishedAdminPort);
         Pattern patternTotal = Pattern.compile("^requests_total ([0-9.]+)", Pattern.MULTILINE);
-        Pattern patternFailed = Pattern.compile("^failed_requests_total ([0-9.]+)", Pattern.MULTILINE);
+        Pattern patternFailedNotFound = Pattern.compile("^failed_requests_total\\{status_code=\"404\",\\} ([0-9.]+)", Pattern.MULTILINE);
+        Pattern patternFailedBadRequest = Pattern.compile("^failed_requests_total\\{status_code=\"400\",\\} ([0-9.]+)", Pattern.MULTILINE);
         Pattern patternSucc = Pattern.compile("^succeeded_requests_total ([0-9.]+)", Pattern.MULTILINE);
         HashMap<Matcher, String> matchers = new HashMap<Matcher, String>() {{
-                put(patternTotal.matcher(metrics), "10.0");
-                put(patternFailed.matcher(metrics), "5.0");
+                put(patternTotal.matcher(metrics), "14.0");
+                put(patternFailedNotFound.matcher(metrics), "5.0");
+                put(patternFailedBadRequest.matcher(metrics), "4.0");
                 put(patternSucc.matcher(metrics), "5.0");
             }};
 

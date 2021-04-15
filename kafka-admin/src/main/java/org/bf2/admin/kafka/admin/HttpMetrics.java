@@ -6,10 +6,12 @@ import io.micrometer.prometheus.PrometheusMeterRegistry;
 import io.vertx.micrometer.backends.BackendRegistries;
 
 public class HttpMetrics {
+    private static final String FAILED_REQUESTS_COUNTER = "failed_requests";
+    private static final String HTTP_STATUS_CODE = "status_code";
+
     private PrometheusMeterRegistry meterRegistry;
     private Counter requestsCounter;
     private Counter openApiCounter;
-    private Counter failedRequestsCounter;
     private Counter succeededRequestsCounter;
     private Counter deleteTopicCounter;
     private Counter createTopicCounter;
@@ -41,7 +43,10 @@ public class HttpMetrics {
     private void init() {
         requestsCounter = meterRegistry.counter("requests");
         openApiCounter = meterRegistry.counter("requests_openapi");
-        failedRequestsCounter = meterRegistry.counter("failed_requests");
+        /*
+         * Status code 404 is a placeholder for defining the status_code label.
+         */
+        meterRegistry.counter(FAILED_REQUESTS_COUNTER, HTTP_STATUS_CODE, "404");
         succeededRequestsCounter = meterRegistry.counter("succeeded_requests");
         deleteTopicCounter = meterRegistry.counter("delete_topic_requests");
         createTopicCounter = meterRegistry.counter("create_topic_requests");
@@ -70,8 +75,8 @@ public class HttpMetrics {
         return meterRegistry;
     }
 
-    public Counter getFailedRequestsCounter() {
-        return failedRequestsCounter;
+    public Counter getFailedRequestsCounter(int httpStatusCode) {
+        return getRegistry().counter(FAILED_REQUESTS_COUNTER, HTTP_STATUS_CODE, String.valueOf(httpStatusCode));
     }
 
     public Counter getRequestsCounter() {
