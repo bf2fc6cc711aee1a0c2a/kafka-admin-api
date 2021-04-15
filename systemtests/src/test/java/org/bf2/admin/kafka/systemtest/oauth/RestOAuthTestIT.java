@@ -24,8 +24,10 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicLong;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class RestOAuthTestIT extends OauthTestBase {
     @Test
@@ -180,7 +182,6 @@ public class RestOAuthTestIT extends OauthTestBase {
     @Test
     void testCreateTopicUnauthorized(Vertx vertx, VertxTestContext testContext) throws InterruptedException {
         Types.NewTopic topic = RequestUtils.getTopicObject(3);
-
         changeTokenToUnauthorized(vertx, testContext);
         vertx.createHttpClient().request(HttpMethod.POST, publishedAdminPort, "localhost", "/rest/topics")
                 .compose(req -> req.putHeader("content-type", "application/json")
@@ -190,6 +191,35 @@ public class RestOAuthTestIT extends OauthTestBase {
                             testContext.completeNow();
                         })));
         assertThat(testContext.awaitCompletion(1, TimeUnit.MINUTES)).isTrue();
+    }
+
+    @Test
+    void testCreateTopicUnauthorizedIncrementsMetric(Vertx vertx, VertxTestContext testContext) throws InterruptedException {
+        Types.NewTopic topic = RequestUtils.getTopicObject(3);
+        HttpClient httpClient = vertx.createHttpClient();
+        AtomicLong unauthorizedRequestCountBefore = new AtomicLong(0L);
+
+        Arrays.stream(RequestUtils.retrieveMetrics(testContext, httpClient, publishedAdminPort).split("\n"))
+            .filter(line -> line.startsWith("failed_requests_total{status_code=\"401\",}"))
+            .map(line -> Double.valueOf(line.split("\\s+")[1]).longValue())
+            .forEach(value -> unauthorizedRequestCountBefore.addAndGet(value));
+
+        httpClient.request(HttpMethod.POST, publishedAdminPort, "localhost", "/rest/topics")
+                .compose(req -> req.putHeader("content-type", "application/json")
+                        .send(MODEL_DESERIALIZER.serializeBody(topic)).onSuccess(response -> testContext.verify(() -> {
+                            assertThat(response.statusCode()).isEqualTo(ReturnCodes.UNAUTHORIZED.code);
+                            testContext.completeNow();
+                        })));
+        assertThat(testContext.awaitCompletion(1, TimeUnit.MINUTES)).isTrue();
+
+        AtomicLong unauthorizedRequestCountAfter = new AtomicLong(0L);
+
+        Arrays.stream(RequestUtils.retrieveMetrics(testContext, httpClient, publishedAdminPort).split("\n"))
+            .filter(line -> line.startsWith("failed_requests_total{status_code=\"401\",}"))
+            .map(line -> Double.valueOf(line.split("\\s+")[1]).longValue())
+            .forEach(value -> unauthorizedRequestCountAfter.addAndGet(value));
+
+        assertTrue(unauthorizedRequestCountBefore.get() < unauthorizedRequestCountAfter.get());
     }
 
     @Test

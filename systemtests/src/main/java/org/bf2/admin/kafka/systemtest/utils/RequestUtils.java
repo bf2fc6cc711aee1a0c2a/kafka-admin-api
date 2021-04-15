@@ -185,6 +185,33 @@ public class RequestUtils {
 
     }
 
+    public static void prepareAndExecuteFailCreateTopicRequest(VertxTestContext testContext, int count, HttpClient client, int port) throws Exception {
+        for (int i = 0; i < count; i++) {
+            CountDownLatch countDownLatch = new CountDownLatch(1);
+            Types.NewTopic topic = RequestUtils.getTopicObject(101);
+
+            client.request(HttpMethod.POST, port, "localhost", "/rest/topics")
+                  .compose(req -> req.putHeader("content-type", "application/json")
+                                     .send(new ModelDeserializer().serializeBody(topic)).onSuccess(response -> {
+                                         if (response.statusCode() != ReturnCodes.FAILED_REQUEST.code) {
+                                             testContext.failNow("Status code " + response.statusCode() + " is not correct");
+                                         }
+                                     }).onFailure(testContext::failNow).compose(HttpClientResponse::body))
+                  .onComplete(testContext.succeeding(buffer -> testContext.verify(() -> {
+                      assertThat(testContext.failed()).isFalse();
+                      countDownLatch.countDown();
+                  })));
+
+            try {
+                countDownLatch.await(1, TimeUnit.MINUTES);
+            } catch (InterruptedException e) {
+                testContext.failNow("Could not execute fail delete request");
+                testContext.completeNow();
+                e.printStackTrace();
+            }
+        }
+    }
+
     public static void prepareAndExecuteDescribeRequest(VertxTestContext testContext, int count, HttpClient client, AdminClient kafkaClient, int port) throws Exception {
         List<NewTopic> topics = new ArrayList<>();
         for (int i = 0; i < count; i++) {
