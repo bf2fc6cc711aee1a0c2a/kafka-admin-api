@@ -143,7 +143,7 @@ public class TopicOperations {
                     topicWithDescription.setConfig(getTopicConf(cfg));
                     fullTopicDescriptions.add(topicWithDescription);
                 });
-                Types.TopicList topicList = new Types.TopicList();
+
                 if (sortDirection.equals(Types.SortDirectionEnum.ASC)) {
                     fullTopicDescriptions.sort(new CommonHandler.TopicComparator());
                 } else {
@@ -159,6 +159,8 @@ public class TopicOperations {
                 }
 
                 List<Types.Topic> croppedList = fullTopicDescriptions.subList(offset, Math.min(offset + tmpLimit, fullTopicDescriptions.size()));
+
+                Types.TopicList topicList = new Types.TopicList();
                 topicList.setItems(croppedList);
                 topicList.setCount(croppedList.size());
                 topicList.setLimit(tmpLimit);

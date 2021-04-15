@@ -305,6 +305,7 @@ public class Types {
 
     public static class ConsumerGroupDescription extends ConsumerGroup {
         private List<Consumer> consumers;
+        private String state;
 
         public List<Consumer> getConsumers() {
             return consumers;
@@ -321,8 +322,38 @@ public class Types {
         public void setState(String state) {
             this.state = state;
         }
+    }
 
-        private String state;
+    public static class ConsumerGroupList {
+        private List<ConsumerGroupDescription> items;
+        private Integer offset;
+        private Integer limit;
+        private Integer count;
+
+        public List<ConsumerGroupDescription> getItems() {
+            return items;
+        }
+        public void setItems(List<ConsumerGroupDescription> items) {
+            this.items = items;
+        }
+        public Integer getOffset() {
+            return offset;
+        }
+        public void setOffset(Integer offset) {
+            this.offset = offset;
+        }
+        public Integer getLimit() {
+            return limit;
+        }
+        public void setLimit(Integer limit) {
+            this.limit = limit;
+        }
+        public Integer getCount() {
+            return count;
+        }
+        public void setCount(Integer count) {
+            this.count = count;
+        }
     }
 
     public static class Consumer {

@@ -93,7 +93,14 @@ public class ConsumerGroupOperations {
                 }
 
                 List<Types.ConsumerGroupDescription> croppedList = list.subList(offset, Math.min(offset + tmpLimit, list.size()));
-                return Future.succeededFuture(croppedList);
+
+                Types.ConsumerGroupList response = new Types.ConsumerGroupList();
+                response.setItems(croppedList);
+                response.setCount(croppedList.size());
+                response.setLimit(tmpLimit);
+                response.setOffset(offset);
+
+                return Future.succeededFuture(response);
             })
             .onComplete(finalRes -> {
                 if (finalRes.failed()) {
