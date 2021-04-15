@@ -36,8 +36,9 @@ public class ConsumerGroupsOAuthTestIT extends OauthTestBase {
                 }).onFailure(testContext::failNow).compose(HttpClientResponse::body))
                 .onComplete(testContext.succeeding(buffer -> testContext.verify(() -> {
                     assertThat(testContext.failed()).isFalse();
-                    List<String> resID = MODEL_DESERIALIZER.getGroupsId(buffer);
-                    assertThat(resID).hasSameElementsAs(groupIDS);
+                    Types.ConsumerGroupList response = MODEL_DESERIALIZER.deserializeResponse(buffer, Types.ConsumerGroupList.class);
+                    List<String> responseGroupIDs = response.getItems().stream().map(cg -> cg.getGroupId()).collect(Collectors.toList());
+                    assertThat(responseGroupIDs).hasSameElementsAs(groupIDS);
                     testContext.completeNow();
                 })));
         assertThat(testContext.awaitCompletion(1, TimeUnit.MINUTES)).isTrue();

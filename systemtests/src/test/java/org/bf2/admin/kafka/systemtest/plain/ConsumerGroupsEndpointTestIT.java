@@ -45,7 +45,9 @@ public class ConsumerGroupsEndpointTestIT extends PlainTestBase {
                 }).onFailure(testContext::failNow).compose(HttpClientResponse::body))
                 .onComplete(testContext.succeeding(buffer -> testContext.verify(() -> {
                     List<String> consumerGroups = kafkaClient.listConsumerGroups().all().get().stream().map(ConsumerGroupListing::groupId).collect(Collectors.toList());
-                    assertThat(consumerGroups).hasSameElementsAs(MODEL_DESERIALIZER.getGroupsId(buffer));
+                    Types.ConsumerGroupList response = MODEL_DESERIALIZER.deserializeResponse(buffer, Types.ConsumerGroupList.class);
+                    List<String> responseGroupIDs = response.getItems().stream().map(cg -> cg.getGroupId()).collect(Collectors.toList());
+                    assertThat(consumerGroups).hasSameElementsAs(responseGroupIDs);
                     testContext.completeNow();
                 })));
         assertThat(testContext.awaitCompletion(1, TimeUnit.MINUTES)).isTrue();
