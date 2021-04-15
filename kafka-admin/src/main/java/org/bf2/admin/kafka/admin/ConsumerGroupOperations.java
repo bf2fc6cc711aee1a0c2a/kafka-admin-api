@@ -38,7 +38,12 @@ public class ConsumerGroupOperations {
         ac.listConsumerGroups(listConsumerGroupsFuture);
         listConsumerGroupsFuture.future()
             .compose(list -> {
-                List<String> groupIds = list.stream().map(group -> group.getGroupId()).collect(Collectors.toList());
+                boolean internalGroupsAllowed = System.getenv("KAFKA_ADMIN_INTERNAL_CONSUMER_GROUPS_ENABLED") == null
+                        ? false : Boolean.valueOf(System.getenv("KAFKA_ADMIN_INTERNAL_CONSUMER_GROUPS_ENABLED"));
+
+                List<String> groupIds = list.stream().map(group -> group.getGroupId())
+                        .filter(groupId -> !internalGroupsAllowed ? !groupId.startsWith("strimzi") : true)
+                        .collect(Collectors.toList());
                 Promise<Map<String, ConsumerGroupDescription>> describeConsumerGroupsPromise = Promise.promise();
                 ac.describeConsumerGroups(groupIds, describeConsumerGroupsPromise);
                 return describeConsumerGroupsPromise.future();

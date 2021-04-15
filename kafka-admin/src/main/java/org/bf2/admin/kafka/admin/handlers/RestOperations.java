@@ -96,6 +96,7 @@ public class RestOperations extends CommonHandler implements OperationsHandler<H
             if (topicToDescribe == null || topicToDescribe.isEmpty()) {
                 prom.fail(new InvalidTopicException("Topic to describe has not been specified."));
                 processResponse(prom, routingContext, HttpResponseStatus.BAD_REQUEST, httpMetrics, httpMetrics.getDescribeTopicRequestTimer(), requestTimerSample);
+                return;
             }
             if (!internalTopicsAllowed() && topicToDescribe.startsWith("__")) {
                 prom.fail(new InvalidTopicException("Topic " + topicToDescribe + " cannot be described"));
@@ -127,6 +128,7 @@ public class RestOperations extends CommonHandler implements OperationsHandler<H
             if (topicToUpdate == null || topicToUpdate.isEmpty()) {
                 prom.fail(new InvalidTopicException("Topic to update has not been specified."));
                 processResponse(prom, routingContext, HttpResponseStatus.BAD_REQUEST, httpMetrics, httpMetrics.getUpdateTopicRequestTimer(), requestTimerSample);
+                return;
             }
 
             if (!internalTopicsAllowed() && topicToUpdate.startsWith("__")) {
@@ -284,9 +286,15 @@ public class RestOperations extends CommonHandler implements OperationsHandler<H
             setOAuthToken(acConfig, routingContext);
             String groupToDescribe = routingContext.pathParam("consumerGroupId");
             Promise<Types.Topic> prom = Promise.promise();
+            if (!internalGroupsAllowed() && groupToDescribe.startsWith("strimzi")) {
+                prom.fail(new InvalidConsumerGroupException("ConsumerGroup " + groupToDescribe + " cannot be described."));
+                processResponse(prom, routingContext, HttpResponseStatus.BAD_REQUEST, httpMetrics, httpMetrics.getDeleteTopicRequestTimer(), requestTimerSample);
+                return;
+            }
             if (groupToDescribe == null || groupToDescribe.isEmpty()) {
                 prom.fail(new InvalidConsumerGroupException("ConsumerGroup to describe has not been specified."));
                 processResponse(prom, routingContext, HttpResponseStatus.BAD_REQUEST, httpMetrics, httpMetrics.getDescribeGroupRequestTimer(), requestTimerSample);
+                return;
             }
             createAdminClient(vertx, acConfig).onComplete(ac -> {
                 if (ac.failed()) {
@@ -309,6 +317,11 @@ public class RestOperations extends CommonHandler implements OperationsHandler<H
             setOAuthToken(acConfig, routingContext);
             String groupToDelete = routingContext.pathParam("consumerGroupId");
             Promise<List<String>> prom = Promise.promise();
+            if (!internalGroupsAllowed() && groupToDelete.startsWith("strimzi")) {
+                prom.fail(new InvalidConsumerGroupException("ConsumerGroup " + groupToDelete + " cannot be deleted"));
+                processResponse(prom, routingContext, HttpResponseStatus.BAD_REQUEST, httpMetrics, httpMetrics.getDeleteTopicRequestTimer(), requestTimerSample);
+                return;
+            }
             if (groupToDelete == null || groupToDelete.isEmpty()) {
                 prom.fail(new InvalidConsumerGroupException("ConsumerGroup to delete has not been specified."));
                 processResponse(prom, routingContext, HttpResponseStatus.BAD_REQUEST, httpMetrics, httpMetrics.getDeleteGroupRequestTimer(), requestTimerSample);
@@ -337,6 +350,11 @@ public class RestOperations extends CommonHandler implements OperationsHandler<H
             String groupToReset = routingContext.pathParam("consumerGroupId");
 
             Promise<List<String>> prom = Promise.promise();
+            if (!internalGroupsAllowed() && groupToReset.startsWith("strimzi")) {
+                prom.fail(new InvalidConsumerGroupException("ConsumerGroup " + groupToReset + " cannot be reset."));
+                processResponse(prom, routingContext, HttpResponseStatus.BAD_REQUEST, httpMetrics, httpMetrics.getDeleteTopicRequestTimer(), requestTimerSample);
+                return;
+            }
             if (groupToReset == null || groupToReset.isEmpty()) {
                 prom.fail(new InvalidConsumerGroupException("ConsumerGroup to reset Offset has not been specified."));
                 processResponse(prom, routingContext, HttpResponseStatus.BAD_REQUEST, httpMetrics, httpMetrics.getResetGroupOffsetRequestTimer(), requestTimerSample);
@@ -379,6 +397,11 @@ public class RestOperations extends CommonHandler implements OperationsHandler<H
 
     private boolean internalTopicsAllowed() {
         return System.getenv("KAFKA_ADMIN_INTERNAL_TOPICS_ENABLED") == null ? false : Boolean.valueOf(System.getenv("KAFKA_ADMIN_INTERNAL_TOPICS_ENABLED"));
+    }
+
+    private boolean internalGroupsAllowed() {
+        return System.getenv("KAFKA_ADMIN_INTERNAL_CONSUMER_GROUPS_ENABLED") == null
+                ? false : Boolean.valueOf(System.getenv("KAFKA_ADMIN_INTERNAL_CONSUMER_GROUPS_ENABLED"));
     }
 
     private boolean numPartitionsValid(Types.NewTopicInput settings, int maxPartitions) {
