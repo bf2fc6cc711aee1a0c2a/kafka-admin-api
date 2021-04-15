@@ -29,6 +29,7 @@ import org.apache.kafka.common.errors.GroupIdNotFoundException;
 import org.apache.kafka.common.errors.InvalidConfigurationException;
 import org.apache.kafka.common.errors.InvalidReplicationFactorException;
 import org.apache.kafka.common.errors.InvalidRequestException;
+import org.apache.kafka.common.errors.SaslAuthenticationException;
 import org.apache.kafka.common.errors.TimeoutException;
 import org.apache.kafka.common.errors.TopicExistsException;
 import org.apache.kafka.common.errors.UnknownTopicOrPartitionException;
@@ -87,7 +88,9 @@ public class CommonHandler {
                     routingContext.response().setStatusCode(HttpResponseStatus.LOCKED.code());
                 } else if (res.cause() instanceof AuthenticationException ||
                     res.cause() instanceof AuthorizationException ||
-                    res.cause() instanceof TokenExpiredException) {
+                    res.cause() instanceof TokenExpiredException ||
+                    (res.cause().getCause() instanceof SaslAuthenticationException
+                            && res.cause().getCause().getMessage().contains("Authentication failed due to an invalid token"))) {
                     routingContext.response().setStatusCode(HttpResponseStatus.UNAUTHORIZED.code());
                 } else if (res.cause() instanceof org.apache.kafka.common.errors.InvalidTopicException) {
                     routingContext.response().setStatusCode(HttpResponseStatus.BAD_REQUEST.code());
