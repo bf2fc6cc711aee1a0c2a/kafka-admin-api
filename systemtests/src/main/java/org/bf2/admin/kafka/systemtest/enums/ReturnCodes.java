@@ -7,11 +7,11 @@ public enum ReturnCodes {
     SERVER_ERROR(500),
     TOPIC_CREATED(201),
     DUPLICATED(409),
-    AUTHENTICATION_ERROR(401),
+    UNAUTHORIZED(401),
     SUCCESS(200),
     GROUP_DELETED(204),
     GROUP_LOCKED(423),
-    UNAUTHORIZED(403);
+    FORBIDDEN(403);
 
     public final int code;
     ReturnCodes(int code) {
