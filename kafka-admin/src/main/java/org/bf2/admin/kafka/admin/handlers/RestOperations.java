@@ -39,7 +39,9 @@ public class RestOperations extends CommonHandler implements OperationsHandler<H
             httpMetrics.getCreateTopicCounter().increment();
             httpMetrics.getRequestsCounter().increment();
             Timer.Sample requestTimerSample = Timer.start(httpMetrics.getRegistry());
-            setOAuthToken(acConfig, routingContext);
+            if (!setOAuthToken(acConfig, routingContext)) {
+                return;
+            }
             createAdminClient(vertx, acConfig).onComplete(ac -> {
                 Types.NewTopic inputTopic = new Types.NewTopic();
                 Promise<Types.NewTopic> prom = Promise.promise();
@@ -90,7 +92,9 @@ public class RestOperations extends CommonHandler implements OperationsHandler<H
             httpMetrics.getDescribeTopicCounter().increment();
             httpMetrics.getRequestsCounter().increment();
             Timer.Sample requestTimerSample = Timer.start(httpMetrics.getRegistry());
-            setOAuthToken(acConfig, routingContext);
+            if (!setOAuthToken(acConfig, routingContext)) {
+                return;
+            }
             String topicToDescribe = routingContext.pathParam("topicName");
             Promise<Types.Topic> prom = Promise.promise();
             if (topicToDescribe == null || topicToDescribe.isEmpty()) {
@@ -122,7 +126,9 @@ public class RestOperations extends CommonHandler implements OperationsHandler<H
             httpMetrics.getUpdateTopicCounter().increment();
             httpMetrics.getRequestsCounter().increment();
             Timer.Sample requestTimerSample = Timer.start(httpMetrics.getRegistry());
-            setOAuthToken(acConfig, routingContext);
+            if (!setOAuthToken(acConfig, routingContext)) {
+                return;
+            }
             Promise<Types.UpdatedTopic> prom = Promise.promise();
             String topicToUpdate = routingContext.pathParam("topicName");
             if (topicToUpdate == null || topicToUpdate.isEmpty()) {
@@ -172,7 +178,9 @@ public class RestOperations extends CommonHandler implements OperationsHandler<H
             httpMetrics.getDeleteTopicCounter().increment();
             httpMetrics.getRequestsCounter().increment();
             Timer.Sample requestTimerSample = Timer.start(httpMetrics.getRegistry());
-            setOAuthToken(acConfig, routingContext);
+            if (!setOAuthToken(acConfig, routingContext)) {
+                return;
+            }
             String topicToDelete = routingContext.pathParam("topicName");
             Promise<List<String>> prom = Promise.promise();
             if (topicToDelete == null || topicToDelete.isEmpty()) {
@@ -205,7 +213,9 @@ public class RestOperations extends CommonHandler implements OperationsHandler<H
             Timer.Sample requestTimerSample = Timer.start(httpMetrics.getRegistry());
             httpMetrics.getListTopicsCounter().increment();
             httpMetrics.getRequestsCounter().increment();
-            setOAuthToken(acConfig, routingContext);
+            if (!setOAuthToken(acConfig, routingContext)) {
+                return;
+            }
             String filter = routingContext.queryParams().get("filter");
             String limit = routingContext.queryParams().get("limit") == null ? "0" : routingContext.queryParams().get("limit");
             String offset = routingContext.queryParams().get("offset") == null ? "0" : routingContext.queryParams().get("offset");
@@ -245,7 +255,9 @@ public class RestOperations extends CommonHandler implements OperationsHandler<H
             Timer.Sample requestTimerSample = Timer.start(httpMetrics.getRegistry());
             httpMetrics.getListGroupsCounter().increment();
             httpMetrics.getRequestsCounter().increment();
-            setOAuthToken(acConfig, routingContext);
+            if (!setOAuthToken(acConfig, routingContext)) {
+                return;
+            }
             String topicFilter = routingContext.queryParams().get("topic");
             String limit = routingContext.queryParams().get("limit") == null ? "0" : routingContext.queryParams().get("limit");
             String offset = routingContext.queryParams().get("offset") == null ? "0" : routingContext.queryParams().get("offset");
@@ -283,7 +295,9 @@ public class RestOperations extends CommonHandler implements OperationsHandler<H
             httpMetrics.getDescribeGroupCounter().increment();
             httpMetrics.getRequestsCounter().increment();
             Timer.Sample requestTimerSample = Timer.start(httpMetrics.getRegistry());
-            setOAuthToken(acConfig, routingContext);
+            if (!setOAuthToken(acConfig, routingContext)) {
+                return;
+            }
             String groupToDescribe = routingContext.pathParam("consumerGroupId");
             Promise<Types.Topic> prom = Promise.promise();
             if (!internalGroupsAllowed() && groupToDescribe.startsWith("strimzi")) {
@@ -314,7 +328,9 @@ public class RestOperations extends CommonHandler implements OperationsHandler<H
             httpMetrics.getDeleteGroupCounter().increment();
             httpMetrics.getRequestsCounter().increment();
             Timer.Sample requestTimerSample = Timer.start(httpMetrics.getRegistry());
-            setOAuthToken(acConfig, routingContext);
+            if (!setOAuthToken(acConfig, routingContext)) {
+                return;
+            }
             String groupToDelete = routingContext.pathParam("consumerGroupId");
             Promise<List<String>> prom = Promise.promise();
             if (!internalGroupsAllowed() && groupToDelete.startsWith("strimzi")) {
@@ -346,7 +362,9 @@ public class RestOperations extends CommonHandler implements OperationsHandler<H
             httpMetrics.getRequestsCounter().increment();
             httpMetrics.getRequestsCounter().increment();
             Timer.Sample requestTimerSample = Timer.start(httpMetrics.getRegistry());
-            setOAuthToken(acConfig, routingContext);
+            if (!setOAuthToken(acConfig, routingContext)) {
+                return;
+            }
             String groupToReset = routingContext.pathParam("consumerGroupId");
 
             Promise<List<String>> prom = Promise.promise();

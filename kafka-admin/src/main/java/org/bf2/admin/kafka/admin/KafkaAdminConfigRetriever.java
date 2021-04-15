@@ -18,6 +18,7 @@ public class KafkaAdminConfigRetriever {
 
     protected final Logger log = LogManager.getLogger(KafkaAdminConfigRetriever.class);
     private static final String PREFIX = "KAFKA_ADMIN_";
+    private static final String OAUTHBEARER = "OAUTHBEARER";
     private static Map<String, Object> config;
 
     public KafkaAdminConfigRetriever() throws Exception {
@@ -25,10 +26,10 @@ public class KafkaAdminConfigRetriever {
         logConfiguration();
     }
 
-    private Map envVarsToAdminClientConfig(String prefix) throws Exception {
-        Map envConfig = System.getenv().entrySet().stream().filter(entry -> entry.getKey().startsWith(prefix)).collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+    private Map<String, Object> envVarsToAdminClientConfig(String prefix) throws Exception {
+        Map<String, Object> envConfig = System.getenv().entrySet().stream().filter(entry -> entry.getKey().startsWith(prefix)).collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
 
-        Map<String, String> adminClientConfig = new HashMap();
+        Map<String, Object> adminClientConfig = new HashMap<>();
         if (envConfig.get(PREFIX + "BOOTSTRAP_SERVERS") == null) {
             throw new Exception("Bootstrap address has to be specified");
         }
@@ -38,7 +39,7 @@ public class KafkaAdminConfigRetriever {
         if (System.getenv(PREFIX + "OAUTH_ENABLED") == null ? true : Boolean.valueOf(System.getenv(PREFIX + "OAUTH_ENABLED"))) {
             log.info("oAuth enabled");
             adminClientConfig.put(CommonClientConfigs.SECURITY_PROTOCOL_CONFIG, "SASL_PLAINTEXT");
-            adminClientConfig.put(SaslConfigs.SASL_MECHANISM, "OAUTHBEARER");
+            adminClientConfig.put(SaslConfigs.SASL_MECHANISM, OAUTHBEARER);
             adminClientConfig.put(SaslConfigs.SASL_LOGIN_CALLBACK_HANDLER_CLASS, "io.strimzi.kafka.oauth.client.JaasClientOauthLoginCallbackHandler");
         } else {
             log.info("oAuth disabled");
@@ -58,8 +59,12 @@ public class KafkaAdminConfigRetriever {
         });
     }
 
-    public Map getAcConfig() {
-        return new HashMap(config);
+    public static boolean isOauthEnabled(Map<String, Object> config) {
+        return OAUTHBEARER.equals(config.get(SaslConfigs.SASL_MECHANISM));
+    }
+
+    public Map<String, Object> getAcConfig() {
+        return new HashMap<>(config);
     }
 }
 
