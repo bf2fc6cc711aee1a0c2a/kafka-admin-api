@@ -77,15 +77,24 @@ Once all steps above have been completed, you can run the Kafka Admin API. The s
 
 ## Releasing
 
+Interim release steps
 
 ```
 DOCKER_REPO=quay.io/k_wall
 NEW_VERSION=0.0.7
-mvn clean  versions:set-version -DnewVersion=0.0.7 install -DskipTests  -DgenerateBackupPoms=false
-vi Dockerfile # update 
-git commit -m "Prepare release ${NEW_VERSION}" .
-git push --dry-run upstream
+NEXT_VERSION=0.0.8-SNAPSHOT
 
+mvn clean versions:set package -DnewVersion=${NEW_VERSION} -DskipTests -DgenerateBackupPoms=false
+vi Dockerfile # update KAFKA_ADMIN_API_VERSION
+git commit -m "Prepare release ${NEW_VERSION}" .
+git tag ${NEW_VERSION}
 docker build --build-arg kafka_admin_api_version=${NEW_VERSION} -t ${DOCKER_REPO}/kafka-admin-api:${NEW_VERSION} . && docker push ${DOCKER_REPO}/kafka-admin-api:${NEW_VERSION}
+
+mvn versions:set  -DnewVersion=${NEXT_VERSION} -DgenerateBackupPoms=false
+git commit -m "Prepare for development ${NEXT_VERSION}" .
+
+git push --dry-run --tags upstream
+# Finally 
+git push --tags upstream
 ```
 
