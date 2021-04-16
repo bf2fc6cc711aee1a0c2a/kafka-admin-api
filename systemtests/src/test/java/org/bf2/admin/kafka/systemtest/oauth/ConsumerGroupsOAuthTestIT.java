@@ -52,7 +52,7 @@ public class ConsumerGroupsOAuthTestIT extends OauthTestBase {
         client.request(HttpMethod.GET, publishedAdminPort, "localhost", "/rest/consumer-groups")
                 .compose(req -> req.putHeader("Authorization", "Bearer " + token.getAccessToken()).send()
                         .onSuccess(response -> testContext.verify(() -> {
-                            assertThat(response.statusCode()).isEqualTo(ReturnCodes.SUCCESS.code);
+                            assertThat(response.statusCode()).isEqualTo(ReturnCodes.FORBIDDEN.code);
                             testContext.completeNow();
                         })));
         assertThat(testContext.awaitCompletion(1, TimeUnit.MINUTES)).isTrue();
