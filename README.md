@@ -73,3 +73,28 @@ Once all steps above have been completed, you can run the Kafka Admin API. The s
 | KAFKA_ADMIN_INTERNAL_CONSUMER_GROUPS_ENABLED | Internal consumer groups are used internally by the Strimzi Canary application. |
 | KAFKA_ADMIN_REPLICATION_FACTOR | Replication factor defines the number of copies of a topic in a Kafka cluster. |
 | KAFKA_ADMIN_NUM_PARTITIONS_MAX | Maximum (inclusive) number of partitions that may be used for the creation of a new topic. |
+
+
+## Releasing
+
+Interim release steps
+
+```
+DOCKER_REPO=quay.io/k_wall
+NEW_VERSION=0.0.7
+NEXT_VERSION=0.0.8-SNAPSHOT
+
+mvn clean versions:set package -DnewVersion=${NEW_VERSION} -DskipTests -DgenerateBackupPoms=false
+vi Dockerfile # update KAFKA_ADMIN_API_VERSION
+git commit -m "Prepare release ${NEW_VERSION}" .
+git tag ${NEW_VERSION}
+docker build --build-arg kafka_admin_api_version=${NEW_VERSION} -t ${DOCKER_REPO}/kafka-admin-api:${NEW_VERSION} . && docker push ${DOCKER_REPO}/kafka-admin-api:${NEW_VERSION}
+
+mvn versions:set  -DnewVersion=${NEXT_VERSION} -DgenerateBackupPoms=false
+git commit -m "Prepare for development ${NEXT_VERSION}" .
+
+git push --dry-run --tags upstream
+# Finally 
+git push --tags upstream
+```
+
