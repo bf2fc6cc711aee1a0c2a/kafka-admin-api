@@ -96,7 +96,8 @@ public class RestOAuthTestIT extends OauthTestBase {
                         .onSuccess(response -> testContext.verify(() -> {
                             assertThat(response.statusCode()).isEqualTo(ReturnCodes.UNAUTHORIZED.code);
                             testContext.completeNow();
-                        })));
+                        }))
+                        .onFailure(testContext::failNow).compose(HttpClientResponse::body));
         assertThat(testContext.awaitCompletion(1, TimeUnit.MINUTES)).isTrue();
     }
 
@@ -110,7 +111,8 @@ public class RestOAuthTestIT extends OauthTestBase {
                         .onSuccess(response -> testContext.verify(() -> {
                             assertThat(response.statusCode()).isEqualTo(ReturnCodes.UNAUTHORIZED.code);
                             testContext.completeNow();
-                        })));
+                        }))
+                        .onFailure(testContext::failNow).compose(HttpClientResponse::body));
         assertThat(testContext.awaitCompletion(1, TimeUnit.MINUTES)).isTrue();
     }
 
@@ -152,7 +154,8 @@ public class RestOAuthTestIT extends OauthTestBase {
                         .onSuccess(response -> testContext.verify(() -> {
                             assertThat(response.statusCode()).isEqualTo(ReturnCodes.UNAUTHORIZED.code);
                             testContext.completeNow();
-                        })));
+                        }))
+                        .onFailure(testContext::failNow).compose(HttpClientResponse::body));
         assertThat(testContext.awaitCompletion(1, TimeUnit.MINUTES)).isTrue();
     }
 
@@ -186,10 +189,12 @@ public class RestOAuthTestIT extends OauthTestBase {
         vertx.createHttpClient().request(HttpMethod.POST, publishedAdminPort, "localhost", "/rest/topics")
                 .compose(req -> req.putHeader("content-type", "application/json")
                         .putHeader("Authorization", "Bearer " + token.getAccessToken())
-                        .send(MODEL_DESERIALIZER.serializeBody(topic)).onSuccess(response -> testContext.verify(() -> {
+                        .send(MODEL_DESERIALIZER.serializeBody(topic))
+                        .onSuccess(response -> testContext.verify(() -> {
                             assertThat(response.statusCode()).isEqualTo(ReturnCodes.UNAUTHORIZED.code);
                             testContext.completeNow();
-                        })));
+                        }))
+                        .onFailure(testContext::failNow).compose(HttpClientResponse::body));
         assertThat(testContext.awaitCompletion(1, TimeUnit.MINUTES)).isTrue();
     }
 
@@ -206,10 +211,12 @@ public class RestOAuthTestIT extends OauthTestBase {
 
         httpClient.request(HttpMethod.POST, publishedAdminPort, "localhost", "/rest/topics")
                 .compose(req -> req.putHeader("content-type", "application/json")
-                        .send(MODEL_DESERIALIZER.serializeBody(topic)).onSuccess(response -> testContext.verify(() -> {
+                        .send(MODEL_DESERIALIZER.serializeBody(topic))
+                        .onSuccess(response -> testContext.verify(() -> {
                             assertThat(response.statusCode()).isEqualTo(ReturnCodes.UNAUTHORIZED.code);
                             testContext.completeNow();
-                        })));
+                        }))
+                        .onFailure(testContext::failNow).compose(HttpClientResponse::body));
         assertThat(testContext.awaitCompletion(1, TimeUnit.MINUTES)).isTrue();
 
         AtomicLong unauthorizedRequestCountAfter = new AtomicLong(0L);
@@ -260,10 +267,12 @@ public class RestOAuthTestIT extends OauthTestBase {
         vertx.createHttpClient().request(HttpMethod.DELETE, publishedAdminPort, "localhost", query)
                 .compose(req -> req.putHeader("content-type", "application/json")
                         .putHeader("Authorization", "Bearer " + token.getAccessToken())
-                        .send().onSuccess(response -> testContext.verify(() -> {
+                        .send()
+                        .onSuccess(response -> testContext.verify(() -> {
                             assertThat(response.statusCode()).isEqualTo(ReturnCodes.UNAUTHORIZED.code);
                             testContext.completeNow();
-                        })));
+                        }))
+                        .onFailure(testContext::failNow).compose(HttpClientResponse::body));
         assertThat(testContext.awaitCompletion(1, TimeUnit.MINUTES)).isTrue();
     }
 
@@ -321,10 +330,12 @@ public class RestOAuthTestIT extends OauthTestBase {
         vertx.createHttpClient().request(HttpMethod.PATCH, publishedAdminPort, "localhost", "/rest/topics/" + topicName)
                 .compose(req -> req.putHeader("content-type", "application/json")
                         .putHeader("Authorization", "Bearer " + token.getAccessToken())
-                        .send(MODEL_DESERIALIZER.serializeBody(topic1)).onSuccess(response -> testContext.verify(() -> {
+                        .send(MODEL_DESERIALIZER.serializeBody(topic1))
+                        .onSuccess(response -> testContext.verify(() -> {
                             assertThat(response.statusCode()).isEqualTo(ReturnCodes.UNAUTHORIZED.code);
                             testContext.completeNow();
-                        })));
+                        }))
+                        .onFailure(testContext::failNow).compose(HttpClientResponse::body));
         assertThat(testContext.awaitCompletion(1, TimeUnit.MINUTES)).isTrue();
     }
 
