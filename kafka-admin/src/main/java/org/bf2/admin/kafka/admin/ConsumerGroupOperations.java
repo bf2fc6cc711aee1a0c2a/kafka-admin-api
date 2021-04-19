@@ -193,8 +193,9 @@ public class ConsumerGroupOperations {
                     Types.ConsumerGroupDescription groupDescription = getConsumerGroupsDescription(Pattern.compile(".*"), cgDescriptions, cgOffsets, endOffsets).get(0);
                     if ("dead".equalsIgnoreCase(groupDescription.getState())) {
                         prom.fail(new GroupIdNotFoundException("Group " + groupDescription.getGroupId() + " does not exist"));
+                    } else {
+                        prom.complete(groupDescription);
                     }
-                    prom.complete(groupDescription);
                 }
                 ac.close();
             });
