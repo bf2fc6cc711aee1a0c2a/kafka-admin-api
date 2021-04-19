@@ -24,6 +24,7 @@ import java.io.IOException;
 import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
@@ -168,7 +169,7 @@ public class ConsumerGroupsEndpointTestIT extends PlainTestBase {
                         try {
                             LogCollector.getInstance().collectLogs(extensionContext);
                             LOGGER.error("GROUPS: " + kafkaClient.listConsumerGroups().all().get());
-                        } catch (InterruptedException | IOException e) {
+                        } catch (InterruptedException | IOException | ExecutionException e) {
                             e.printStackTrace();
                         }
                         testContext.failNow("Status code not correct. Got: " + response.statusCode() + " expected: " + ReturnCodes.SUCCESS.code);
