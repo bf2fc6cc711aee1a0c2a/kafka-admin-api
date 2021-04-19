@@ -25,6 +25,7 @@ import org.apache.kafka.common.KafkaException;
 import org.apache.kafka.common.config.SaslConfigs;
 import org.apache.kafka.common.errors.AuthenticationException;
 import org.apache.kafka.common.errors.AuthorizationException;
+import org.apache.kafka.common.errors.GroupAuthorizationException;
 import org.apache.kafka.common.errors.GroupIdNotFoundException;
 import org.apache.kafka.common.errors.InvalidConfigurationException;
 import org.apache.kafka.common.errors.InvalidReplicationFactorException;
@@ -85,6 +86,8 @@ public class CommonHandler {
                     routingContext.response().setStatusCode(HttpResponseStatus.SERVICE_UNAVAILABLE.code());
                 } else if (res.cause() instanceof GroupNotEmptyException) {
                     routingContext.response().setStatusCode(HttpResponseStatus.LOCKED.code());
+                } else if (res.cause() instanceof GroupAuthorizationException) {
+                    routingContext.response().setStatusCode(HttpResponseStatus.FORBIDDEN.code());
                 } else if (res.cause() instanceof AuthenticationException
                     || res.cause() instanceof AuthorizationException
                     || res.cause() instanceof TokenExpiredException
