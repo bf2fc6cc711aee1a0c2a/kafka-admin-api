@@ -159,7 +159,8 @@ public class ConsumerGroupsEndpointTestIT extends PlainTestBase {
         int publishedAdminPort = DEPLOYMENT_MANAGER.getAdminPort(extensionContext);
 
         List<String> groupdIds = SyncMessaging.createConsumerGroups(vertx, kafkaClient, 2, DEPLOYMENT_MANAGER.getKafkaContainer(extensionContext).getBootstrapServers(), testContext);
-
+        DynamicWait.waitForGroupExists(groupdIds.get(0), kafkaClient);
+        DynamicWait.waitForGroupExists(groupdIds.get(1), kafkaClient);
         HttpClient client = vertx.createHttpClient();
         client.request(HttpMethod.GET, publishedAdminPort, "localhost", "/rest/consumer-groups/" + groupdIds.get(0))
                 .compose(req -> req.send().onSuccess(response -> {
