@@ -29,9 +29,10 @@ jobs:
       - name: "Integration tests"
         run: |
           mvn clean verify -pl systemtests -Dit.test=ConsumerGroupsEndpointTestIT -Djunit.jupiter.execution.parallel.enabled=true -Djunit.jupiter.execution.parallel.config.fixed.parallelism=3
+
       - name: Archive results
         uses: actions/upload-artifact@v2
         if: failure()
         with:
           name: artifacts
-          path: ./systemtest/target/logs/
+          path: systemtests/target/logs/
