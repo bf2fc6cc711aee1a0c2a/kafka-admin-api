@@ -164,12 +164,12 @@ public class ConsumerGroupsEndpointTestIT extends PlainTestBase {
         client.request(HttpMethod.GET, publishedAdminPort, "localhost", "/rest/consumer-groups/" + groupdIds.get(0))
                 .compose(req -> req.send().onSuccess(response -> {
                     if (response.statusCode() != ReturnCodes.SUCCESS.code) {
-                        testContext.failNow("Status code not correct. Got: " + response.statusCode() + " expected: " + ReturnCodes.SUCCESS.code);
                         try {
                             LogCollector.getInstance().collectLogs(extensionContext);
                         } catch (InterruptedException | IOException e) {
                             e.printStackTrace();
                         }
+                        testContext.failNow("Status code not correct. Got: " + response.statusCode() + " expected: " + ReturnCodes.SUCCESS.code);
                     }
                 }).onFailure(testContext::failNow).compose(HttpClientResponse::body))
                 .onComplete(testContext.succeeding(buffer -> testContext.verify(() -> {
