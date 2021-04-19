@@ -8,7 +8,10 @@ public enum ReturnCodes {
     TOPIC_CREATED(201),
     DUPLICATED(409),
     UNAUTHORIZED(401),
-    SUCCESS(200);
+    SUCCESS(200),
+    GROUP_DELETED(204),
+    GROUP_LOCKED(423),
+    FORBIDDEN(403);
 
     public final int code;
     ReturnCodes(int code) {

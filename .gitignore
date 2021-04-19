@@ -22,3 +22,4 @@ release.properties
 # Test certificates
 **/docker/certificates/c*
 **/docker/certificates/k*
+**/docker/certificates/.srl
