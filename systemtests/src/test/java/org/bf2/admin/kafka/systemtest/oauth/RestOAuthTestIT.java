@@ -96,7 +96,14 @@ public class RestOAuthTestIT extends OauthTestBase {
                         .onSuccess(response -> testContext.verify(() -> {
                             assertThat(response.statusCode()).isEqualTo(ReturnCodes.UNAUTHORIZED.code);
                             testContext.completeNow();
-                        })));
+                        }))
+                        .onFailure(throwable -> {
+                            LOGGER.error("Request with invalid token failed");
+                            testContext.failNow(throwable);
+                        })).onFailure(throwable -> {
+                            LOGGER.error("Request with invalid token failed 2");
+                            testContext.failNow(throwable);
+                        });
         assertThat(testContext.awaitCompletion(1, TimeUnit.MINUTES)).isTrue();
     }
 
