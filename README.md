@@ -91,10 +91,12 @@ git tag ${NEW_VERSION}
 docker build --build-arg kafka_admin_api_version=${NEW_VERSION} -t ${DOCKER_REPO}/kafka-admin-api:${NEW_VERSION} . && docker push ${DOCKER_REPO}/kafka-admin-api:${NEW_VERSION}
 
 mvn versions:set  -DnewVersion=${NEXT_VERSION} -DgenerateBackupPoms=false
+vi Dockerfile # update KAFKA_ADMIN_API_VERSION
+vi .run/Main.run.xml # update versioned jar file names to NEXT_VERSION
+vi .run/Main\ \(EnvFile\).run.xml # update versioned jar file names to NEXT_VERSION
 git commit -m "Prepare for development ${NEXT_VERSION}" .
 
 git push --dry-run upstream ${NEW_VERSION} main
-# Finally 
+# Finally
 git push upstream ${NEW_VERSION} main
 ```
-
