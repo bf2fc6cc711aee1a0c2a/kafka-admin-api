@@ -83,7 +83,7 @@ public class ConsumerGroupsOAuthTestIT extends OauthTestBase {
         client.request(HttpMethod.GET, publishedAdminPort, "localhost", "/rest/consumer-groups/" + groupIDS.get(0))
                 .compose(req -> req.putHeader("Authorization", "Bearer " + token.getAccessToken()).send().onSuccess(response -> {
                     if (response.statusCode() != ReturnCodes.SUCCESS.code) {
-                        testContext.failNow("Status code not correct");
+                        testContext.failNow("Status code not correct. Got: " + response.statusCode() + "expected: " + ReturnCodes.SUCCESS.code);
                     }
                 }).onFailure(testContext::failNow).compose(HttpClientResponse::body))
                 .onComplete(testContext.succeeding(buffer -> testContext.verify(() -> {
@@ -137,7 +137,7 @@ public class ConsumerGroupsOAuthTestIT extends OauthTestBase {
         client.request(HttpMethod.DELETE, publishedAdminPort, "localhost", "/rest/consumer-groups/" + groupIDS.get(0))
                 .compose(req -> req.putHeader("Authorization", "Bearer " + token.getAccessToken()).send().onSuccess(response -> {
                     if (response.statusCode() != ReturnCodes.GROUP_DELETED.code) {
-                        testContext.failNow("Status code not correct");
+                        testContext.failNow("Status code not correct, was: " + response.statusCode() + " expected: " + ReturnCodes.GROUP_DELETED.code);
                     }
                 }).onFailure(testContext::failNow).compose(HttpClientResponse::body))
                 .onComplete(testContext.succeeding(buffer -> testContext.verify(() -> {

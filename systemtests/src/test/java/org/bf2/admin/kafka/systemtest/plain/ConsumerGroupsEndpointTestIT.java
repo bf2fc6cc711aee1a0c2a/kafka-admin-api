@@ -82,7 +82,7 @@ public class ConsumerGroupsEndpointTestIT extends PlainTestBase {
         client.request(HttpMethod.DELETE, publishedAdminPort, "localhost", "/rest/consumer-groups/" + groupdIds.get(0))
                 .compose(req -> req.send().onSuccess(response -> {
                     if (response.statusCode() !=  ReturnCodes.GROUP_DELETED.code) {
-                        testContext.failNow("Status code not correct");
+                        testContext.failNow("Status code not correct. Got: " + response.statusCode() + "expected: " + ReturnCodes.GROUP_DELETED.code);
                     }
                 }).onFailure(testContext::failNow).compose(HttpClientResponse::body))
                 .onComplete(testContext.succeeding(buffer -> testContext.verify(() -> {
@@ -157,7 +157,7 @@ public class ConsumerGroupsEndpointTestIT extends PlainTestBase {
         client.request(HttpMethod.GET, publishedAdminPort, "localhost", "/rest/consumer-groups/" + groupdIds.get(0))
                 .compose(req -> req.send().onSuccess(response -> {
                     if (response.statusCode() != ReturnCodes.SUCCESS.code) {
-                        testContext.failNow("Status code not correct");
+                        testContext.failNow("Status code not correct. Got: " + response.statusCode() + " expected: " + ReturnCodes.SUCCESS.code);
                     }
                 }).onFailure(testContext::failNow).compose(HttpClientResponse::body))
                 .onComplete(testContext.succeeding(buffer -> testContext.verify(() -> {
