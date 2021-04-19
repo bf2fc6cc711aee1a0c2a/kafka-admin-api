@@ -93,8 +93,8 @@ docker build --build-arg kafka_admin_api_version=${NEW_VERSION} -t ${DOCKER_REPO
 mvn versions:set  -DnewVersion=${NEXT_VERSION} -DgenerateBackupPoms=false
 git commit -m "Prepare for development ${NEXT_VERSION}" .
 
-git push --dry-run --tags upstream
+git push --dry-run upstream ${NEW_VERSION} main
 # Finally 
-git push --tags upstream
+git push upstream ${NEW_VERSION} main
 ```
 
