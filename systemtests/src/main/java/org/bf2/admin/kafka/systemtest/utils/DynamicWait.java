@@ -25,7 +25,7 @@ public class DynamicWait {
 
     public static void waitForGroupExists(String groupID, AdminClient kafkaClient) throws Exception {
         waitFor(() -> {
-            if (kafkaClient.listConsumerGroups().all().get().size() > 0) {
+            if (kafkaClient.listConsumerGroups().all().get().contains(groupID)) {
                 return Boolean.TRUE;
             }
             return Boolean.FALSE;
