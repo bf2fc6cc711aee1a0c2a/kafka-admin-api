@@ -34,4 +34,4 @@ jobs:
         if: failure()
         with:
           name: artifacts
-          path: systemtest/target/logs/
+          path: ./systemtest/target/logs/
