@@ -167,6 +167,7 @@ public class ConsumerGroupsEndpointTestIT extends PlainTestBase {
                     if (response.statusCode() != ReturnCodes.SUCCESS.code) {
                         try {
                             LogCollector.getInstance().collectLogs(extensionContext);
+                            LOGGER.error("GROUPS: " + kafkaClient.listConsumerGroups().all().get());
                         } catch (InterruptedException | IOException e) {
                             e.printStackTrace();
                         }
