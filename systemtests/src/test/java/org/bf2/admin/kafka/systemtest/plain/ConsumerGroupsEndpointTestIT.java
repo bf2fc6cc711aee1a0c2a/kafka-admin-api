@@ -15,6 +15,7 @@ import org.bf2.admin.kafka.systemtest.bases.PlainTestBase;
 import org.bf2.admin.kafka.systemtest.enums.ReturnCodes;
 import org.bf2.admin.kafka.systemtest.logs.LogCollector;
 import org.bf2.admin.kafka.systemtest.utils.AsyncMessaging;
+import org.bf2.admin.kafka.systemtest.utils.DynamicWait;
 import org.bf2.admin.kafka.systemtest.utils.RequestUtils;
 import org.bf2.admin.kafka.systemtest.utils.SyncMessaging;
 import org.junit.jupiter.api.extension.ExtensionContext;
@@ -111,13 +112,13 @@ public class ConsumerGroupsEndpointTestIT extends PlainTestBase {
         String topicName = UUID.randomUUID().toString();
         KafkaConsumer<String, String> consumer = AsyncMessaging.createActiveConsumerGroup(vertx, kafkaClient,
                 DEPLOYMENT_MANAGER.getKafkaContainer(extensionContext).getBootstrapServers(), groupID, topicName);
-        AsyncMessaging.consumeMessages(vertx, consumer, topicName, 100);
-
+        AsyncMessaging.consumeMessages(vertx, consumer, topicName, 200);
+        DynamicWait.waitForGroupExists(groupID, kafkaClient);
         HttpClient client = vertx.createHttpClient();
         client.request(HttpMethod.DELETE, publishedAdminPort, "localhost", "/rest/consumer-groups/" + groupID)
                 .compose(req -> req.send().onSuccess(response -> {
                     if (response.statusCode() !=  ReturnCodes.GROUP_LOCKED.code) {
-                        testContext.failNow("Status code not correct");
+                        testContext.failNow("Status code not correct got: " + response.statusCode() + " expected: " + ReturnCodes.GROUP_LOCKED.code);
                     }
                 }).onFailure(testContext::failNow).compose(HttpClientResponse::body))
                 .onComplete(testContext.succeeding(buffer -> testContext.verify(() -> {

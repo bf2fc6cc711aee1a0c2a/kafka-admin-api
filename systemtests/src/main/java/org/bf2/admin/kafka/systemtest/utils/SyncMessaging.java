@@ -31,6 +31,7 @@ public class SyncMessaging {
                 KafkaConsumer<String, String> c = new KafkaConsumer<>(ClientsConfig.getConsumerConfigOauth(bootstrap, groupIds.get(i), token));
                 c.subscribe(Collections.singletonList(topicName));
                 c.poll(Duration.ofSeconds(5));
+                DynamicWait.waitForGroupExists(groupIds.get(i), kafkaClient);
                 LOGGER.info("Created " + i + ". group");
                 c.close();
             }
@@ -51,6 +52,7 @@ public class SyncMessaging {
                 KafkaConsumer<String, String> c = new KafkaConsumer<>(ClientsConfig.getConsumerConfig(bootstrap, groupIds.get(i)));
                 c.subscribe(Collections.singletonList(topicName));
                 c.poll(Duration.ofSeconds(5));
+                DynamicWait.waitForGroupExists(groupIds.get(i), kafkaClient);
                 LOGGER.info("Created " + i + ". group");
                 c.close();
             }
