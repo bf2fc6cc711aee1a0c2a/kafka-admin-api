@@ -13,6 +13,7 @@ import io.vertx.junit5.VertxTestContext;
 import org.apache.kafka.clients.admin.NewTopic;
 import org.apache.kafka.clients.admin.TopicDescription;
 import org.apache.kafka.common.config.ConfigResource;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
@@ -83,6 +84,7 @@ public class RestOAuthTestIT extends OauthTestBase {
 
     }
 
+    @Disabled
     @Test
     public void testListWithInvalidToken(Vertx vertx, VertxTestContext testContext) throws Exception {
         List<String> topicNames = new ArrayList<>();
