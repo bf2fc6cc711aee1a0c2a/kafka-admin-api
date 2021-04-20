@@ -14,7 +14,6 @@ import org.apache.kafka.clients.admin.NewTopic;
 import org.apache.kafka.clients.admin.TopicDescription;
 import org.apache.kafka.common.config.ConfigResource;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtensionContext;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -85,7 +84,7 @@ public class RestOAuthTestIT extends OauthTestBase {
     }
 
     @Test
-    public void testListWithInvalidToken(Vertx vertx, VertxTestContext testContext, ExtensionContext extensionContext) throws Exception {
+    public void testListWithInvalidToken(Vertx vertx, VertxTestContext testContext) throws Exception {
         List<String> topicNames = new ArrayList<>();
         topicNames.add(UUID.randomUUID().toString());
         topicNames.add(UUID.randomUUID().toString());
