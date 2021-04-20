@@ -47,7 +47,7 @@ public class SyncMessaging {
                 DynamicWait.waitForTopicExists(topicName, kafkaClient);
                 KafkaConsumer<String, String> c = new KafkaConsumer<>(ClientsConfig.getConsumerConfig(bootstrap, groupIds.get(i)));
                 c.subscribe(Collections.singletonList(topicName));
-                c.poll(Duration.ofSeconds(1));
+                c.poll(Duration.ofSeconds(5));
                 DynamicWait.waitForGroupExists(groupIds.get(i), kafkaClient);
                 c.close();
             }
