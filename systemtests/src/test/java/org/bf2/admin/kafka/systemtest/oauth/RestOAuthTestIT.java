@@ -2,7 +2,6 @@ package org.bf2.admin.kafka.systemtest.oauth;
 
 import org.bf2.admin.kafka.admin.model.Types;
 import org.bf2.admin.kafka.systemtest.enums.ReturnCodes;
-import org.bf2.admin.kafka.systemtest.logs.LogCollector;
 import org.bf2.admin.kafka.systemtest.utils.DynamicWait;
 import org.bf2.admin.kafka.systemtest.utils.RequestUtils;
 import org.bf2.admin.kafka.systemtest.bases.OauthTestBase;
@@ -17,7 +16,6 @@ import org.apache.kafka.common.config.ConfigResource;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtensionContext;
 
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -87,7 +85,16 @@ public class RestOAuthTestIT extends OauthTestBase {
     }
 
     @Test
-    public void testListWithInvalidToken(Vertx vertx, VertxTestContext testContext, ExtensionContext extensionContext) throws InterruptedException {
+    public void testListWithInvalidToken(Vertx vertx, VertxTestContext testContext, ExtensionContext extensionContext) throws Exception {
+        List<String> topicNames = new ArrayList<>();
+        topicNames.add(UUID.randomUUID().toString());
+        topicNames.add(UUID.randomUUID().toString());
+
+        kafkaClient.createTopics(Arrays.asList(
+                new NewTopic(topicNames.get(0), 1, (short) 1),
+                new NewTopic(topicNames.get(1), 1, (short) 1)
+        ));
+        DynamicWait.waitForTopicsExists(topicNames, kafkaClient);
         kafkaClient.close();
         String invalidToken = new Random().ints(97, 98)
                 .limit(token.getAccessToken().length())
@@ -100,18 +107,7 @@ public class RestOAuthTestIT extends OauthTestBase {
                             assertThat(response.statusCode()).isEqualTo(ReturnCodes.UNAUTHORIZED.code);
                             testContext.completeNow();
                         }))
-                        .onFailure(throwable -> {
-                            LOGGER.error("Request with invalid token failed");
-                            testContext.failNow(throwable);
-                        })).onFailure(throwable -> {
-                            LOGGER.error("Request with invalid token failed 2");
-                            try {
-                                LogCollector.getInstance().collectLogs(extensionContext);
-                            } catch (InterruptedException | IOException e) {
-                                e.printStackTrace();
-                            }
-                            testContext.failNow(throwable);
-                        });
+                        .onFailure(testContext::failNow));
         assertThat(testContext.awaitCompletion(1, TimeUnit.MINUTES)).isTrue();
     }
 
