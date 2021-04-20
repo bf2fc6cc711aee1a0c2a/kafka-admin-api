@@ -86,11 +86,6 @@ public class ConsumerGroupsEndpointTestIT extends PlainTestBase {
                 .compose(req -> req.send().onSuccess(response -> {
                     if (response.statusCode() !=  ReturnCodes.GROUP_DELETED.code) {
                         testContext.failNow("Status code not correct. Got: " + response.statusCode() + "expected: " + ReturnCodes.GROUP_DELETED.code);
-                        try {
-                            LogCollector.getInstance().collectLogs(extensionContext);
-                        } catch (InterruptedException | IOException e) {
-                            e.printStackTrace();
-                        }
                     }
                 }).onFailure(testContext::failNow).compose(HttpClientResponse::body))
                 .onComplete(testContext.succeeding(buffer -> testContext.verify(() -> {
