@@ -94,7 +94,7 @@ public class RestOAuthTestIT extends OauthTestBase {
                 .collect(StringBuilder::new, StringBuilder::appendCodePoint, StringBuilder::append)
                 .toString();
         HttpClient client = vertx.createHttpClient();
-        client.request(HttpMethod.GET, 11, "localhost", "/rest/topics")
+        client.request(HttpMethod.GET, publishedAdminPort, "localhost", "/rest/topics")
                 .compose(req -> req.putHeader("Authorization", "Bearer " + invalidToken).send()
                         .onSuccess(response -> testContext.verify(() -> {
                             assertThat(response.statusCode()).isEqualTo(ReturnCodes.UNAUTHORIZED.code);

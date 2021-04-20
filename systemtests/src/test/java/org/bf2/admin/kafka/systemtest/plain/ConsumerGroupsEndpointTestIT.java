@@ -15,7 +15,6 @@ import org.bf2.admin.kafka.systemtest.bases.PlainTestBase;
 import org.bf2.admin.kafka.systemtest.enums.ReturnCodes;
 import org.bf2.admin.kafka.systemtest.logs.LogCollector;
 import org.bf2.admin.kafka.systemtest.utils.AsyncMessaging;
-import org.bf2.admin.kafka.systemtest.utils.DynamicWait;
 import org.bf2.admin.kafka.systemtest.utils.RequestUtils;
 import org.bf2.admin.kafka.systemtest.utils.SyncMessaging;
 import org.junit.jupiter.api.extension.ExtensionContext;
@@ -114,7 +113,6 @@ public class ConsumerGroupsEndpointTestIT extends PlainTestBase {
                 DEPLOYMENT_MANAGER.getKafkaContainer(extensionContext).getBootstrapServers(), groupID, topicName);
         AsyncMessaging.consumeMessages(vertx, consumer, topicName, 100);
 
-        DynamicWait.waitForGroupExists(groupID, kafkaClient);
         HttpClient client = vertx.createHttpClient();
         client.request(HttpMethod.DELETE, publishedAdminPort, "localhost", "/rest/consumer-groups/" + groupID)
                 .compose(req -> req.send().onSuccess(response -> {
@@ -160,8 +158,6 @@ public class ConsumerGroupsEndpointTestIT extends PlainTestBase {
         int publishedAdminPort = DEPLOYMENT_MANAGER.getAdminPort(extensionContext);
 
         List<String> groupdIds = SyncMessaging.createConsumerGroups(vertx, kafkaClient, 2, DEPLOYMENT_MANAGER.getKafkaContainer(extensionContext).getBootstrapServers(), testContext);
-        DynamicWait.waitForGroupExists(groupdIds.get(0), kafkaClient);
-        DynamicWait.waitForGroupExists(groupdIds.get(1), kafkaClient);
         HttpClient client = vertx.createHttpClient();
         client.request(HttpMethod.GET, publishedAdminPort, "localhost", "/rest/consumer-groups/" + groupdIds.get(0))
                 .compose(req -> req.send().onSuccess(response -> {
