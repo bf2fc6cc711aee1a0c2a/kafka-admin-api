@@ -32,7 +32,7 @@ public class SyncMessaging {
                 c.subscribe(Collections.singletonList(topicName));
                 c.poll(Duration.ofSeconds(5));
                 DynamicWait.waitForGroupExists(groupIds.get(i), kafkaClient);
-                LOGGER.info("Created " + i +". group");
+                LOGGER.info("Created " + i + ". group");
                 c.close();
             }
         });
@@ -53,7 +53,7 @@ public class SyncMessaging {
                 c.subscribe(Collections.singletonList(topicName));
                 c.poll(Duration.ofSeconds(5));
                 DynamicWait.waitForGroupExists(groupIds.get(i), kafkaClient);
-                LOGGER.info("Created " + i +". group");
+                LOGGER.info("Created " + i + ". group");
                 c.close();
             }
         });
