@@ -6,6 +6,7 @@ import org.bf2.admin.kafka.admin.InvalidTopicException;
 import org.bf2.admin.kafka.admin.KafkaAdminConfigRetriever;
 import org.bf2.admin.kafka.admin.TopicOperations;
 import org.bf2.admin.kafka.admin.model.Types;
+
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.micrometer.core.instrument.Timer;
 import io.netty.handler.codec.http.HttpResponseStatus;
@@ -17,6 +18,8 @@ import io.vertx.core.file.FileSystem;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.RoutingContext;
 import org.apache.kafka.common.errors.InvalidRequestException;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 import java.io.IOException;
 import java.util.Collections;
@@ -26,6 +29,7 @@ import java.util.regex.Pattern;
 
 public class RestOperations extends CommonHandler implements OperationsHandler<Handler<RoutingContext>> {
 
+    protected final Logger log = LogManager.getLogger(RestOperations.class);
     /**
      * Default limit to the number of partitions that new topics may have configured.
      * This value may be overridden via environment variable <code>KAFKA_ADMIN_NUM_PARTITIONS_MAX</code>.
@@ -394,6 +398,7 @@ public class RestOperations extends CommonHandler implements OperationsHandler<H
 
     public Handler<RoutingContext> openApi(Vertx vertx, HttpMetrics httpMetrics) {
         return routingContext -> {
+            log.debug("Servicing OpenAPI request");
             httpMetrics.getRequestsCounter().increment();
             httpMetrics.getOpenApiCounter().increment();
             Timer.Sample requestTimerSample = Timer.start(httpMetrics.getRegistry());

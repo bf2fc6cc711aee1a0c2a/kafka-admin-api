@@ -20,6 +20,9 @@ public class Main {
      * @param args the command line arguments
      */
     public static void main(final String[] args) throws Exception {
+        LoggingConfigWatcher watcher = new LoggingConfigWatcher();
+        watcher.initialize();
+
         LOGGER.info("AdminServer is starting.");
 
         VertxOptions options = new VertxOptions()
