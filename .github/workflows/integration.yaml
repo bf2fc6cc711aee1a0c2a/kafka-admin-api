@@ -28,7 +28,7 @@ jobs:
 
       - name: "Integration tests"
         run: |
-          mvn clean verify -pl systemtests -Dit.test=ConsumerGroupsOAuthTestIT -Djunit.jupiter.execution.parallel.enabled=true -Djunit.jupiter.execution.parallel.config.fixed.parallelism=2
+          mvn clean verify -pl systemtests -Djunit.jupiter.execution.parallel.enabled=true -Djunit.jupiter.execution.parallel.config.fixed.parallelism=2
 
 
       - name: Archive results
