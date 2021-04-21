@@ -30,9 +30,10 @@ jobs:
         run: |
           mvn clean verify -pl systemtests -Djunit.jupiter.execution.parallel.enabled=true -Djunit.jupiter.execution.parallel.config.fixed.parallelism=2
 
+
       - name: Archive results
         uses: actions/upload-artifact@v2
         if: failure()
         with:
           name: artifacts
-          path: systemtest/target/logs/
+          path: systemtests/target/logs/

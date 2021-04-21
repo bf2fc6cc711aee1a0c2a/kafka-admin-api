@@ -38,7 +38,7 @@ public class ConsumerGroupsOAuthTestIT extends OauthTestBase {
                     assertThat(testContext.failed()).isFalse();
                     Types.ConsumerGroupList response = MODEL_DESERIALIZER.deserializeResponse(buffer, Types.ConsumerGroupList.class);
                     List<String> responseGroupIDs = response.getItems().stream().map(cg -> cg.getGroupId()).collect(Collectors.toList());
-                    assertThat(responseGroupIDs).hasSameElementsAs(groupIDS);
+                    assertThat(groupIDS).hasSameElementsAs(responseGroupIDs);
                     testContext.completeNow();
                 })));
         assertThat(testContext.awaitCompletion(1, TimeUnit.MINUTES)).isTrue();
@@ -59,7 +59,8 @@ public class ConsumerGroupsOAuthTestIT extends OauthTestBase {
     }
 
     @Test
-    public void testListWithInvalidToken(Vertx vertx, VertxTestContext testContext) throws InterruptedException {
+    public void testListWithInvalidToken(Vertx vertx, VertxTestContext testContext) throws Exception {
+        List<String> groupIDS = SyncMessaging.createConsumerGroups(vertx, kafkaClient, 1, "localhost:9092", testContext, token);
         kafkaClient.close();
         String invalidToken = new Random().ints(97, 98)
                 .limit(token.getAccessToken().length())
@@ -83,7 +84,7 @@ public class ConsumerGroupsOAuthTestIT extends OauthTestBase {
         client.request(HttpMethod.GET, publishedAdminPort, "localhost", "/rest/consumer-groups/" + groupIDS.get(0))
                 .compose(req -> req.putHeader("Authorization", "Bearer " + token.getAccessToken()).send().onSuccess(response -> {
                     if (response.statusCode() != ReturnCodes.SUCCESS.code) {
-                        testContext.failNow("Status code not correct");
+                        testContext.failNow("Status code not correct. Got: " + response.statusCode() + "expected: " + ReturnCodes.SUCCESS.code);
                     }
                 }).onFailure(testContext::failNow).compose(HttpClientResponse::body))
                 .onComplete(testContext.succeeding(buffer -> testContext.verify(() -> {
@@ -113,7 +114,7 @@ public class ConsumerGroupsOAuthTestIT extends OauthTestBase {
 
     @Test
     public void testDescribeWithInvalidToken(Vertx vertx, VertxTestContext testContext) throws Exception {
-        List<String> groupIDS = SyncMessaging.createConsumerGroups(vertx, kafkaClient, 1, "localhost:9092", testContext, token);
+        List<String> groupIDS = SyncMessaging.createConsumerGroups(vertx, kafkaClient, 2, "localhost:9092", testContext, token);
         kafkaClient.close();
         String invalidToken = new Random().ints(97, 98)
                 .limit(token.getAccessToken().length())
@@ -137,7 +138,7 @@ public class ConsumerGroupsOAuthTestIT extends OauthTestBase {
         client.request(HttpMethod.DELETE, publishedAdminPort, "localhost", "/rest/consumer-groups/" + groupIDS.get(0))
                 .compose(req -> req.putHeader("Authorization", "Bearer " + token.getAccessToken()).send().onSuccess(response -> {
                     if (response.statusCode() != ReturnCodes.GROUP_DELETED.code) {
-                        testContext.failNow("Status code not correct");
+                        testContext.failNow("Status code not correct, was: " + response.statusCode() + " expected: " + ReturnCodes.GROUP_DELETED.code);
                     }
                 }).onFailure(testContext::failNow).compose(HttpClientResponse::body))
                 .onComplete(testContext.succeeding(buffer -> testContext.verify(() -> {
@@ -171,7 +172,7 @@ public class ConsumerGroupsOAuthTestIT extends OauthTestBase {
     }
 
     @Test
-    public void testListWithDeleteToken(Vertx vertx, VertxTestContext testContext) throws Exception {
+    public void testDeleteWithInvalidToken(Vertx vertx, VertxTestContext testContext) throws Exception {
         List<String> groupIDS = SyncMessaging.createConsumerGroups(vertx, kafkaClient, 2, "localhost:9092", testContext, token);
         kafkaClient.close();
         String invalidToken = new Random().ints(97, 98)

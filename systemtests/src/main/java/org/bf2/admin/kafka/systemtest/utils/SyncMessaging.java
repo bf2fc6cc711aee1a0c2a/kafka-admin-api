@@ -6,6 +6,8 @@ import org.apache.kafka.clients.admin.AdminClient;
 import org.apache.kafka.clients.admin.NewTopic;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.apache.kafka.clients.producer.KafkaProducer;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.bf2.admin.kafka.systemtest.json.TokenModel;
 
 import java.time.Duration;
@@ -15,7 +17,7 @@ import java.util.List;
 import java.util.UUID;
 
 public class SyncMessaging {
-
+    protected static final Logger LOGGER = LogManager.getLogger(SyncMessaging.class);
     public static List<String> createConsumerGroups(Vertx vertx, AdminClient kafkaClient, int count, String bootstrap, VertxTestContext testContext, TokenModel token) throws Exception {
         List<String> groupIds = new ArrayList<>();
         testContext.verify(() -> {
@@ -28,7 +30,9 @@ public class SyncMessaging {
                 DynamicWait.waitForTopicExists(topicName, kafkaClient);
                 KafkaConsumer<String, String> c = new KafkaConsumer<>(ClientsConfig.getConsumerConfigOauth(bootstrap, groupIds.get(i), token));
                 c.subscribe(Collections.singletonList(topicName));
-                c.poll(Duration.ofSeconds(1));
+                c.poll(Duration.ofSeconds(5));
+                DynamicWait.waitForGroupExists(groupIds.get(i), kafkaClient);
+                LOGGER.info("Created " + i + ". group");
                 c.close();
             }
         });
@@ -47,7 +51,9 @@ public class SyncMessaging {
                 DynamicWait.waitForTopicExists(topicName, kafkaClient);
                 KafkaConsumer<String, String> c = new KafkaConsumer<>(ClientsConfig.getConsumerConfig(bootstrap, groupIds.get(i)));
                 c.subscribe(Collections.singletonList(topicName));
-                c.poll(Duration.ofSeconds(1));
+                c.poll(Duration.ofSeconds(5));
+                DynamicWait.waitForGroupExists(groupIds.get(i), kafkaClient);
+                LOGGER.info("Created " + i + ". group");
                 c.close();
             }
         });

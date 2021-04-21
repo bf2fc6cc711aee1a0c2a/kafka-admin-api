@@ -123,7 +123,6 @@ public class AsyncMessaging {
         DynamicWait.waitForTopicExists(topicName, kafkaClient);
 
         KafkaConsumer<String, String> consumer = KafkaConsumer.create(vertx, ClientsConfig.getConsumerConfig(bootstrap, groupID));
-
         return consumer;
     }
 

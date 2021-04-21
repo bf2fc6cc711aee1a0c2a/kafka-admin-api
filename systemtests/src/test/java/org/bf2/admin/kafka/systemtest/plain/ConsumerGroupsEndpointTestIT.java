@@ -82,7 +82,7 @@ public class ConsumerGroupsEndpointTestIT extends PlainTestBase {
         client.request(HttpMethod.DELETE, publishedAdminPort, "localhost", "/rest/consumer-groups/" + groupdIds.get(0))
                 .compose(req -> req.send().onSuccess(response -> {
                     if (response.statusCode() !=  ReturnCodes.GROUP_DELETED.code) {
-                        testContext.failNow("Status code not correct");
+                        testContext.failNow("Status code not correct. Got: " + response.statusCode() + "expected: " + ReturnCodes.GROUP_DELETED.code);
                     }
                 }).onFailure(testContext::failNow).compose(HttpClientResponse::body))
                 .onComplete(testContext.succeeding(buffer -> testContext.verify(() -> {
@@ -104,14 +104,13 @@ public class ConsumerGroupsEndpointTestIT extends PlainTestBase {
         String topicName = UUID.randomUUID().toString();
         KafkaConsumer<String, String> consumer = AsyncMessaging.createActiveConsumerGroup(vertx, kafkaClient,
                 DEPLOYMENT_MANAGER.getKafkaContainer(extensionContext).getBootstrapServers(), groupID, topicName);
-        AsyncMessaging.consumeMessages(vertx, consumer, topicName, 100);
-
+        AsyncMessaging.consumeMessages(vertx, consumer, topicName, 200);
         DynamicWait.waitForGroupExists(groupID, kafkaClient);
         HttpClient client = vertx.createHttpClient();
         client.request(HttpMethod.DELETE, publishedAdminPort, "localhost", "/rest/consumer-groups/" + groupID)
                 .compose(req -> req.send().onSuccess(response -> {
                     if (response.statusCode() !=  ReturnCodes.GROUP_LOCKED.code) {
-                        testContext.failNow("Status code not correct");
+                        testContext.failNow("Status code not correct got: " + response.statusCode() + " expected: " + ReturnCodes.GROUP_LOCKED.code);
                     }
                 }).onFailure(testContext::failNow).compose(HttpClientResponse::body))
                 .onComplete(testContext.succeeding(buffer -> testContext.verify(() -> {
@@ -152,12 +151,11 @@ public class ConsumerGroupsEndpointTestIT extends PlainTestBase {
         int publishedAdminPort = DEPLOYMENT_MANAGER.getAdminPort(extensionContext);
 
         List<String> groupdIds = SyncMessaging.createConsumerGroups(vertx, kafkaClient, 2, DEPLOYMENT_MANAGER.getKafkaContainer(extensionContext).getBootstrapServers(), testContext);
-
         HttpClient client = vertx.createHttpClient();
         client.request(HttpMethod.GET, publishedAdminPort, "localhost", "/rest/consumer-groups/" + groupdIds.get(0))
                 .compose(req -> req.send().onSuccess(response -> {
                     if (response.statusCode() != ReturnCodes.SUCCESS.code) {
-                        testContext.failNow("Status code not correct");
+                        testContext.failNow("Status code not correct. Got: " + response.statusCode() + " expected: " + ReturnCodes.SUCCESS.code);
                     }
                 }).onFailure(testContext::failNow).compose(HttpClientResponse::body))
                 .onComplete(testContext.succeeding(buffer -> testContext.verify(() -> {

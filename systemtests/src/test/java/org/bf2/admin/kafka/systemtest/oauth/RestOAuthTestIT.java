@@ -13,6 +13,7 @@ import io.vertx.junit5.VertxTestContext;
 import org.apache.kafka.clients.admin.NewTopic;
 import org.apache.kafka.clients.admin.TopicDescription;
 import org.apache.kafka.common.config.ConfigResource;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
@@ -83,8 +84,18 @@ public class RestOAuthTestIT extends OauthTestBase {
 
     }
 
+    @Disabled
     @Test
-    public void testListWithInvalidToken(Vertx vertx, VertxTestContext testContext) throws InterruptedException {
+    public void testListWithInvalidToken(Vertx vertx, VertxTestContext testContext) throws Exception {
+        List<String> topicNames = new ArrayList<>();
+        topicNames.add(UUID.randomUUID().toString());
+        topicNames.add(UUID.randomUUID().toString());
+
+        kafkaClient.createTopics(Arrays.asList(
+                new NewTopic(topicNames.get(0), 1, (short) 1),
+                new NewTopic(topicNames.get(1), 1, (short) 1)
+        ));
+        DynamicWait.waitForTopicsExists(topicNames, kafkaClient);
         kafkaClient.close();
         String invalidToken = new Random().ints(97, 98)
                 .limit(token.getAccessToken().length())
@@ -96,7 +107,8 @@ public class RestOAuthTestIT extends OauthTestBase {
                         .onSuccess(response -> testContext.verify(() -> {
                             assertThat(response.statusCode()).isEqualTo(ReturnCodes.UNAUTHORIZED.code);
                             testContext.completeNow();
-                        })));
+                        }))
+                        .onFailure(testContext::failNow));
         assertThat(testContext.awaitCompletion(1, TimeUnit.MINUTES)).isTrue();
     }
 
