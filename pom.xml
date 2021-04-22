@@ -40,6 +40,12 @@
         <surefire-plugin.version>3.0.0-M5</surefire-plugin.version>
     </properties>
 
+    <scm>
+        <connection>scm:git:git://github.com/bf2fc6cc711aee1a0c2a/kafka-admin-api.git</connection>
+        <developerConnection>scm:git:git@github.com:bf2fc6cc711aee1a0c2a/kafka-admin-api.git</developerConnection>
+        <tag>HEAD</tag>
+    </scm>
+
     <dependencyManagement>
         <dependencies>
             <dependency>
@@ -298,6 +304,21 @@
                             <addDefaultSpecificationEntries>true</addDefaultSpecificationEntries>
                         </manifest>
                     </archive>
+                </configuration>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-release-plugin</artifactId>
+                <version>2.5.3</version>
+                <configuration>
+                    <autoVersionSubmodules>true</autoVersionSubmodules>
+                    <tagNameFormat>@{project.version}</tagNameFormat>
+                    <preparationGoals>verify</preparationGoals>
+                    <pushChanges>false</pushChanges>
+                    <localCheckout>true</localCheckout>
+                    <remoteTagging>false</remoteTagging>
+                    <arguments>-DskipTests -DskipITs -Dmaven.deploy.skip=true ${release.arguments}</arguments>
+                    <allowTimestampedSnapshots>true</allowTimestampedSnapshots>
                 </configuration>
             </plugin>
         </plugins>

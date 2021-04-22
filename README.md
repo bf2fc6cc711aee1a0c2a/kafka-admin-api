@@ -80,7 +80,22 @@ Once all steps above have been completed, you can run the Kafka Admin API. The s
 
 ## Releasing
 
-Interim release steps
+### Milestones
+Each release requires an open milestone that includes the issues/pull requests that are part of the release. All issues in the release milestone must be closed. The name of the milestone must match the version number to be released.
+
+### Configuration
+The release action flow requires that the following secrets are configured in the repository:
+* `IMAGE_REPO_HOSTNAME` - the host (optionally including a port number) of the image repository where images will be pushed
+* `IMAGE_REPO_NAMESPACE` - namespace/library/user where the image will be pushed
+* `IMAGE_REPO_USERNAME` - user name for authentication to server `IMAGE_REPO_HOSTNAME`
+* `IMAGE_REPO_PASSWORD` - password for authentication to server `IMAGE_REPO_HOSTNAME`
+These credentials will be used to push the release image to the repository configured in the `.github/workflows/release.yml` workflow.
+
+### Performing the Release
+Releases are performed by modifying the `.github/project.yml` file, setting `current-version` to the release version and `next-version` to the next SNAPSHOT. Open a pull request with the changed `project.yml` to initiate the pre-release workflows. At this phase, the project milestone will be checked and it will be verified that no issues for the release milestone are still open. Additionally, the project's integration test will be run.
+Once approved and the pull request is merged, the release action will execute. This action will execute the Maven release plugin to tag the release commit, build the application artifacts, create the build image, and push the image to (currently) quay.io. If successful, the action will push the new tag to the Github repository and generate release notes listing all of the closed issues included in the milestone. Finally, the milestone will be closed.
+
+## Interim release steps (DEPRECATED)
 
 ```
 DOCKER_REPO=quay.io/k_wall
