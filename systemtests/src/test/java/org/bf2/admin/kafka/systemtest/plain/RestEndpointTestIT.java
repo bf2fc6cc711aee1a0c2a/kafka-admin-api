@@ -473,12 +473,14 @@ public class RestEndpointTestIT extends PlainTestBase {
         assertThat(testContext.awaitCompletion(1, TimeUnit.MINUTES)).isTrue();
     }
 
-    @ParallelTest
-    void testCreateTopicWithExcessiveNumPartitions(Vertx vertx, VertxTestContext testContext, ExtensionContext extensionContext) throws InterruptedException {
+    @ParameterizedTest(name = "{displayName}-{0}")
+    @Execution(ExecutionMode.CONCURRENT)
+    @ValueSource(ints = { 0, 101 })
+    void testCreateTopicWithInvalidNumPartitions(int numPartitions, Vertx vertx, VertxTestContext testContext, ExtensionContext extensionContext) throws InterruptedException {
         AdminClient kafkaClient = AdminClient.create(RequestUtils.getKafkaAdminConfig(DEPLOYMENT_MANAGER
                 .getKafkaContainer(extensionContext).getBootstrapServers()));
         int publishedAdminPort = DEPLOYMENT_MANAGER.getAdminPort(extensionContext);
-        Types.NewTopic topic = RequestUtils.getTopicObject(101);
+        Types.NewTopic topic = RequestUtils.getTopicObject(numPartitions);
 
         vertx.createHttpClient().request(HttpMethod.POST, publishedAdminPort, "localhost", "/rest/topics")
                 .compose(req -> req.putHeader("content-type", "application/json")
