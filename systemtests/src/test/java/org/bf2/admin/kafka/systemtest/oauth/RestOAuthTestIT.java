@@ -106,9 +106,6 @@ public class RestOAuthTestIT extends OauthTestBase {
                             assertThat(response.statusCode()).isEqualTo(ReturnCodes.UNAUTHORIZED.code);
                             testContext.completeNow();
                         }))
-                        .onFailure(throwable -> {
-                            DEPLOYMENT_MANAGER.listDocker();
-                        })
                         .onFailure(testContext::failNow));
         assertThat(testContext.awaitCompletion(1, TimeUnit.MINUTES)).isTrue();
     }

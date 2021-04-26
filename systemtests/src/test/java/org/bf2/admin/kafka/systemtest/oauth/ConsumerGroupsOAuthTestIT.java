@@ -71,7 +71,11 @@ public class ConsumerGroupsOAuthTestIT extends OauthTestBase {
                         .onSuccess(response -> testContext.verify(() -> {
                             assertThat(response.statusCode()).isEqualTo(ReturnCodes.UNAUTHORIZED.code);
                             testContext.completeNow();
-                        })));
+                        })))
+                .onFailure(throwable -> {
+                    DEPLOYMENT_MANAGER.listDocker();
+                    testContext.failNow("Test failed: " + throwable.getMessage());
+                });
         assertThat(testContext.awaitCompletion(1, TimeUnit.MINUTES)).isTrue();
     }
 
