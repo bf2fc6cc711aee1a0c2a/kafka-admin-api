@@ -341,15 +341,22 @@ public class AdminDeploymentManager {
 
     public void listDocker() {
         List<String> networks = client.listNetworksCmd().exec().stream().map(com.github.dockerjava.api.model.Network::getName).collect(Collectors.toList());
-        List<String> containers = client.listContainersCmd().exec().stream().map(Container::getId).collect(Collectors.toList());
+        List<String> containers_sta = client.listContainersCmd().exec().stream().map(Container::getCommand).collect(Collectors.toList());
+        List<String> containers = client.listContainersCmd().exec().stream().map(Container::getImage).collect(Collectors.toList());
         LOGGER.error("DOCKER leftovers");
         LOGGER.error("Networks:");
         LOGGER.error("--------------------------------------------------------------");
         networks.forEach(LOGGER::error);
         LOGGER.error("--------------------------------------------------------------");
-        LOGGER.error("Containers:");
+        LOGGER.error("Containers - starts:");
         LOGGER.error("--------------------------------------------------------------");
-        containers.forEach(LOGGER::error);
+        containers_sta.forEach(LOGGER::error);
+        LOGGER.error("--------------------------------------------------------------");
+        LOGGER.error("Containers - images:");
+        LOGGER.error("--------------------------------------------------------------");
+        containers.forEach(image -> {
+            LOGGER.error("IMAGE: " + image + " Repo: " + client.inspectImageCmd(image).exec().getRepoTags().get(0));
+        });
         LOGGER.error("--------------------------------------------------------------");
     }
 }
