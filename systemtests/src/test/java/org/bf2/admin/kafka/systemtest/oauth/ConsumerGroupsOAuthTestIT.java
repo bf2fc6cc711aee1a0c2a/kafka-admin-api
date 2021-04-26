@@ -74,6 +74,7 @@ public class ConsumerGroupsOAuthTestIT extends OauthTestBase {
                         })))
                 .onFailure(throwable -> {
                     DEPLOYMENT_MANAGER.listDocker();
+                    LOGGER.error("ERR: " + throwable.getMessage() + "   CAUSE " + throwable.getCause());
                     testContext.failNow("Test failed: " + throwable.getMessage());
                 });
         assertThat(testContext.awaitCompletion(1, TimeUnit.MINUTES)).isTrue();
