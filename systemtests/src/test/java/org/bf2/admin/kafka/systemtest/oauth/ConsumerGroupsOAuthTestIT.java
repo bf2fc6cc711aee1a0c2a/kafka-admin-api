@@ -173,7 +173,7 @@ public class ConsumerGroupsOAuthTestIT extends OauthTestBase {
 
     @Test
     public void testDeleteWithInvalidToken(Vertx vertx, VertxTestContext testContext) throws Exception {
-        List<String> groupIDS = SyncMessaging.createConsumerGroups(vertx, kafkaClient, 2, "localhost:9092", testContext, token);
+        List<String> groupIDS = SyncMessaging.createConsumerGroups(vertx, kafkaClient, 1, "localhost:9092", testContext, token);
         kafkaClient.close();
         String invalidToken = new Random().ints(97, 98)
                 .limit(token.getAccessToken().length())
