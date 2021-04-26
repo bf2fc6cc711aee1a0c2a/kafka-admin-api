@@ -1,5 +1,6 @@
 package org.bf2.admin.kafka.systemtest.deployment;
 
+import com.github.dockerjava.api.model.Container;
 import org.bf2.admin.kafka.systemtest.utils.TestUtils;
 import com.github.dockerjava.api.DockerClient;
 import com.github.dockerjava.api.command.CreateContainerResponse;
@@ -336,5 +337,19 @@ public class AdminDeploymentManager {
 
     public int getAdminPort(ExtensionContext extensionContext) {
         return ADMIN_PORTS.get(extensionContext.getDisplayName());
+    }
+
+    public void listDocker() {
+        List<String> networks = client.listNetworksCmd().exec().stream().map(com.github.dockerjava.api.model.Network::getName).collect(Collectors.toList());
+        List<String> containers = client.listContainersCmd().exec().stream().map(Container::getId).collect(Collectors.toList());
+        LOGGER.error("DOCKER leftovers");
+        LOGGER.error("Networks:");
+        LOGGER.error("--------------------------------------------------------------");
+        networks.forEach(LOGGER::error);
+        LOGGER.error("--------------------------------------------------------------");
+        LOGGER.error("Containers:");
+        LOGGER.error("--------------------------------------------------------------");
+        containers.forEach(LOGGER::error);
+        LOGGER.error("--------------------------------------------------------------");
     }
 }
