@@ -62,14 +62,14 @@ public class ConsumerGroupsOAuthTestIT extends OauthTestBase {
 
     @Test
     public void testListWithInvalidToken(Vertx vertx, VertxTestContext testContext) throws Exception {
-        kafkaClient.close();
+        //kafkaClient.close();
         String invalidToken = new Random().ints(97, 98)
                 .limit(token.getAccessToken().length())
                 .collect(StringBuilder::new, StringBuilder::appendCodePoint, StringBuilder::append)
                 .toString();
         HttpClient client = vertx.createHttpClient();
         CircuitBreaker breaker = CircuitBreaker.create("test-waiter", vertx, new CircuitBreakerOptions()
-                .setTimeout(2000).setResetTimeout(3000).setMaxRetries(20)).retryPolicy(retryCount -> retryCount * 1000L);
+                .setTimeout(2000).setResetTimeout(3000).setMaxRetries(60)).retryPolicy(retryCount -> retryCount * 1000L);
         breaker.execute(future -> {
             client.request(HttpMethod.GET, publishedAdminPort, "localhost", "/rest/consumer-groups")
                     .compose(req -> req.putHeader("Authorization", "Bearer " + invalidToken).send()
