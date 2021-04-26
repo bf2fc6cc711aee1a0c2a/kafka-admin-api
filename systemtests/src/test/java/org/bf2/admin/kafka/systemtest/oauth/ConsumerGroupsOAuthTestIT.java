@@ -1,5 +1,7 @@
 package org.bf2.admin.kafka.systemtest.oauth;
 
+import io.vertx.circuitbreaker.CircuitBreaker;
+import io.vertx.circuitbreaker.CircuitBreakerOptions;
 import io.vertx.core.Vertx;
 import io.vertx.core.http.HttpClient;
 import io.vertx.core.http.HttpClientResponse;
@@ -66,17 +68,23 @@ public class ConsumerGroupsOAuthTestIT extends OauthTestBase {
                 .collect(StringBuilder::new, StringBuilder::appendCodePoint, StringBuilder::append)
                 .toString();
         HttpClient client = vertx.createHttpClient();
-        client.request(HttpMethod.GET, publishedAdminPort, "localhost", "/rest/consumer-groups")
-                .compose(req -> req.putHeader("Authorization", "Bearer " + invalidToken).send()
-                        .onSuccess(response -> testContext.verify(() -> {
-                            assertThat(response.statusCode()).isEqualTo(ReturnCodes.UNAUTHORIZED.code);
-                            testContext.completeNow();
-                        })))
-                .onFailure(throwable -> {
-                    DEPLOYMENT_MANAGER.listDocker();
-                    LOGGER.error("ERR: " + throwable.getMessage() + "   CAUSE " + throwable.getCause());
-                    testContext.failNow("Test failed: " + throwable.getMessage());
-                });
+        CircuitBreaker breaker = CircuitBreaker.create("test-waiter", vertx, new CircuitBreakerOptions()
+                .setTimeout(2000).setResetTimeout(3000).setMaxRetries(20)).retryPolicy(retryCount -> retryCount * 1000L);
+        breaker.execute(future -> {
+            client.request(HttpMethod.GET, publishedAdminPort, "localhost", "/rest/consumer-groups")
+                    .compose(req -> req.putHeader("Authorization", "Bearer " + invalidToken).send()
+                            .onSuccess(response -> testContext.verify(() -> {
+                                assertThat(response.statusCode()).isEqualTo(ReturnCodes.UNAUTHORIZED.code);
+                                testContext.completeNow();
+                                future.complete();
+                            })))
+                    .onFailure(throwable -> {
+                        future.fail("Failed");
+                        DEPLOYMENT_MANAGER.listDocker();
+                        LOGGER.error("ERR: " + throwable.getMessage() + "   CAUSE " + throwable.getCause());
+                        testContext.failNow("Test failed: " + throwable.getMessage());
+                    });
+        });
         assertThat(testContext.awaitCompletion(1, TimeUnit.MINUTES)).isTrue();
     }
 
