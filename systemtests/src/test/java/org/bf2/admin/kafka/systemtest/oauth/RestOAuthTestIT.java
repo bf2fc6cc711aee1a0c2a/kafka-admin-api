@@ -1,5 +1,7 @@
 package org.bf2.admin.kafka.systemtest.oauth;
 
+import io.vertx.circuitbreaker.CircuitBreaker;
+import io.vertx.circuitbreaker.CircuitBreakerOptions;
 import org.bf2.admin.kafka.admin.model.Types;
 import org.bf2.admin.kafka.systemtest.enums.ReturnCodes;
 import org.bf2.admin.kafka.systemtest.utils.DynamicWait;
@@ -100,14 +102,24 @@ public class RestOAuthTestIT extends OauthTestBase {
                 .collect(StringBuilder::new, StringBuilder::appendCodePoint, StringBuilder::append)
                 .toString();
         HttpClient client = vertx.createHttpClient();
-        client.request(HttpMethod.GET, publishedAdminPort, "localhost", "/rest/topics")
-                .compose(req -> req.putHeader("Authorization", "Bearer " + invalidToken).send()
-                        .onSuccess(response -> testContext.verify(() -> {
-                            assertThat(response.statusCode()).isEqualTo(ReturnCodes.UNAUTHORIZED.code);
-                            testContext.completeNow();
-                        }))
-                        .onFailure(testContext::failNow));
-        assertThat(testContext.awaitCompletion(1, TimeUnit.MINUTES)).isTrue();
+        CircuitBreaker breaker = CircuitBreaker.create("test-waiter", vertx, new CircuitBreakerOptions()
+                .setTimeout(2000).setResetTimeout(3000).setMaxRetries(20)).retryPolicy(retryCount -> retryCount * 1000L);
+        breaker.execute(future -> {
+            client.request(HttpMethod.GET, 2, "localhost", "/rest/topics")
+                    .compose(req -> req.putHeader("Authorization", "Bearer " + invalidToken).send()
+                            .onSuccess(response -> testContext.verify(() -> {
+                                assertThat(response.statusCode()).isEqualTo(ReturnCodes.UNAUTHORIZED.code);
+                                testContext.completeNow();
+                                future.complete();
+                            })))
+                            .onFailure(throwable -> {
+                                LOGGER.error("RETRY");
+                                future.fail("RET");
+                            });
+        });
+        assertThat(testContext.awaitCompletion(3, TimeUnit.MINUTES)).isTrue();
+
+
     }
 
     @Test
@@ -115,13 +127,17 @@ public class RestOAuthTestIT extends OauthTestBase {
         // Wait for token to expire
         Thread.sleep(120_000);
         HttpClient client = vertx.createHttpClient();
+
         client.request(HttpMethod.GET, publishedAdminPort, "localhost", "/rest/topics")
-                .compose(req -> req.putHeader("Authorization", "Bearer " + token.getAccessToken()).send()
-                        .onSuccess(response -> testContext.verify(() -> {
-                            assertThat(response.statusCode()).isEqualTo(ReturnCodes.UNAUTHORIZED.code);
-                            testContext.completeNow();
-                        })));
-        assertThat(testContext.awaitCompletion(1, TimeUnit.MINUTES)).isTrue();
+                    .compose(req -> req.putHeader("Authorization", "Bearer " + token.getAccessToken()).send()
+                            .onSuccess(response -> testContext.verify(() -> {
+                                assertThat(response.statusCode()).isEqualTo(ReturnCodes.UNAUTHORIZED.code);
+                                testContext.completeNow();
+                            })))
+                    .onFailure(throwable -> {
+                        testContext.failNow("Failed");
+                    });
+        assertThat(testContext.awaitCompletion(3, TimeUnit.MINUTES)).isTrue();
     }
 
     @Test

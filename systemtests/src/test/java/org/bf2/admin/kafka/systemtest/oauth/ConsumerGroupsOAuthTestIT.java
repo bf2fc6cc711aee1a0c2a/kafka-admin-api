@@ -69,7 +69,7 @@ public class ConsumerGroupsOAuthTestIT extends OauthTestBase {
                 .toString();
         HttpClient client = vertx.createHttpClient();
         CircuitBreaker breaker = CircuitBreaker.create("test-waiter", vertx, new CircuitBreakerOptions()
-                .setTimeout(2000).setResetTimeout(3000).setMaxRetries(10)).retryPolicy(retryCount -> retryCount * 1000L);
+                .setTimeout(2000).setResetTimeout(3000).setMaxRetries(20)).retryPolicy(retryCount -> retryCount * 1000L);
         breaker.execute(future -> {
             client.request(HttpMethod.GET, publishedAdminPort, "localhost", "/rest/consumer-groups")
                     .compose(req -> req.putHeader("Authorization", "Bearer " + invalidToken).send()
@@ -83,7 +83,7 @@ public class ConsumerGroupsOAuthTestIT extends OauthTestBase {
                         future.fail("Failed");
                     });
         });
-        assertThat(testContext.awaitCompletion(1, TimeUnit.MINUTES)).isTrue();
+        assertThat(testContext.awaitCompletion(3, TimeUnit.MINUTES)).isTrue();
     }
 
     @Test
