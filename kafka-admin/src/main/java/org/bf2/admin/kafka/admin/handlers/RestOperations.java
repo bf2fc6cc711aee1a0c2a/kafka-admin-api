@@ -70,7 +70,9 @@ public class RestOperations extends CommonHandler implements OperationsHandler<H
                 int maxPartitions = getNumPartitionsMax();
 
                 if (!numPartitionsValid(inputTopic.getSettings(), maxPartitions)) {
-                    prom.fail(new InvalidTopicException("Number of partitions for topic " + inputTopic.getName() + " may not exceed " + maxPartitions));
+                    prom.fail(new InvalidTopicException(String.format("Number of partitions for topic %s must between 1 and %d (inclusive)",
+                                                                      inputTopic.getName(),
+                                                                      maxPartitions)));
                     processResponse(prom, routingContext, HttpResponseStatus.BAD_REQUEST, httpMetrics, httpMetrics.getCreateTopicRequestTimer(), requestTimerSample);
                     return;
                 }
@@ -427,7 +429,7 @@ public class RestOperations extends CommonHandler implements OperationsHandler<H
                 settings.getNumPartitions() :
                     TopicOperations.DEFAULT_PARTITIONS;
 
-        return partitions <= maxPartitions;
+        return partitions > 0 && partitions <= maxPartitions;
     }
 
     private int getNumPartitionsMax() {
