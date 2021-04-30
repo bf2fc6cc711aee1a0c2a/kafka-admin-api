@@ -3,7 +3,7 @@
     <option name="MAIN_CLASS_NAME" value="org.bf2.admin.Main" />
     <module name="http-server" />
     <option name="PROGRAM_PARAMETERS" value="org.bf2.admin.Main" />
-    <option name="VM_PARAMETERS" value="-cp kafka-admin/target/kafka-admin-0.0.8-SNAPSHOT-fat.jar:health/target/health-0.0.8-SNAPSHOT-fat.jar:rest/target/rest-0.0.8-SNAPSHOT-fat.jar:http-server/target/http-server-0.0.8-SNAPSHOT-fat.jar org.bf2.admin.Main" />
+    <option name="VM_PARAMETERS" value="-cp kafka-admin/target/kafka-admin.jar org.bf2.admin.Main" />
     <extension name="net.ashald.envfile">
       <option name="IS_ENABLED" value="true" />
       <option name="IS_SUBST" value="false" />

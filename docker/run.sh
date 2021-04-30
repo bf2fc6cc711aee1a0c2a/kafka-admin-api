@@ -9,4 +9,5 @@ do
           ;;
     esac
 done
-exec java ${KAFKA_ADMIN_DEBUG} -cp ./kafka-admin-${KAFKA_ADMIN_API_VERSION}-fat.jar:./health-${KAFKA_ADMIN_API_VERSION}-fat.jar:./rest-${KAFKA_ADMIN_API_VERSION}-fat.jar:./http-server-${KAFKA_ADMIN_API_VERSION}-fat.jar org.bf2.admin.Main -XX:+ExitOnOutOfMemoryError
+
+exec java ${KAFKA_ADMIN_DEBUG} -cp ./kafka-admin.jar org.bf2.admin.Main -XX:+ExitOnOutOfMemoryError
