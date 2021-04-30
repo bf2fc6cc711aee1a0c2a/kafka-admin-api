@@ -88,7 +88,9 @@ public class OauthTestBase extends TestBase {
 
     @AfterEach
     public void teardown() {
-        kafkaClient.close();
-        kafkaClient = null;
+        if (kafkaClient != null) {
+            kafkaClient.close();
+            kafkaClient = null;
+        }
     }
 }
