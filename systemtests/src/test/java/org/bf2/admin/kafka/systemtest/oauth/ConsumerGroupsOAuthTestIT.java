@@ -59,7 +59,7 @@ public class ConsumerGroupsOAuthTestIT extends OauthTestBase {
     }
 
     @Test
-    public void testListWithInvalidToken(Vertx vertx, VertxTestContext testContext) throws Exception {
+    public void testConsumerGroupsListWithInvalidToken(Vertx vertx, VertxTestContext testContext) throws Exception {
         List<String> groupIDS = SyncMessaging.createConsumerGroups(vertx, kafkaClient, 1, "localhost:9092", testContext, token);
         kafkaClient.close();
         String invalidToken = new Random().ints(97, 98)
