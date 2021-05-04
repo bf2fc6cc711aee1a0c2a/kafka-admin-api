@@ -6,6 +6,6 @@ WORKDIR ${KAFKA_ADMIN_API_HOME}
 CMD [ "./run.sh" ]
 
 COPY docker/run.sh                      ./
-#COPY docker/log4j2.properties           ./config/
+COPY docker/log4j2.properties           ./config/
 COPY kafka-admin/target/lib/            ./lib/
 COPY kafka-admin/target/kafka-admin.jar ./

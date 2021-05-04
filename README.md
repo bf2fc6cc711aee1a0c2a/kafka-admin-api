@@ -100,3 +100,9 @@ git push --dry-run upstream ${NEW_VERSION} main
 # Finally
 git push upstream ${NEW_VERSION} main
 ```
+
+## Logging Configuration Override
+The container image built from this repository includes support for providing an additional Log4J properties file at run time. The properties file must be given to the running
+container at mount point `/opt/kafka-admin-api/custom-config/log4j2.properties`. Configuration specified in the override file is merged with the static configuration built in
+to the image from [docker/log4j2.properties](./docker/log4j2.properties). Individual configuration items in the override properties will replace the static properties of the same
+name, as defined in the Apache Log4J 2.x [composite configuration documentation](https://logging.apache.org/log4j/2.x/manual/configuration.html#CompositeConfiguration).

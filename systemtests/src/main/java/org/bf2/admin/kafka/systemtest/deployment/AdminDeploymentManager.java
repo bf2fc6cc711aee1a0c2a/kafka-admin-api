@@ -1,10 +1,11 @@
 package org.bf2.admin.kafka.systemtest.deployment;
 
-import org.bf2.admin.kafka.systemtest.utils.TestUtils;
 import com.github.dockerjava.api.DockerClient;
 import com.github.dockerjava.api.command.CreateContainerResponse;
 import com.github.dockerjava.api.model.ExposedPort;
 import com.github.dockerjava.api.model.HostConfig;
+import com.github.dockerjava.api.model.Mount;
+import com.github.dockerjava.api.model.MountType;
 import com.github.dockerjava.api.model.Ports;
 import com.github.dockerjava.core.DefaultDockerClientConfig;
 import com.github.dockerjava.core.DockerClientBuilder;
@@ -19,6 +20,7 @@ import io.vertx.core.http.HttpMethod;
 import io.vertx.junit5.VertxTestContext;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.bf2.admin.kafka.systemtest.utils.TestUtils;
 import org.junit.jupiter.api.extension.ExtensionContext;
 import org.testcontainers.containers.Network;
 
@@ -192,13 +194,26 @@ public class AdminDeploymentManager {
             env.add(String.format("KAFKA_ADMIN_DEBUG=-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:%d", configuredDebugPort));
         }
 
+        String customLogConfig = System.getProperty("customLogConfig");
+        List<Mount> mounts;
+
+        if (customLogConfig != null) {
+            mounts = Collections.singletonList(new Mount()
+                                               .withType(MountType.BIND)
+                                               .withSource(customLogConfig)
+                                               .withTarget("/opt/kafka-admin-api/custom-config/"));
+        } else {
+            mounts = Collections.emptyList();
+        }
+
         CreateContainerResponse contResp = client.createContainerCmd("kafka-admin")
                 .withExposedPorts(exposedPorts)
                 .withLabels(Collections.singletonMap("test-ident", testContext.getUniqueId()))
                 .withHostConfig(new HostConfig()
                         .withPublishAllPorts(true)
                         .withPortBindings(boundPorts)
-                        .withNetworkMode(networkName))
+                        .withNetworkMode(networkName)
+                        .withMounts(mounts))
                 .withEnv(env)
                 .exec();
 
