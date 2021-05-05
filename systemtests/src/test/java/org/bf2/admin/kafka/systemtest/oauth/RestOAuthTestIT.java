@@ -14,6 +14,7 @@ import org.apache.kafka.clients.admin.NewTopic;
 import org.apache.kafka.clients.admin.TopicDescription;
 import org.apache.kafka.common.config.ConfigResource;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtensionContext;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -41,7 +42,7 @@ public class RestOAuthTestIT extends OauthTestBase {
                 new NewTopic(topicNames.get(1), 1, (short) 1)
         ));
         DynamicWait.waitForTopicsExists(topicNames, kafkaClient);
-        HttpClient client = vertx.createHttpClient();
+        HttpClient client = createHttpsClient(vertx);
         client.request(HttpMethod.GET, publishedAdminPort, "localhost", "/rest/topics")
                 .compose(req -> req.putHeader("Authorization", "Bearer " + token.getAccessToken()).send().onSuccess(response -> {
                     if (response.statusCode() != ReturnCodes.SUCCESS.code) {
@@ -68,7 +69,7 @@ public class RestOAuthTestIT extends OauthTestBase {
         ));
         DynamicWait.waitForTopicsExists(topicNames, kafkaClient);
         changeTokenToUnauthorized(vertx, testContext);
-        HttpClient client = vertx.createHttpClient();
+        HttpClient client = createHttpsClient(vertx);
         client.request(HttpMethod.GET, publishedAdminPort, "localhost", "/rest/topics")
                 .compose(req -> req.putHeader("Authorization", "Bearer " + token.getAccessToken()).send().onSuccess(response -> {
                     if (response.statusCode() != ReturnCodes.SUCCESS.code) {
@@ -99,7 +100,7 @@ public class RestOAuthTestIT extends OauthTestBase {
                 .limit(token.getAccessToken().length())
                 .collect(StringBuilder::new, StringBuilder::appendCodePoint, StringBuilder::append)
                 .toString();
-        HttpClient client = vertx.createHttpClient();
+        HttpClient client = createHttpsClient(vertx);
         client.request(HttpMethod.GET, publishedAdminPort, "localhost", "/rest/topics")
                 .compose(req -> req.putHeader("Authorization", "Bearer " + invalidToken).send()
                         .onSuccess(response -> testContext.verify(() -> {
@@ -114,7 +115,7 @@ public class RestOAuthTestIT extends OauthTestBase {
     public void testListWithExpiredToken(Vertx vertx, VertxTestContext testContext) throws InterruptedException {
         // Wait for token to expire
         Thread.sleep(120_000);
-        HttpClient client = vertx.createHttpClient();
+        HttpClient client = createHttpsClient(vertx);
         client.request(HttpMethod.GET, publishedAdminPort, "localhost", "/rest/topics")
                 .compose(req -> req.putHeader("Authorization", "Bearer " + token.getAccessToken()).send()
                         .onSuccess(response -> testContext.verify(() -> {
@@ -133,7 +134,7 @@ public class RestOAuthTestIT extends OauthTestBase {
         DynamicWait.waitForTopicExists(topicName, kafkaClient);
 
         String queryReq = "/rest/topics/" + topicName;
-        vertx.createHttpClient().request(HttpMethod.GET, publishedAdminPort, "localhost", queryReq)
+        createHttpsClient(vertx).request(HttpMethod.GET, publishedAdminPort, "localhost", queryReq)
                 .compose(req -> req.putHeader("Authorization", "Bearer " + token.getAccessToken()).send().onSuccess(response -> {
                     if (response.statusCode() != ReturnCodes.SUCCESS.code) {
                         testContext.failNow("Status code not correct");
@@ -157,7 +158,7 @@ public class RestOAuthTestIT extends OauthTestBase {
         changeTokenToUnauthorized(vertx, testContext);
 
         String queryReq = "/rest/topics/" + topicName;
-        vertx.createHttpClient().request(HttpMethod.GET, publishedAdminPort, "localhost", queryReq)
+        createHttpsClient(vertx).request(HttpMethod.GET, publishedAdminPort, "localhost", queryReq)
                 .compose(req -> req.putHeader("Authorization", "Bearer " + token.getAccessToken()).send()
                         .onSuccess(response -> testContext.verify(() -> {
                             assertThat(response.statusCode()).isEqualTo(ReturnCodes.UNAUTHORIZED.code);
@@ -170,7 +171,7 @@ public class RestOAuthTestIT extends OauthTestBase {
     void testCreateTopicAuthorized(Vertx vertx, VertxTestContext testContext) throws InterruptedException {
         Types.NewTopic topic = RequestUtils.getTopicObject(3);
 
-        vertx.createHttpClient().request(HttpMethod.POST, publishedAdminPort, "localhost", "/rest/topics")
+        createHttpsClient(vertx).request(HttpMethod.POST, publishedAdminPort, "localhost", "/rest/topics")
                 .compose(req -> req.putHeader("content-type", "application/json")
                         .putHeader("Authorization", "Bearer " + token.getAccessToken())
                         .send(MODEL_DESERIALIZER.serializeBody(topic)).onSuccess(response -> {
@@ -193,7 +194,7 @@ public class RestOAuthTestIT extends OauthTestBase {
     void testCreateTopicUnauthorized(Vertx vertx, VertxTestContext testContext) throws InterruptedException {
         Types.NewTopic topic = RequestUtils.getTopicObject(3);
         changeTokenToUnauthorized(vertx, testContext);
-        vertx.createHttpClient().request(HttpMethod.POST, publishedAdminPort, "localhost", "/rest/topics")
+        createHttpsClient(vertx).request(HttpMethod.POST, publishedAdminPort, "localhost", "/rest/topics")
                 .compose(req -> req.putHeader("content-type", "application/json")
                         .putHeader("Authorization", "Bearer " + token.getAccessToken())
                         .send(MODEL_DESERIALIZER.serializeBody(topic)).onSuccess(response -> testContext.verify(() -> {
@@ -204,12 +205,12 @@ public class RestOAuthTestIT extends OauthTestBase {
     }
 
     @Test
-    void testCreateTopicUnauthorizedIncrementsMetric(Vertx vertx, VertxTestContext testContext) throws InterruptedException {
+    void testCreateTopicUnauthorizedIncrementsMetric(Vertx vertx, ExtensionContext extensionContext, VertxTestContext testContext) throws InterruptedException {
         Types.NewTopic topic = RequestUtils.getTopicObject(3);
-        HttpClient httpClient = vertx.createHttpClient();
+        HttpClient httpClient = createHttpsClient(vertx);
         AtomicLong unauthorizedRequestCountBefore = new AtomicLong(0L);
 
-        Arrays.stream(RequestUtils.retrieveMetrics(testContext, httpClient, publishedAdminPort).split("\n"))
+        Arrays.stream(RequestUtils.retrieveMetrics(vertx, extensionContext, testContext).split("\n"))
             .filter(line -> line.startsWith("failed_requests_total{status_code=\"401\",}"))
             .map(line -> Double.valueOf(line.split("\\s+")[1]).longValue())
             .forEach(value -> unauthorizedRequestCountBefore.addAndGet(value));
@@ -224,7 +225,7 @@ public class RestOAuthTestIT extends OauthTestBase {
 
         AtomicLong unauthorizedRequestCountAfter = new AtomicLong(0L);
 
-        Arrays.stream(RequestUtils.retrieveMetrics(testContext, httpClient, publishedAdminPort).split("\n"))
+        Arrays.stream(RequestUtils.retrieveMetrics(vertx, extensionContext, testContext).split("\n"))
             .filter(line -> line.startsWith("failed_requests_total{status_code=\"401\",}"))
             .map(line -> Double.valueOf(line.split("\\s+")[1]).longValue())
             .forEach(value -> unauthorizedRequestCountAfter.addAndGet(value));
@@ -241,7 +242,7 @@ public class RestOAuthTestIT extends OauthTestBase {
                 new NewTopic(topicName, 2, (short) 1)
         ));
         DynamicWait.waitForTopicExists(topicName, kafkaClient);
-        vertx.createHttpClient().request(HttpMethod.DELETE, publishedAdminPort, "localhost", query)
+        createHttpsClient(vertx).request(HttpMethod.DELETE, publishedAdminPort, "localhost", query)
                 .compose(req -> req.putHeader("content-type", "application/json")
                         .putHeader("Authorization", "Bearer " + token.getAccessToken())
                         .send().onSuccess(response -> {
@@ -267,7 +268,7 @@ public class RestOAuthTestIT extends OauthTestBase {
         ));
         DynamicWait.waitForTopicExists(topicName, kafkaClient);
         changeTokenToUnauthorized(vertx, testContext);
-        vertx.createHttpClient().request(HttpMethod.DELETE, publishedAdminPort, "localhost", query)
+        createHttpsClient(vertx).request(HttpMethod.DELETE, publishedAdminPort, "localhost", query)
                 .compose(req -> req.putHeader("content-type", "application/json")
                         .putHeader("Authorization", "Bearer " + token.getAccessToken())
                         .send().onSuccess(response -> testContext.verify(() -> {
@@ -292,7 +293,7 @@ public class RestOAuthTestIT extends OauthTestBase {
                 new NewTopic(topicName, 1, (short) 1)
         ));
         DynamicWait.waitForTopicExists(topicName, kafkaClient);
-        vertx.createHttpClient().request(HttpMethod.PATCH, publishedAdminPort, "localhost", "/rest/topics/" + topicName)
+        createHttpsClient(vertx).request(HttpMethod.PATCH, publishedAdminPort, "localhost", "/rest/topics/" + topicName)
                 .compose(req -> req.putHeader("content-type", "application/json")
                         .putHeader("Authorization", "Bearer " + token.getAccessToken())
                         .send(MODEL_DESERIALIZER.serializeBody(topic1)).onSuccess(response -> {
@@ -328,7 +329,7 @@ public class RestOAuthTestIT extends OauthTestBase {
         ));
         DynamicWait.waitForTopicExists(topicName, kafkaClient);
         changeTokenToUnauthorized(vertx, testContext);
-        vertx.createHttpClient().request(HttpMethod.PATCH, publishedAdminPort, "localhost", "/rest/topics/" + topicName)
+        createHttpsClient(vertx).request(HttpMethod.PATCH, publishedAdminPort, "localhost", "/rest/topics/" + topicName)
                 .compose(req -> req.putHeader("content-type", "application/json")
                         .putHeader("Authorization", "Bearer " + token.getAccessToken())
                         .send(MODEL_DESERIALIZER.serializeBody(topic1)).onSuccess(response -> testContext.verify(() -> {
@@ -349,7 +350,7 @@ public class RestOAuthTestIT extends OauthTestBase {
                 new NewTopic(topicNames.get(1), 1, (short) 1)
         ));
         DynamicWait.waitForTopicsExists(topicNames, kafkaClient);
-        HttpClient client = vertx.createHttpClient();
+        HttpClient client = createHttpsClient(vertx);
         CountDownLatch latch = new CountDownLatch(1);
         client.request(HttpMethod.GET, publishedAdminPort, "localhost", "/rest/topics")
                 .compose(req -> req.putHeader("Authorization", "Bearer " + token.getAccessToken()).send().onSuccess(response -> {

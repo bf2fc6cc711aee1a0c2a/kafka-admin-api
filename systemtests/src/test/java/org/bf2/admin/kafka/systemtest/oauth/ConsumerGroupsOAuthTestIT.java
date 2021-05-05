@@ -27,7 +27,7 @@ public class ConsumerGroupsOAuthTestIT extends OauthTestBase {
     void testConsumerGroupsListAuthorized(Vertx vertx, VertxTestContext testContext) throws Exception {
         List<String> groupIDS = SyncMessaging.createConsumerGroups(vertx, kafkaClient, 2, "localhost:9092", testContext, token);
 
-        HttpClient client = vertx.createHttpClient();
+        HttpClient client = createHttpsClient(vertx);
         client.request(HttpMethod.GET, publishedAdminPort, "localhost", "/rest/consumer-groups")
                 .compose(req -> req.putHeader("Authorization", "Bearer " + token.getAccessToken()).send().onSuccess(response -> {
                     if (response.statusCode() != ReturnCodes.SUCCESS.code) {
@@ -48,7 +48,7 @@ public class ConsumerGroupsOAuthTestIT extends OauthTestBase {
     void testConsumerGroupsListUnauthorized(Vertx vertx, VertxTestContext testContext) throws Exception {
         List<String> groupIDS = SyncMessaging.createConsumerGroups(vertx, kafkaClient, 2, "localhost:9092", testContext, token);
         changeTokenToUnauthorized(vertx, testContext);
-        HttpClient client = vertx.createHttpClient();
+        HttpClient client = createHttpsClient(vertx);
         client.request(HttpMethod.GET, publishedAdminPort, "localhost", "/rest/consumer-groups")
                 .compose(req -> req.putHeader("Authorization", "Bearer " + token.getAccessToken()).send()
                         .onSuccess(response -> testContext.verify(() -> {
@@ -66,7 +66,7 @@ public class ConsumerGroupsOAuthTestIT extends OauthTestBase {
                 .limit(token.getAccessToken().length())
                 .collect(StringBuilder::new, StringBuilder::appendCodePoint, StringBuilder::append)
                 .toString();
-        HttpClient client = vertx.createHttpClient();
+        HttpClient client = createHttpsClient(vertx);
         client.request(HttpMethod.GET, publishedAdminPort, "localhost", "/rest/consumer-groups")
                 .compose(req -> req.putHeader("Authorization", "Bearer " + invalidToken).send()
                         .onSuccess(response -> testContext.verify(() -> {
@@ -80,7 +80,7 @@ public class ConsumerGroupsOAuthTestIT extends OauthTestBase {
     void testConsumerGroupsDescribeAuthorized(Vertx vertx, VertxTestContext testContext) throws Exception {
         List<String> groupIDS = SyncMessaging.createConsumerGroups(vertx, kafkaClient, 1, "localhost:9092", testContext, token);
 
-        HttpClient client = vertx.createHttpClient();
+        HttpClient client = createHttpsClient(vertx);
         client.request(HttpMethod.GET, publishedAdminPort, "localhost", "/rest/consumer-groups/" + groupIDS.get(0))
                 .compose(req -> req.putHeader("Authorization", "Bearer " + token.getAccessToken()).send().onSuccess(response -> {
                     if (response.statusCode() != ReturnCodes.SUCCESS.code) {
@@ -102,7 +102,7 @@ public class ConsumerGroupsOAuthTestIT extends OauthTestBase {
     void testConsumerGroupsDescribeUnauthorized(Vertx vertx, VertxTestContext testContext) throws Exception {
         List<String> groupIDS = SyncMessaging.createConsumerGroups(vertx, kafkaClient, 1, "localhost:9092", testContext, token);
         changeTokenToUnauthorized(vertx, testContext);
-        HttpClient client = vertx.createHttpClient();
+        HttpClient client = createHttpsClient(vertx);
         client.request(HttpMethod.GET, publishedAdminPort, "localhost", "/rest/consumer-groups/" + groupIDS.get(0))
                 .compose(req -> req.putHeader("Authorization", "Bearer " + token.getAccessToken()).send()
                         .onSuccess(response -> testContext.verify(() -> {
@@ -120,7 +120,7 @@ public class ConsumerGroupsOAuthTestIT extends OauthTestBase {
                 .limit(token.getAccessToken().length())
                 .collect(StringBuilder::new, StringBuilder::appendCodePoint, StringBuilder::append)
                 .toString();
-        HttpClient client = vertx.createHttpClient();
+        HttpClient client = createHttpsClient(vertx);
         client.request(HttpMethod.GET, publishedAdminPort, "localhost", "/rest/consumer-groups/" + groupIDS.get(0))
                 .compose(req -> req.putHeader("Authorization", "Bearer " + invalidToken).send()
                         .onSuccess(response -> testContext.verify(() -> {
@@ -134,7 +134,7 @@ public class ConsumerGroupsOAuthTestIT extends OauthTestBase {
     void testConsumerGroupsDeleteAuthorized(Vertx vertx, VertxTestContext testContext) throws Exception {
         List<String> groupIDS = SyncMessaging.createConsumerGroups(vertx, kafkaClient, 2, "localhost:9092", testContext, token);
 
-        HttpClient client = vertx.createHttpClient();
+        HttpClient client = createHttpsClient(vertx);
         client.request(HttpMethod.DELETE, publishedAdminPort, "localhost", "/rest/consumer-groups/" + groupIDS.get(0))
                 .compose(req -> req.putHeader("Authorization", "Bearer " + token.getAccessToken()).send().onSuccess(response -> {
                     if (response.statusCode() != ReturnCodes.GROUP_DELETED.code) {
@@ -155,7 +155,7 @@ public class ConsumerGroupsOAuthTestIT extends OauthTestBase {
     void testConsumerGroupsDeleteUnauthorized(Vertx vertx, VertxTestContext testContext) throws Exception {
         List<String> groupIDS = SyncMessaging.createConsumerGroups(vertx, kafkaClient, 2, "localhost:9092", testContext, token);
         changeTokenToUnauthorized(vertx, testContext);
-        HttpClient client = vertx.createHttpClient();
+        HttpClient client = createHttpsClient(vertx);
         client.request(HttpMethod.DELETE, publishedAdminPort, "localhost", "/rest/consumer-groups/" + groupIDS.get(0))
                 .compose(req -> req.putHeader("Authorization", "Bearer " + token.getAccessToken()).send().onSuccess(response -> {
                     if (response.statusCode() !=  ReturnCodes.FORBIDDEN.code) {
@@ -179,7 +179,7 @@ public class ConsumerGroupsOAuthTestIT extends OauthTestBase {
                 .limit(token.getAccessToken().length())
                 .collect(StringBuilder::new, StringBuilder::appendCodePoint, StringBuilder::append)
                 .toString();
-        HttpClient client = vertx.createHttpClient();
+        HttpClient client = createHttpsClient(vertx);
         client.request(HttpMethod.DELETE, publishedAdminPort, "localhost", "/rest/consumer-groups/" + groupIDS.get(0))
                 .compose(req -> req.putHeader("Authorization", "Bearer " + invalidToken).send()
                         .onSuccess(response -> testContext.verify(() -> {

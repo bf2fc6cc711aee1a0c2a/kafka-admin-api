@@ -11,10 +11,8 @@
     <artifactId>systemtests</artifactId>
 
     <properties>
-        <maven.compiler.target>1.8</maven.compiler.target>
-        <maven.compiler.source>1.8</maven.compiler.source>
         <junit.platform.version>1.5.2</junit.platform.version>
-        <strimzi-test-container.version>0.20.0</strimzi-test-container.version>
+        <strimzi-test-container.version>0.22.1</strimzi-test-container.version>
         <testcontainers.version>1.15.1</testcontainers.version>
         <docker-java.version>3.2.7</docker-java.version>
         <assertj.version>3.4.1</assertj.version>
@@ -145,7 +143,7 @@
         </dependency>
         <dependency>
             <groupId>io.strimzi</groupId>
-            <artifactId>test-container</artifactId>
+            <artifactId>strimzi-test-container</artifactId>
             <version>${strimzi-test-container.version}</version>
         </dependency>
         <!--Dependency for OAUTH stack-->
@@ -291,14 +289,6 @@
                     <outputDirectory>docker/target/kafka/libs</outputDirectory>
                     <overWriteReleases>false</overWriteReleases>
                     <overWriteSnapshots>true</overWriteSnapshots>
-                </configuration>
-            </plugin>
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-compiler-plugin</artifactId>
-                <configuration>
-                    <source>11</source>
-                    <target>11</target>
                 </configuration>
             </plugin>
         </plugins>

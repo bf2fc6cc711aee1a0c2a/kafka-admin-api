@@ -13,7 +13,9 @@ import org.bf2.admin.kafka.systemtest.TestTag;
 import org.bf2.admin.kafka.systemtest.json.ModelDeserializer;
 import org.bf2.admin.kafka.systemtest.json.TokenModel;
 import org.bf2.admin.kafka.systemtest.utils.ClientsConfig;
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.extension.ExtensionContext;
@@ -27,6 +29,16 @@ public class OauthTestBase extends TestBase {
     protected static TokenModel token = new TokenModel();
     protected AdminClient kafkaClient;
     protected int publishedAdminPort = 0;
+
+    @BeforeAll
+    public static void initialize(Vertx vertx, VertxTestContext vertxTestContext, ExtensionContext extensionContext) throws Exception {
+        DEPLOYMENT_MANAGER.deployKeycloak(vertxTestContext, extensionContext);
+    }
+
+    @AfterAll
+    public static void cleanup(ExtensionContext extensionContext) throws Exception {
+        DEPLOYMENT_MANAGER.teardown(extensionContext);
+    }
 
     @BeforeEach
     public void startup(Vertx vertx, VertxTestContext vertxTestContext, ExtensionContext extensionContext) throws Exception {

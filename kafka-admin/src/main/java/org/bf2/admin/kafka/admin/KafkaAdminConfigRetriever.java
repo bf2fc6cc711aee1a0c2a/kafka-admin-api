@@ -19,19 +19,19 @@ public class KafkaAdminConfigRetriever {
     protected final Logger log = LogManager.getLogger(KafkaAdminConfigRetriever.class);
     private static final String PREFIX = "KAFKA_ADMIN_";
     private static final String OAUTHBEARER = "OAUTHBEARER";
-    private static Map<String, Object> config;
+    private final Map<String, Object> config;
 
-    public KafkaAdminConfigRetriever() throws Exception {
+    public KafkaAdminConfigRetriever() {
         config = envVarsToAdminClientConfig(PREFIX);
         logConfiguration();
     }
 
-    private Map<String, Object> envVarsToAdminClientConfig(String prefix) throws Exception {
+    private Map<String, Object> envVarsToAdminClientConfig(String prefix) {
         Map<String, Object> envConfig = System.getenv().entrySet().stream().filter(entry -> entry.getKey().startsWith(prefix)).collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
 
         Map<String, Object> adminClientConfig = new HashMap<>();
         if (envConfig.get(PREFIX + "BOOTSTRAP_SERVERS") == null) {
-            throw new Exception("Bootstrap address has to be specified");
+            throw new IllegalStateException("Bootstrap address has to be specified");
         }
         adminClientConfig.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, envConfig.get(PREFIX + "BOOTSTRAP_SERVERS").toString());
 

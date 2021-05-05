@@ -20,7 +20,7 @@ import io.vertx.core.Vertx;
 import io.vertx.core.json.DecodeException;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.RoutingContext;
-import io.vertx.ext.web.api.validation.ValidationException;
+import io.vertx.json.schema.ValidationException;
 import io.vertx.kafka.admin.KafkaAdminClient;
 import org.apache.kafka.common.KafkaException;
 import org.apache.kafka.common.config.SaslConfigs;
@@ -183,7 +183,7 @@ public class CommonHandler {
         }
     }
 
-    public static Predicate<String> byName(Pattern pattern, Promise prom) {
+    public static Predicate<String> byName(Pattern pattern, Promise<?> prom) {
         return topic -> {
             if (pattern == null) {
                 return true;

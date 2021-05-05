@@ -7,6 +7,7 @@ import com.github.dockerjava.api.model.HostConfig;
 import com.github.dockerjava.api.model.Mount;
 import com.github.dockerjava.api.model.MountType;
 import com.github.dockerjava.api.model.Ports;
+import com.github.dockerjava.api.model.Ports.Binding;
 import com.github.dockerjava.core.DefaultDockerClientConfig;
 import com.github.dockerjava.core.DockerClientBuilder;
 import com.google.common.collect.Iterables;
@@ -24,12 +25,15 @@ import org.bf2.admin.kafka.systemtest.utils.TestUtils;
 import org.junit.jupiter.api.extension.ExtensionContext;
 import org.testcontainers.containers.Network;
 
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Stack;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
@@ -50,6 +54,7 @@ public class AdminDeploymentManager {
     private static final Map<String, Stack<ThrowableRunner>> STORED_RESOURCES = new LinkedHashMap<>();
     private static final Map<String, StrimziKafkaContainer> KAFKA_CONTAINERS = new LinkedHashMap<>();
     private static final Map<String, Integer> ADMIN_PORTS = new LinkedHashMap<>();
+    private static final Map<String, Integer> MANAGEMENT_PORTS = new LinkedHashMap<>();
     private static AdminDeploymentManager deploymentManager;
     protected static final Logger LOGGER = LogManager.getLogger(AdminDeploymentManager.class);
 
@@ -64,17 +69,35 @@ public class AdminDeploymentManager {
         client = DockerClientBuilder.getInstance(DefaultDockerClientConfig.createDefaultConfigBuilder().build()).build();
     }
 
+    public void deployKeycloak(VertxTestContext vertxTestContext, ExtensionContext testContext) throws Exception {
+        vertxTestContext.verify(() -> {
+            LOGGER.info("*******************************************************");
+            LOGGER.info("Deploying OAuth stack for {}", testContext.getDisplayName());
+            LOGGER.info("*******************************************************");
+            try {
+                createNetwork(testContext);
+                deployKeycloak(testContext, vertxTestContext);
+            } catch (Exception e) {
+                e.printStackTrace();
+                teardown(testContext);
+                vertxTestContext.failNow("Could not deploy OAuth stack");
+            }
+            LOGGER.info("*******************************************************");
+            LOGGER.info("");
+            vertxTestContext.completeNow();
+            vertxTestContext.checkpoint();
+        });
+    }
+
     public void deployOauthStack(VertxTestContext vertxTestContext, ExtensionContext testContext) throws Exception {
         vertxTestContext.verify(() -> {
             LOGGER.info("*******************************************************");
             LOGGER.info("Deploying oauth stack for {}", testContext.getDisplayName());
             LOGGER.info("*******************************************************");
             try {
-                createNetwork(testContext);
-                deployKeycloak(testContext, vertxTestContext);
                 deployZookeeper(testContext);
                 deployKafka(testContext);
-                deployAdminContainer(getKafkaIP() + ":9092", true, false, AdminDeploymentManager.NETWORK_NAME, testContext, vertxTestContext);
+                deployAdminContainer("kafka:9092", true, false, AdminDeploymentManager.NETWORK_NAME, testContext, vertxTestContext);
             } catch (Exception e) {
                 e.printStackTrace();
                 teardown(testContext);
@@ -173,17 +196,23 @@ public class AdminDeploymentManager {
 
     public void deployAdminContainer(String bootstrap, Boolean oauth, Boolean internal, String networkName, ExtensionContext testContext, VertxTestContext vertxTestContext) throws Exception {
         TestUtils.logDeploymentPhase("Deploying kafka admin api container");
-        ExposedPort adminPort = ExposedPort.tcp(8080);
+        ExposedPort managementPort = ExposedPort.tcp(8080);
+        ExposedPort resourcePort = ExposedPort.tcp(8443);
 
         List<ExposedPort> exposedPorts = new ArrayList<>(2);
         Ports boundPorts = new Ports();
 
-        exposedPorts.add(adminPort);
+        exposedPorts.add(managementPort);
+        exposedPorts.add(resourcePort);
 
         List<String> env = new ArrayList<>(Arrays.asList(String.format("KAFKA_ADMIN_BOOTSTRAP_SERVERS=%s", bootstrap),
                                                          String.format("KAFKA_ADMIN_OAUTH_ENABLED=%s", oauth),
                                                          String.format("KAFKA_ADMIN_INTERNAL_TOPICS_ENABLED=%s", internal),
-                                                         "KAFKA_ADMIN_REPLICATION_FACTOR=1"));
+                                                         "KAFKA_ADMIN_REPLICATION_FACTOR=1",
+                                                         String.format("KAFKA_ADMIN_TLS_CERT=%s",
+                                                                       Files.readString(Path.of("docker", "certificates", "admin-tls-chain.crt"))),
+                                                         String.format("KAFKA_ADMIN_TLS_KEY=%s",
+                                                                       Files.readString(Path.of("docker", "certificates", "admin-tls.key")))));
 
         Integer configuredDebugPort = Integer.getInteger("debugPort");
 
@@ -226,12 +255,19 @@ public class AdminDeploymentManager {
 
         client.startContainerCmd(contResp.getId()).exec();
 
-        int adminPublishedPort = Integer.parseInt(client.inspectContainerCmd(contResp.getId()).exec().getNetworkSettings()
-                .getPorts().getBindings().get(adminPort)[0].getHostPortSpec());
-        TestUtils.logDeploymentPhase("Waiting for admin to be up&running");
-        waitForAdminReady(adminPublishedPort, vertxTestContext);
+        Map<ExposedPort, Binding[]> portBindings = client.inspectContainerCmd(contResp.getId()).exec().getNetworkSettings()
+                .getPorts().getBindings();
+
+        int publishedManagementPort = Integer.parseInt(portBindings.get(managementPort)[0].getHostPortSpec());
+
+        TestUtils.logDeploymentPhase("Waiting for admin to be up & running");
+        waitForAdminReady(publishedManagementPort, vertxTestContext);
+
+        int publishedResourcePort = Integer.parseInt(portBindings.get(resourcePort)[0].getHostPortSpec());
+
         synchronized (this) {
-            ADMIN_PORTS.putIfAbsent(testContext.getDisplayName(), adminPublishedPort);
+            ADMIN_PORTS.putIfAbsent(testContext.getDisplayName(), publishedResourcePort);
+            MANAGEMENT_PORTS.putIfAbsent(testContext.getDisplayName(), publishedManagementPort);
         }
     }
 
@@ -248,12 +284,13 @@ public class AdminDeploymentManager {
                         .withPortBindings(portBind)
                         .withNetworkMode(NETWORK_NAME)).exec();
         String keycloakContId = keycloakResp.getId();
-        client.startContainerCmd(keycloakContId).exec();
 
         STORED_RESOURCES.computeIfAbsent(testContext.getDisplayName(), k -> new Stack<>());
         STORED_RESOURCES.get(testContext.getDisplayName()).push(() -> deleteContainer(keycloakContId));
 
+        client.startContainerCmd(keycloakContId).exec();
         TestUtils.logDeploymentPhase("Deploying keycloak_import container");
+
         CreateContainerResponse keycloakImportResp = client.createContainerCmd("kafka-admin-keycloak-import")
                 .withName("keycloak_import")
                 .withLabels(Collections.singletonMap("test-ident", testContext.getUniqueId()))
@@ -261,9 +298,10 @@ public class AdminDeploymentManager {
                 .withNetworkMode(NETWORK_NAME))
                 .exec();
         String keycloakImportContId = keycloakImportResp.getId();
+        STORED_RESOURCES.get(testContext.getDisplayName()).push(() -> deleteContainer(keycloakImportContId));
+
         client.startContainerCmd(keycloakImportContId).exec();
         TestUtils.logDeploymentPhase("Waiting for keycloak to be ready");
-        STORED_RESOURCES.get(testContext.getDisplayName()).push(() -> deleteContainer(keycloakImportContId));
         waitForKeycloakReady(vertxTestContext);
     }
 
@@ -314,10 +352,18 @@ public class AdminDeploymentManager {
                 .get(networkName).getIpAddress();
     }
 
-
     public void createNetwork(ExtensionContext testContext) {
-        String networkId = client.createNetworkCmd().withName(NETWORK_NAME).exec().getId();
-        TestUtils.logDeploymentPhase("Created network with id " + networkId);
+        String networkId = client.listNetworksCmd()
+            .withNameFilter(NETWORK_NAME)
+            .exec()
+            .stream()
+            .map(com.github.dockerjava.api.model.Network::getName)
+            .findFirst()
+            .orElseGet(() -> {
+                return client.createNetworkCmd().withName(NETWORK_NAME).exec().getId();
+            });
+
+        TestUtils.logDeploymentPhase("Using network with id " + networkId);
         STORED_RESOURCES.computeIfAbsent(testContext.getDisplayName(), k -> new Stack<>());
         STORED_RESOURCES.get(testContext.getDisplayName()).push(() -> {
             client.removeNetworkCmd(NETWORK_NAME).withNetworkId(networkId).exec();
@@ -354,7 +400,20 @@ public class AdminDeploymentManager {
         return KAFKA_CONTAINERS.get(extensionContext.getDisplayName());
     }
 
+    public int getManagementPort(ExtensionContext extensionContext) {
+        return MANAGEMENT_PORTS.get(extensionContext.getDisplayName());
+    }
+
     public int getAdminPort(ExtensionContext extensionContext) {
-        return ADMIN_PORTS.get(extensionContext.getDisplayName());
+        Optional<ExtensionContext> context = Optional.of(extensionContext);
+
+        while (context.isPresent()) {
+            if (ADMIN_PORTS.containsKey(context.get().getDisplayName())) {
+                return ADMIN_PORTS.get(context.get().getDisplayName());
+            }
+            context = context.get().getParent();
+        }
+
+        return -1;
     }
 }
