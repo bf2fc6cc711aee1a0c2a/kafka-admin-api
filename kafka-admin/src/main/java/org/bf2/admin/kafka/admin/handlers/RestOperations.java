@@ -11,10 +11,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import io.micrometer.core.instrument.Timer;
 import io.netty.handler.codec.http.HttpResponseStatus;
 import org.bf2.admin.kafka.admin.HttpMetrics;
-import io.vertx.core.Handler;
 import io.vertx.core.Promise;
-import io.vertx.core.Vertx;
-import io.vertx.core.file.FileSystem;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.RoutingContext;
 import org.apache.kafka.common.errors.InvalidRequestException;
@@ -385,30 +382,6 @@ public class RestOperations extends CommonHandler implements OperationsHandler {
             }
             processResponse(prom, routingContext, HttpResponseStatus.OK, httpMetrics, httpMetrics.getResetGroupOffsetRequestTimer(), requestTimerSample);
         });
-    }
-
-    public Handler<RoutingContext> openApi(Vertx vertx, HttpMetrics httpMetrics) {
-        return routingContext -> {
-            log.debug("Servicing OpenAPI request");
-            httpMetrics.getRequestsCounter().increment();
-            httpMetrics.getOpenApiCounter().increment();
-            Timer.Sample requestTimerSample = Timer.start(httpMetrics.getRegistry());
-
-            Promise<List<String>> prom = Promise.promise();
-
-            FileSystem fileSystem = vertx.fileSystem();
-
-            String filename = "./rest/src/main/resources/openapi-specs/rest.yaml";
-            fileSystem.readFile(filename, readFile -> {
-                if (readFile.succeeded()) {
-                    routingContext.response().sendFile(filename);
-                } else {
-                    log.error("Failed to read OpenAPI YAML file", readFile.cause());
-                    prom.fail(readFile.cause());
-                }
-                processResponse(prom, routingContext, HttpResponseStatus.OK, httpMetrics, httpMetrics.getOpenApiRequestTimer(), requestTimerSample);
-            });
-        };
     }
 
     private boolean internalTopicsAllowed() {

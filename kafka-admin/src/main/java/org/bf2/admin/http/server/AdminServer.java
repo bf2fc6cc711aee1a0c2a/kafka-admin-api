@@ -13,6 +13,7 @@ import io.vertx.core.net.PemKeyCertOptions;
 import io.vertx.ext.web.Router;
 import io.vertx.ext.web.handler.CorsHandler;
 import io.vertx.ext.web.openapi.RouterBuilder;
+import io.vertx.ext.web.openapi.RouterBuilderOptions;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.bf2.admin.kafka.admin.HttpMetrics;
@@ -87,9 +88,12 @@ public class AdminServer extends AbstractVerticle {
         router.route().handler(createCORSHander());
 
         final Promise<Router> promise = Promise.promise();
+        final RouterBuilderOptions options = new RouterBuilderOptions();
+        options.setContractEndpoint(RouterBuilderOptions.STANDARD_CONTRACT_ENDPOINT);
 
         return RouterBuilder.create(vertx, "openapi-specs/rest.yaml")
             .onSuccess(builder -> {
+                builder.setOptions(options);
                 assignRoutes(builder, vertx);
                 router.mountSubRouter("/rest", builder.createRouter());
             }).onFailure(promise::fail)
