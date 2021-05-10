@@ -25,10 +25,13 @@ import org.bf2.admin.kafka.systemtest.utils.TestUtils;
 import org.junit.jupiter.api.extension.ExtensionContext;
 import org.testcontainers.containers.Network;
 
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Base64;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -209,10 +212,8 @@ public class AdminDeploymentManager {
                                                          String.format("KAFKA_ADMIN_OAUTH_ENABLED=%s", oauth),
                                                          String.format("KAFKA_ADMIN_INTERNAL_TOPICS_ENABLED=%s", internal),
                                                          "KAFKA_ADMIN_REPLICATION_FACTOR=1",
-                                                         String.format("KAFKA_ADMIN_TLS_CERT=%s",
-                                                                       Files.readString(Path.of("docker", "certificates", "admin-tls-chain.crt"))),
-                                                         String.format("KAFKA_ADMIN_TLS_KEY=%s",
-                                                                       Files.readString(Path.of("docker", "certificates", "admin-tls.key")))));
+                                                         String.format("KAFKA_ADMIN_TLS_CERT=%s", encodeTLSConfig("admin-tls-chain.crt")),
+                                                         String.format("KAFKA_ADMIN_TLS_KEY=%s", encodeTLSConfig("admin-tls.key"))));
 
         Integer configuredDebugPort = Integer.getInteger("debugPort");
 
@@ -389,6 +390,11 @@ public class AdminDeploymentManager {
 
     public DockerClient getClient() {
         return client;
+    }
+
+    private String encodeTLSConfig(String fileName) throws IOException {
+        String rawContent = Files.readString(Path.of("docker", "certificates", fileName));
+        return Base64.getEncoder().encodeToString(rawContent.getBytes(StandardCharsets.UTF_8));
     }
 
     private void deleteContainer(String contID) {

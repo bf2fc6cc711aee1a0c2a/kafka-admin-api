@@ -19,8 +19,11 @@ import org.bf2.admin.kafka.admin.HttpMetrics;
 import org.bf2.admin.kafka.admin.Operations;
 import org.bf2.admin.kafka.admin.handlers.RestOperations;
 
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Base64;
+import java.util.Base64.Decoder;
 import java.util.Set;
 import java.util.function.Consumer;
 
@@ -37,6 +40,7 @@ public class AdminServer extends AbstractVerticle {
     private static final Logger LOGGER = LogManager.getLogger(AdminServer.class);
     private static final String SUCCESS_RESPONSE = "{\"status\": \"OK\"}";
     private static final String DEFAULT_TLS_VERSION = "TLSv1.3";
+    private static final Decoder BASE64_DECODER = Base64.getDecoder();
 
     private HttpMetrics httpMetrics = new HttpMetrics();
 
@@ -166,6 +170,12 @@ public class AdminServer extends AbstractVerticle {
         if (readableFile) {
             pathSetter.accept(value);
         } else {
+            try {
+                value = new String(BASE64_DECODER.decode(value), StandardCharsets.UTF_8);
+            } catch (IllegalArgumentException e) {
+                LOGGER.warn("Cert config value was not base-64 encoded, using raw value. Illegal argument: {}", e.getMessage());
+            }
+
             valueSetter.accept(Buffer.buffer(value));
         }
     }
