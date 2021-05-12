@@ -156,7 +156,9 @@ public class AdminServer extends AbstractVerticle {
                                                              .setEnabledSecureTransportProtocols(Set.of(tlsVersions))
                                                              .setPemKeyCertOptions(certOptions));
 
-            server.requestHandler(router).listen(8443);
+            server.requestHandler(router)
+                .listen(8443)
+                .onFailure(startServer::fail);
             LOGGER.info("Admin Server is listening on port 8443");
         }
     }
@@ -177,7 +179,7 @@ public class AdminServer extends AbstractVerticle {
             try {
                 value = new String(BASE64_DECODER.decode(value), StandardCharsets.UTF_8);
             } catch (IllegalArgumentException e) {
-                LOGGER.warn("Cert config value was not base-64 encoded, using raw value. Illegal argument: {}", e.getMessage());
+                LOGGER.info("Cert config value was not base-64 encoded, using raw value. Illegal argument: {}", e.getMessage());
             }
 
             valueSetter.accept(Buffer.buffer(value));
