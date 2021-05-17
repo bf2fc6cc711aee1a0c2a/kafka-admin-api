@@ -60,7 +60,7 @@ public class AdminServer extends AbstractVerticle {
             .onFailure(throwable -> LOGGER.atFatal().withThrowable(throwable).log("Loading of management routes was unsuccessful."));
 
         getResourcesRouter()
-            .onSuccess(router -> startSecureHttpServer(startServer, router))
+            .onSuccess(router -> startResourcesHttpServer(startServer, router))
             .onFailure(throwable -> LOGGER.atFatal().withThrowable(throwable).log("Loading of routes was unsuccessful."));
     }
 
@@ -141,7 +141,7 @@ public class AdminServer extends AbstractVerticle {
         routerFactory.operation(Operations.DELETE_CONSUMER_GROUP).handler(ro::deleteGroup).failureHandler(ro::errorHandler);
     }
 
-    private void startSecureHttpServer(final Promise<Void> startServer, Router router) {
+    private void startResourcesHttpServer(final Promise<Void> startServer, Router router) {
         final String tlsCert = System.getenv("KAFKA_ADMIN_TLS_CERT");
         final HttpServer server;
         final int listenerPort;
