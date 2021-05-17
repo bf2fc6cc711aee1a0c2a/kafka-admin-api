@@ -28,11 +28,13 @@ public class TestBase {
     protected static final Logger LOGGER = LogManager.getLogger(TestBase.class);
     protected static final AdminDeploymentManager DEPLOYMENT_MANAGER = AdminDeploymentManager.getInstance();
 
-    protected HttpClient createHttpsClient(Vertx vertx) {
+    protected HttpClient createHttpClient(Vertx vertx, boolean isSecured) {
         HttpClientOptions options = new HttpClientOptions();
-        options.setSsl(true);
-        options.setEnabledSecureTransportProtocols(Set.of("TLSv1.3"));
-        options.setPemTrustOptions(new PemTrustOptions().addCertPath(Path.of("docker", "certificates", "ca.crt").toAbsolutePath().toString()));
+        if (isSecured) {
+            options.setSsl(true);
+            options.setEnabledSecureTransportProtocols(Set.of("TLSv1.3"));
+            options.setPemTrustOptions(new PemTrustOptions().addCertPath(Path.of("docker", "certificates", "ca.crt").toAbsolutePath().toString()));
+        }
         return vertx.createHttpClient(options);
     }
 }

@@ -20,6 +20,8 @@ import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.apache.kafka.common.serialization.LongDeserializer;
 import org.apache.kafka.common.serialization.StringDeserializer;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 import java.time.Duration;
 import java.util.ArrayList;
@@ -36,6 +38,8 @@ import java.util.stream.Collectors;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class RequestUtils {
+
+    static final Logger LOGGER = LogManager.getLogger(RequestUtils.class);
 
     public static Types.NewTopic getTopicObject(int partitions) {
         Types.NewTopic topic = new Types.NewTopic();
@@ -289,8 +293,9 @@ public class RequestUtils {
     public static String retrieveMetrics(Vertx vertx, ExtensionContext extensionContext, VertxTestContext testContext) {
         CountDownLatch countDownLatch = new CountDownLatch(1);
         int port = AdminDeploymentManager.getInstance().getManagementPort(extensionContext);
+        LOGGER.info("Fetching metrics from {}:{}{}", "localhost", port, "/metrics");
 
-        Future<Buffer> metricsBuffer = vertx.createHttpClient().request(HttpMethod.GET, port, "localhost", "/rest/metrics")
+        Future<Buffer> metricsBuffer = vertx.createHttpClient().request(HttpMethod.GET, port, "localhost", "/metrics")
                 .compose(req -> req.send().onSuccess(response -> {
                     if (response.statusCode() !=  ReturnCodes.SUCCESS.code) {
                         testContext.failNow("Status code not correct");

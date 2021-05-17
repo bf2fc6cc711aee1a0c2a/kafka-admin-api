@@ -19,7 +19,7 @@ public class MetricsEndpointTestIT extends PlainTestBase {
 
     @ParallelTest
     void testAdminListMetrics(Vertx vertx, VertxTestContext testContext, ExtensionContext extensionContext) {
-        HttpClient client = createHttpsClient(vertx);
+        HttpClient client = createHttpClient(vertx);
         int publishedAdminPort = DEPLOYMENT_MANAGER.getAdminPort(extensionContext);
         RequestUtils.prepareAndExecuteListRequest(testContext, 3, client, publishedAdminPort);
 
@@ -37,7 +37,7 @@ public class MetricsEndpointTestIT extends PlainTestBase {
 
     @ParallelTest
     void testAdminCreateMetrics(Vertx vertx, VertxTestContext testContext, ExtensionContext extensionContext) {
-        HttpClient client = createHttpsClient(vertx);
+        HttpClient client = createHttpClient(vertx);
         int publishedAdminPort = DEPLOYMENT_MANAGER.getAdminPort(extensionContext);
         RequestUtils.prepareAndExecuteCreateRequest(testContext, 4, client, publishedAdminPort);
         String metrics = RequestUtils.retrieveMetrics(vertx, extensionContext, testContext);
@@ -57,7 +57,7 @@ public class MetricsEndpointTestIT extends PlainTestBase {
         AdminClient kafkaClient = AdminClient.create(RequestUtils.getKafkaAdminConfig(DEPLOYMENT_MANAGER
                 .getKafkaContainer(extensionContext).getBootstrapServers()));
         int publishedAdminPort = DEPLOYMENT_MANAGER.getAdminPort(extensionContext);
-        HttpClient client = createHttpsClient(vertx);
+        HttpClient client = createHttpClient(vertx);
         RequestUtils.prepareAndExecuteDeleteRequest(testContext, 2, client, kafkaClient, publishedAdminPort);
         String metrics =  RequestUtils.retrieveMetrics(vertx, extensionContext, testContext);
         Pattern pattern = Pattern.compile("^delete_topic_requests_total ([0-9.]+)", Pattern.MULTILINE);
@@ -77,7 +77,7 @@ public class MetricsEndpointTestIT extends PlainTestBase {
         AdminClient kafkaClient = AdminClient.create(RequestUtils.getKafkaAdminConfig(DEPLOYMENT_MANAGER
                 .getKafkaContainer(extensionContext).getBootstrapServers()));
         int publishedAdminPort = DEPLOYMENT_MANAGER.getAdminPort(extensionContext);
-        HttpClient client = createHttpsClient(vertx);
+        HttpClient client = createHttpClient(vertx);
         RequestUtils.prepareAndExecuteDescribeRequest(testContext, 3, client, kafkaClient, publishedAdminPort);
         String metrics =  RequestUtils.retrieveMetrics(vertx, extensionContext, testContext);
         Pattern pattern = Pattern.compile("^describe_topic_requests_total ([0-9.]+)", Pattern.MULTILINE);
@@ -97,7 +97,7 @@ public class MetricsEndpointTestIT extends PlainTestBase {
         AdminClient kafkaClient = AdminClient.create(RequestUtils.getKafkaAdminConfig(DEPLOYMENT_MANAGER
                 .getKafkaContainer(extensionContext).getBootstrapServers()));
         int publishedAdminPort = DEPLOYMENT_MANAGER.getAdminPort(extensionContext);
-        HttpClient client = createHttpsClient(vertx);
+        HttpClient client = createHttpClient(vertx);
         RequestUtils.prepareAndExecuteUpdateRequest(testContext, 2, client, kafkaClient, publishedAdminPort);
         String metrics =  RequestUtils.retrieveMetrics(vertx, extensionContext, testContext);
         Pattern pattern = Pattern.compile("^update_topic_requests_total ([0-9.]+)", Pattern.MULTILINE);
@@ -117,7 +117,7 @@ public class MetricsEndpointTestIT extends PlainTestBase {
         AdminClient kafkaClient = AdminClient.create(RequestUtils.getKafkaAdminConfig(DEPLOYMENT_MANAGER
                 .getKafkaContainer(extensionContext).getBootstrapServers()));
         int publishedAdminPort = DEPLOYMENT_MANAGER.getAdminPort(extensionContext);
-        HttpClient client = createHttpsClient(vertx);
+        HttpClient client = createHttpClient(vertx);
         RequestUtils.prepareAndExecuteUpdateRequest(testContext, 2, client, kafkaClient, publishedAdminPort);
         RequestUtils.prepareAndExecuteDeleteRequest(testContext, 3, client, kafkaClient, publishedAdminPort);
         RequestUtils.prepareAndExecuteDescribeRequest(testContext, 1, client, kafkaClient, publishedAdminPort);
@@ -141,7 +141,7 @@ public class MetricsEndpointTestIT extends PlainTestBase {
         AdminClient kafkaClient = AdminClient.create(RequestUtils.getKafkaAdminConfig(DEPLOYMENT_MANAGER
                 .getKafkaContainer(extensionContext).getBootstrapServers()));
         int publishedAdminPort = DEPLOYMENT_MANAGER.getAdminPort(extensionContext);
-        HttpClient client = createHttpsClient(vertx);
+        HttpClient client = createHttpClient(vertx);
         RequestUtils.prepareAndExecuteFailDeleteRequest(testContext, 5, client, publishedAdminPort);
         RequestUtils.prepareAndExecuteDeleteRequest(testContext, 3, client, kafkaClient, publishedAdminPort);
         RequestUtils.prepareAndExecuteListRequest(testContext, 2, client, publishedAdminPort);

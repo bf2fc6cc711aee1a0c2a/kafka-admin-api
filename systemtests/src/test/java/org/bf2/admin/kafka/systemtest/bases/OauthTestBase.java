@@ -50,6 +50,10 @@ public class OauthTestBase extends TestBase {
         createKafkaAdmin();
     }
 
+    protected HttpClient createHttpClient(Vertx vertx) {
+        return super.createHttpClient(vertx, true);
+    }
+
     private void createKafkaAdmin() {
         kafkaClient = KafkaAdminClient.create(ClientsConfig.getAdminConfigOauth(token));
     }

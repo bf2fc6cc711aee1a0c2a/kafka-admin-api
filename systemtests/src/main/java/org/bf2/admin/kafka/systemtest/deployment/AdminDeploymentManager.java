@@ -197,10 +197,10 @@ public class AdminDeploymentManager {
         vertxTestContext.checkpoint();
     }
 
-    public void deployAdminContainer(String bootstrap, Boolean oauth, Boolean internal, String networkName, ExtensionContext testContext, VertxTestContext vertxTestContext) throws Exception {
+    public void deployAdminContainer(String bootstrap, boolean oauth, boolean internal, String networkName, ExtensionContext testContext, VertxTestContext vertxTestContext) throws Exception {
         TestUtils.logDeploymentPhase("Deploying kafka admin api container");
-        ExposedPort managementPort = ExposedPort.tcp(8080);
-        ExposedPort resourcePort = ExposedPort.tcp(8443);
+        ExposedPort managementPort = ExposedPort.tcp(9990);
+        ExposedPort resourcePort = oauth ? ExposedPort.tcp(8443) : ExposedPort.tcp(8080);
 
         List<ExposedPort> exposedPorts = new ArrayList<>(2);
         Ports boundPorts = new Ports();
@@ -211,9 +211,12 @@ public class AdminDeploymentManager {
         List<String> env = new ArrayList<>(Arrays.asList(String.format("KAFKA_ADMIN_BOOTSTRAP_SERVERS=%s", bootstrap),
                                                          String.format("KAFKA_ADMIN_OAUTH_ENABLED=%s", oauth),
                                                          String.format("KAFKA_ADMIN_INTERNAL_TOPICS_ENABLED=%s", internal),
-                                                         "KAFKA_ADMIN_REPLICATION_FACTOR=1",
-                                                         String.format("KAFKA_ADMIN_TLS_CERT=%s", encodeTLSConfig("admin-tls-chain.crt")),
-                                                         String.format("KAFKA_ADMIN_TLS_KEY=%s", encodeTLSConfig("admin-tls.key"))));
+                                                         "KAFKA_ADMIN_REPLICATION_FACTOR=1"));
+
+        if (oauth) {
+            env.add(String.format("KAFKA_ADMIN_TLS_CERT=%s", encodeTLSConfig("admin-tls-chain.crt")));
+            env.add(String.format("KAFKA_ADMIN_TLS_KEY=%s", encodeTLSConfig("admin-tls.key")));
+        }
 
         Integer configuredDebugPort = Integer.getInteger("debugPort");
 
@@ -260,11 +263,12 @@ public class AdminDeploymentManager {
                 .getPorts().getBindings();
 
         int publishedManagementPort = Integer.parseInt(portBindings.get(managementPort)[0].getHostPortSpec());
-
-        TestUtils.logDeploymentPhase("Waiting for admin to be up & running");
-        waitForAdminReady(publishedManagementPort, vertxTestContext);
-
         int publishedResourcePort = Integer.parseInt(portBindings.get(resourcePort)[0].getHostPortSpec());
+
+        TestUtils.logDeploymentPhase(String.format("Waiting for admin to be up & running (management port: %d, resource port: %d)",
+                                                   publishedManagementPort,
+                                                   publishedResourcePort));
+        waitForAdminReady(publishedManagementPort, vertxTestContext);
 
         synchronized (this) {
             ADMIN_PORTS.putIfAbsent(testContext.getDisplayName(), publishedResourcePort);
