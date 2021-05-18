@@ -69,6 +69,9 @@ Once all steps above have been completed, you can run the Kafka Admin API. The s
 | -------------------- | ----------- |
 | KAFKA_ADMIN_BOOTSTRAP_SERVERS | A comma-separated list of host and port pairs that are the addresses of the Kafka brokers in a "bootstrap" Kafka cluster.   |
 | KAFKA_ADMIN_OAUTH_ENABLED | Enables a third party application to obtain limited access to the Admin API. |
+| KAFKA_ADMIN_TLS_CERT | TLS encryption certificate in PEM format. The value may be either a path to a file containing the certificate *or* text of the certificate. |
+| KAFKA_ADMIN_TLS_KEY | TLS encryption private key in PEM format. The value may be either a path to a file containing the key *or* text of the key. *required when `KAFKA_ADMIN_TLS_CERT` is used* |
+| KAFKA_ADMIN_TLS_VERSION | A comma-separated list of TLS versions to support for TLS/HTTPS endpoints. E.g. `TLSv1.3,TLSv1.2`. Default value if not specified is `TLSv1.3` |
 | KAFKA_ADMIN_INTERNAL_TOPICS_ENABLED | Internal topics are used internally by the Kafka Streams application while executing. |
 | KAFKA_ADMIN_INTERNAL_CONSUMER_GROUPS_ENABLED | Internal consumer groups are used internally by the Strimzi Canary application. |
 | KAFKA_ADMIN_REPLICATION_FACTOR | Replication factor defines the number of copies of a topic in a Kafka cluster. |

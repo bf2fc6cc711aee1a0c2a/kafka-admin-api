@@ -13,7 +13,9 @@ import org.bf2.admin.kafka.systemtest.TestTag;
 import org.bf2.admin.kafka.systemtest.json.ModelDeserializer;
 import org.bf2.admin.kafka.systemtest.json.TokenModel;
 import org.bf2.admin.kafka.systemtest.utils.ClientsConfig;
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.extension.ExtensionContext;
@@ -28,6 +30,16 @@ public class OauthTestBase extends TestBase {
     protected AdminClient kafkaClient;
     protected int publishedAdminPort = 0;
 
+    @BeforeAll
+    public static void initialize(Vertx vertx, VertxTestContext vertxTestContext, ExtensionContext extensionContext) throws Exception {
+        DEPLOYMENT_MANAGER.deployKeycloak(vertxTestContext, extensionContext);
+    }
+
+    @AfterAll
+    public static void cleanup(ExtensionContext extensionContext) throws Exception {
+        DEPLOYMENT_MANAGER.teardown(extensionContext);
+    }
+
     @BeforeEach
     public void startup(Vertx vertx, VertxTestContext vertxTestContext, ExtensionContext extensionContext) throws Exception {
         DEPLOYMENT_MANAGER.deployOauthStack(vertxTestContext, extensionContext);
@@ -36,6 +48,10 @@ public class OauthTestBase extends TestBase {
         //String payload = "grant_type=client_credentials&client_id=kafka&client_secret=kafka-secret";
         changeTokenToAuthorized(vertx, vertxTestContext);
         createKafkaAdmin();
+    }
+
+    protected HttpClient createHttpClient(Vertx vertx) {
+        return super.createHttpClient(vertx, true);
     }
 
     private void createKafkaAdmin() {
@@ -84,6 +100,10 @@ public class OauthTestBase extends TestBase {
             testContext.failNow("Could not retrieve token");
             testContext.completeNow();
         }
+    }
+
+    protected void assertStrictTransportSecurityEnabled(HttpClientResponse response, VertxTestContext testContext) {
+        assertStrictTransportSecurity(response, testContext, true);
     }
 
     @AfterEach

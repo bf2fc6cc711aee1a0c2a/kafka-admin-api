@@ -36,7 +36,7 @@ public class ConsumerGroupsEndpointTestIT extends PlainTestBase {
         int publishedAdminPort = DEPLOYMENT_MANAGER.getAdminPort(extensionContext);
 
         SyncMessaging.createConsumerGroups(vertx, kafkaClient, 5, DEPLOYMENT_MANAGER.getKafkaContainer(extensionContext).getBootstrapServers(), testContext);
-        HttpClient client = vertx.createHttpClient();
+        HttpClient client = createHttpClient(vertx);
         client.request(HttpMethod.GET, publishedAdminPort, "localhost", "/rest/consumer-groups")
                 .compose(req -> req.send().onSuccess(response -> {
                     if (response.statusCode() !=  ReturnCodes.SUCCESS.code) {
@@ -55,7 +55,7 @@ public class ConsumerGroupsEndpointTestIT extends PlainTestBase {
 
     @ParallelTest
     void testListConsumerGroupKafkaDown(Vertx vertx, VertxTestContext testContext, ExtensionContext extensionContext) throws Exception {
-        HttpClient client = vertx.createHttpClient();
+        HttpClient client = createHttpClient(vertx);
         DEPLOYMENT_MANAGER.getClient().stopContainerCmd(DEPLOYMENT_MANAGER
                 .getKafkaContainer(extensionContext).getContainerId()).exec();
         int publishedAdminPort = DEPLOYMENT_MANAGER.getAdminPort(extensionContext);
@@ -78,7 +78,7 @@ public class ConsumerGroupsEndpointTestIT extends PlainTestBase {
 
         List<String> groupdIds = SyncMessaging.createConsumerGroups(vertx, kafkaClient, 5, DEPLOYMENT_MANAGER.getKafkaContainer(extensionContext).getBootstrapServers(), testContext);
 
-        HttpClient client = vertx.createHttpClient();
+        HttpClient client = createHttpClient(vertx);
         client.request(HttpMethod.DELETE, publishedAdminPort, "localhost", "/rest/consumer-groups/" + groupdIds.get(0))
                 .compose(req -> req.send().onSuccess(response -> {
                     if (response.statusCode() !=  ReturnCodes.GROUP_DELETED.code) {
@@ -106,7 +106,7 @@ public class ConsumerGroupsEndpointTestIT extends PlainTestBase {
                 DEPLOYMENT_MANAGER.getKafkaContainer(extensionContext).getBootstrapServers(), groupID, topicName);
         AsyncMessaging.consumeMessages(vertx, consumer, topicName, 200);
         DynamicWait.waitForGroupExists(groupID, kafkaClient);
-        HttpClient client = vertx.createHttpClient();
+        HttpClient client = createHttpClient(vertx);
         client.request(HttpMethod.DELETE, publishedAdminPort, "localhost", "/rest/consumer-groups/" + groupID)
                 .compose(req -> req.send().onSuccess(response -> {
                     if (response.statusCode() !=  ReturnCodes.GROUP_LOCKED.code) {
@@ -129,7 +129,7 @@ public class ConsumerGroupsEndpointTestIT extends PlainTestBase {
                 .getKafkaContainer(extensionContext).getBootstrapServers()));
         List<String> groupdIds = SyncMessaging.createConsumerGroups(vertx, kafkaClient, 2, DEPLOYMENT_MANAGER.getKafkaContainer(extensionContext).getBootstrapServers(), testContext);
 
-        HttpClient client = vertx.createHttpClient();
+        HttpClient client = createHttpClient(vertx);
         DEPLOYMENT_MANAGER.getClient().stopContainerCmd(DEPLOYMENT_MANAGER
                 .getKafkaContainer(extensionContext).getContainerId()).exec();
         int publishedAdminPort = DEPLOYMENT_MANAGER.getAdminPort(extensionContext);
@@ -151,7 +151,7 @@ public class ConsumerGroupsEndpointTestIT extends PlainTestBase {
         int publishedAdminPort = DEPLOYMENT_MANAGER.getAdminPort(extensionContext);
 
         List<String> groupdIds = SyncMessaging.createConsumerGroups(vertx, kafkaClient, 2, DEPLOYMENT_MANAGER.getKafkaContainer(extensionContext).getBootstrapServers(), testContext);
-        HttpClient client = vertx.createHttpClient();
+        HttpClient client = createHttpClient(vertx);
         client.request(HttpMethod.GET, publishedAdminPort, "localhost", "/rest/consumer-groups/" + groupdIds.get(0))
                 .compose(req -> req.send().onSuccess(response -> {
                     if (response.statusCode() != ReturnCodes.SUCCESS.code) {
@@ -174,7 +174,7 @@ public class ConsumerGroupsEndpointTestIT extends PlainTestBase {
                 .getKafkaContainer(extensionContext).getBootstrapServers()));
         List<String> groupdIds = SyncMessaging.createConsumerGroups(vertx, kafkaClient, 2, DEPLOYMENT_MANAGER.getKafkaContainer(extensionContext).getBootstrapServers(), testContext);
 
-        HttpClient client = vertx.createHttpClient();
+        HttpClient client = createHttpClient(vertx);
         DEPLOYMENT_MANAGER.getClient().stopContainerCmd(DEPLOYMENT_MANAGER
                 .getKafkaContainer(extensionContext).getContainerId()).exec();
         int publishedAdminPort = DEPLOYMENT_MANAGER.getAdminPort(extensionContext);
@@ -193,7 +193,7 @@ public class ConsumerGroupsEndpointTestIT extends PlainTestBase {
     void testDescribeNonExistingConsumerGroup(Vertx vertx, VertxTestContext testContext, ExtensionContext extensionContext) throws Exception {
         int publishedAdminPort = DEPLOYMENT_MANAGER.getAdminPort(extensionContext);
 
-        HttpClient client = vertx.createHttpClient();
+        HttpClient client = createHttpClient(vertx);
         client.request(HttpMethod.GET, publishedAdminPort, "localhost", "/rest/consumer-groups/test-1")
                 .compose(req -> req.send().onSuccess(response -> {
                     if (response.statusCode() ==  ReturnCodes.NOT_FOUND.code) {

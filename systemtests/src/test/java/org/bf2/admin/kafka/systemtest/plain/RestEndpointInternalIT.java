@@ -39,7 +39,7 @@ public class RestEndpointInternalIT extends PlainTestBase {
         topics.add(new NewTopic("__" + UUID.randomUUID().toString(), 1, (short) 1));
         kafkaClient.createTopics(topics);
         DynamicWait.waitForTopicsExists(topics.stream().map(NewTopic::name).collect(Collectors.toList()), kafkaClient);
-        HttpClient client = vertx.createHttpClient();
+        HttpClient client = createHttpClient(vertx);
         client.request(HttpMethod.GET, publishedAdminPort, "localhost", "/rest/topics")
                 .compose(req -> req.send().onSuccess(response -> {
                     if (response.statusCode() !=  ReturnCodes.SUCCESS.code) {
@@ -62,7 +62,7 @@ public class RestEndpointInternalIT extends PlainTestBase {
         Types.NewTopic topic = RequestUtils.getTopicObject(3);
         topic.setName("__" + topic.getName());
 
-        vertx.createHttpClient().request(HttpMethod.POST, publishedAdminPort, "localhost", "/rest/topics")
+        createHttpClient(vertx).request(HttpMethod.POST, publishedAdminPort, "localhost", "/rest/topics")
                 .compose(req -> req.putHeader("content-type", "application/json")
                         .send(MODEL_DESERIALIZER.serializeBody(topic)).onSuccess(response -> {
                             if (response.statusCode() !=  ReturnCodes.TOPIC_CREATED.code) {
@@ -90,7 +90,7 @@ public class RestEndpointInternalIT extends PlainTestBase {
         DynamicWait.waitForTopicExists(topicName, kafkaClient);
 
         String queryReq = "/rest/topics/" + topicName;
-        vertx.createHttpClient().request(HttpMethod.GET, publishedAdminPort, "localhost", queryReq)
+        createHttpClient(vertx).request(HttpMethod.GET, publishedAdminPort, "localhost", queryReq)
                 .compose(req -> req.send().onSuccess(response -> {
                     if (response.statusCode() !=  ReturnCodes.SUCCESS.code) {
                         testContext.failNow("Status code not correct");
@@ -117,7 +117,7 @@ public class RestEndpointInternalIT extends PlainTestBase {
                 new NewTopic(topicName, 2, (short) 1)
         ));
         DynamicWait.waitForTopicExists(topicName, kafkaClient);
-        vertx.createHttpClient().request(HttpMethod.DELETE, publishedAdminPort, "localhost", query)
+        createHttpClient(vertx).request(HttpMethod.DELETE, publishedAdminPort, "localhost", query)
                 .compose(req -> req.putHeader("content-type", "application/json")
                         .send().onSuccess(response -> {
                             if (response.statusCode() != ReturnCodes.SUCCESS.code) {
@@ -151,7 +151,7 @@ public class RestEndpointInternalIT extends PlainTestBase {
                 new NewTopic(topicName, 1, (short) 1)
         ));
         DynamicWait.waitForTopicExists(topicName, kafkaClient);
-        vertx.createHttpClient().request(HttpMethod.PATCH, publishedAdminPort, "localhost", "/rest/topics/" + topicName)
+        createHttpClient(vertx).request(HttpMethod.PATCH, publishedAdminPort, "localhost", "/rest/topics/" + topicName)
                 .compose(req -> req.putHeader("content-type", "application/json")
                         .send(MODEL_DESERIALIZER.serializeBody(topic1)).onSuccess(response -> {
                             if (response.statusCode() !=  ReturnCodes.SUCCESS.code) {

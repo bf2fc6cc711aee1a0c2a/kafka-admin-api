@@ -20,6 +20,7 @@ release.properties
 .vscode
 
 # Test certificates
+**/docker/certificates/admin-tls*
 **/docker/certificates/c*
 **/docker/certificates/k*
 **/docker/certificates/.srl

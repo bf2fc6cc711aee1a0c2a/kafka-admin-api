@@ -219,23 +219,6 @@ paths:
           type: string
         in: path
         required: true
-  /metrics:
-    get:
-      responses:
-        '200':
-          description: Metrics
-      operationId: metrics
-      summary: Admin server metrics
-  /api:
-    get:
-      responses:
-        '200':
-          content:
-            application/json: {}
-          description: OpenAPI spec
-      # security:
-        # - Bearer: []
-      operationId: openApi
   '/consumer-groups/{consumerGroupId}':
     get:
       parameters:

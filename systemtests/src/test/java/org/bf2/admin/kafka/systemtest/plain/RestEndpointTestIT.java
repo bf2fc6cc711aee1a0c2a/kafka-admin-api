@@ -43,12 +43,13 @@ public class RestEndpointTestIT extends PlainTestBase {
         for (int i = 0; i < 2; i++) topics.add(new NewTopic(UUID.randomUUID().toString(), 1, (short) 1));
         kafkaClient.createTopics(topics);
         DynamicWait.waitForTopicsExists(topics.stream().map(NewTopic::name).collect(Collectors.toList()), kafkaClient);
-        HttpClient client = vertx.createHttpClient();
+        HttpClient client = createHttpClient(vertx);
         client.request(HttpMethod.GET, publishedAdminPort, "localhost", "/rest/topics")
                 .compose(req -> req.send().onSuccess(response -> {
                     if (response.statusCode() !=  ReturnCodes.SUCCESS.code) {
                         testContext.failNow("Status code not correct");
                     }
+                    assertStrictTransportSecurityDisabled(response, testContext);
                 }).onFailure(testContext::failNow).compose(HttpClientResponse::body))
                 .onComplete(testContext.succeeding(buffer -> testContext.verify(() -> {
                     assertThat(testContext.failed()).isFalse();
@@ -69,12 +70,13 @@ public class RestEndpointTestIT extends PlainTestBase {
         topics.add(new NewTopic("__" + UUID.randomUUID().toString(), 1, (short) 1));
         kafkaClient.createTopics(topics);
         DynamicWait.waitForTopicsExists(topics.stream().map(NewTopic::name).collect(Collectors.toList()), kafkaClient);
-        HttpClient client = vertx.createHttpClient();
+        HttpClient client = createHttpClient(vertx);
         client.request(HttpMethod.GET, publishedAdminPort, "localhost", "/rest/topics")
                 .compose(req -> req.send().onSuccess(response -> {
                     if (response.statusCode() !=  ReturnCodes.SUCCESS.code) {
                         testContext.failNow("Status code not correct");
                     }
+                    assertStrictTransportSecurityDisabled(response, testContext);
                 }).onFailure(testContext::failNow).compose(HttpClientResponse::body))
                 .onComplete(testContext.succeeding(buffer -> testContext.verify(() -> {
                     assertThat(testContext.failed()).isFalse();
@@ -88,7 +90,7 @@ public class RestEndpointTestIT extends PlainTestBase {
 
     @ParallelTest
     void testTopicListWithKafkaDown(Vertx vertx, VertxTestContext testContext, ExtensionContext extensionContext) throws InterruptedException {
-        HttpClient client = vertx.createHttpClient();
+        HttpClient client = createHttpClient(vertx);
         DEPLOYMENT_MANAGER.getClient().stopContainerCmd(DEPLOYMENT_MANAGER
                 .getKafkaContainer(extensionContext).getContainerId()).exec();
         int publishedAdminPort = DEPLOYMENT_MANAGER.getAdminPort(extensionContext);
@@ -98,6 +100,7 @@ public class RestEndpointTestIT extends PlainTestBase {
                     if (l.succeeded()) {
                         assertThat(l.result().statusCode()).isEqualTo(ReturnCodes.KAFKA_DOWN.code);
                     }
+                    assertStrictTransportSecurityDisabled(l.result(), testContext);
                     testContext.completeNow();
                 })).onFailure(testContext::failNow));
         assertThat(testContext.awaitCompletion(1, TimeUnit.MINUTES)).isTrue();
@@ -113,12 +116,13 @@ public class RestEndpointTestIT extends PlainTestBase {
         kafkaClient.createTopics(topics);
         DynamicWait.waitForTopicsExists(topics.stream().map(NewTopic::name).collect(Collectors.toList()), kafkaClient);
 
-        HttpClient client = vertx.createHttpClient();
+        HttpClient client = createHttpClient(vertx);
         client.request(HttpMethod.GET, publishedAdminPort, "localhost", "/rest/topics?filter=test-topic.*")
                 .compose(req -> req.send().onSuccess(response -> {
                     if (response.statusCode() !=  ReturnCodes.SUCCESS.code) {
                         testContext.failNow("Status code not correct");
                     }
+                    assertStrictTransportSecurityDisabled(response, testContext);
                 }).onFailure(testContext::failNow).compose(HttpClientResponse::body))
                 .onComplete(testContext.succeeding(buffer -> testContext.verify(() -> {
                     assertThat(testContext.failed()).isFalse();
@@ -139,12 +143,13 @@ public class RestEndpointTestIT extends PlainTestBase {
         kafkaClient.createTopics(topics);
         DynamicWait.waitForTopicsExists(topics.stream().map(NewTopic::name).collect(Collectors.toList()), kafkaClient);
 
-        HttpClient client = vertx.createHttpClient();
+        HttpClient client = createHttpClient(vertx);
         client.request(HttpMethod.GET, publishedAdminPort, "localhost", "/rest/topics?filter=zcfsada.*")
                 .compose(req -> req.send().onSuccess(response -> {
                     if (response.statusCode() !=  ReturnCodes.SUCCESS.code) {
                         testContext.failNow("Status code not correct");
                     }
+                    assertStrictTransportSecurityDisabled(response, testContext);
                 }).onFailure(testContext::failNow).compose(HttpClientResponse::body))
                 .onComplete(testContext.succeeding(buffer -> testContext.verify(() -> {
                     assertThat(testContext.failed()).isFalse();
@@ -167,12 +172,13 @@ public class RestEndpointTestIT extends PlainTestBase {
         kafkaClient.createTopics(topics);
         DynamicWait.waitForTopicsExists(topics.stream().map(NewTopic::name).collect(Collectors.toList()), kafkaClient);
 
-        HttpClient client = vertx.createHttpClient();
+        HttpClient client = createHttpClient(vertx);
         client.request(HttpMethod.GET, publishedAdminPort, "localhost", "/rest/topics?limit=" + limit)
                 .compose(req -> req.send().onSuccess(response -> {
                     if (response.statusCode() !=  ReturnCodes.SUCCESS.code) {
                         testContext.failNow("Status code not correct");
                     }
+                    assertStrictTransportSecurityDisabled(response, testContext);
                 }).onFailure(testContext::failNow).compose(HttpClientResponse::body))
                 .onComplete(testContext.succeeding(buffer -> testContext.verify(() -> {
                     assertThat(testContext.failed()).isFalse();
@@ -195,13 +201,14 @@ public class RestEndpointTestIT extends PlainTestBase {
         kafkaClient.createTopics(topics);
         DynamicWait.waitForTopicsExists(topics.stream().map(NewTopic::name).collect(Collectors.toList()), kafkaClient);
 
-        HttpClient client = vertx.createHttpClient();
+        HttpClient client = createHttpClient(vertx);
         client.request(HttpMethod.GET, publishedAdminPort, "localhost", "/rest/topics?offset=" + offset)
                 .compose(req -> req.send().onSuccess(response -> {
                     if ((response.statusCode() !=  ReturnCodes.SUCCESS.code && offset != 4)
                             || (response.statusCode() !=  ReturnCodes.FAILED_REQUEST.code && offset == 4)) {
                         testContext.failNow("Status code not correct");
                     }
+                    assertStrictTransportSecurityDisabled(response, testContext);
                 }).onFailure(testContext::failNow).compose(HttpClientResponse::body))
                 .onComplete(testContext.succeeding(buffer -> testContext.verify(() -> {
                     assertThat(testContext.failed()).isFalse();
@@ -226,11 +233,12 @@ public class RestEndpointTestIT extends PlainTestBase {
         DynamicWait.waitForTopicExists(topicName, kafkaClient);
 
         String queryReq = "/rest/topics/" + topicName;
-        vertx.createHttpClient().request(HttpMethod.GET, publishedAdminPort, "localhost", queryReq)
+        createHttpClient(vertx).request(HttpMethod.GET, publishedAdminPort, "localhost", queryReq)
                 .compose(req -> req.send().onSuccess(response -> {
                     if (response.statusCode() !=  ReturnCodes.SUCCESS.code) {
                         testContext.failNow("Status code not correct");
                     }
+                    assertStrictTransportSecurityDisabled(response, testContext);
                 }).onFailure(testContext::failNow).compose(HttpClientResponse::body))
                 .onComplete(testContext.succeeding(buffer -> testContext.verify(() -> {
                     assertThat(testContext.failed()).isFalse();
@@ -254,9 +262,10 @@ public class RestEndpointTestIT extends PlainTestBase {
         DynamicWait.waitForTopicExists(topicName, kafkaClient);
 
         String queryReq = "/rest/topics/" + topicName;
-        vertx.createHttpClient().request(HttpMethod.GET, publishedAdminPort, "localhost", queryReq)
+        createHttpClient(vertx).request(HttpMethod.GET, publishedAdminPort, "localhost", queryReq)
                 .compose(req -> req.send().onSuccess(response -> {
                     if (response.statusCode() ==  ReturnCodes.FAILED_REQUEST.code) {
+                        assertStrictTransportSecurityDisabled(response, testContext);
                         testContext.completeNow();
                     } else {
                         testContext.failNow("Status code not correct");
@@ -273,10 +282,11 @@ public class RestEndpointTestIT extends PlainTestBase {
         DockerClient client = DEPLOYMENT_MANAGER.getClient();
         client.stopContainerCmd(DEPLOYMENT_MANAGER.getKafkaContainer(extensionContext).getContainerId()).exec();
 
-        vertx.createHttpClient().request(HttpMethod.GET, publishedAdminPort, "localhost", queryReq)
+        createHttpClient(vertx).request(HttpMethod.GET, publishedAdminPort, "localhost", queryReq)
                 .compose(req -> req.send().onComplete(l -> testContext.verify(() -> {
                     if (l.succeeded()) {
                         assertThat(l.result().statusCode()).isEqualTo(ReturnCodes.KAFKA_DOWN.code);
+                        assertStrictTransportSecurityDisabled(l.result(), testContext);
                     }
                     testContext.completeNow();
                 })).onFailure(testContext::failNow));
@@ -290,11 +300,12 @@ public class RestEndpointTestIT extends PlainTestBase {
         final String topicName = "test-non-exist";
 
         String queryReq = "/rest/topics/" + topicName;
-        vertx.createHttpClient().request(HttpMethod.GET, publishedAdminPort, "localhost", queryReq)
+        createHttpClient(vertx).request(HttpMethod.GET, publishedAdminPort, "localhost", queryReq)
                 .compose(req -> req.send().onSuccess(response -> {
                     if (response.statusCode() !=  ReturnCodes.NOT_FOUND.code) {
                         testContext.failNow("Status code not correct");
                     }
+                    assertStrictTransportSecurityDisabled(response, testContext);
                     testContext.completeNow();
                 }).onFailure(testContext::failNow));
         assertThat(testContext.awaitCompletion(1, TimeUnit.MINUTES)).isTrue();
@@ -307,12 +318,13 @@ public class RestEndpointTestIT extends PlainTestBase {
         int publishedAdminPort = DEPLOYMENT_MANAGER.getAdminPort(extensionContext);
         Types.NewTopic topic = RequestUtils.getTopicObject(3);
 
-        vertx.createHttpClient().request(HttpMethod.POST, publishedAdminPort, "localhost", "/rest/topics")
+        createHttpClient(vertx).request(HttpMethod.POST, publishedAdminPort, "localhost", "/rest/topics")
                 .compose(req -> req.putHeader("content-type", "application/json")
                         .send(MODEL_DESERIALIZER.serializeBody(topic)).onSuccess(response -> {
                             if (response.statusCode() !=  ReturnCodes.TOPIC_CREATED.code) {
                                 testContext.failNow("Status code " + response.statusCode() + " is not correct");
                             }
+                            assertStrictTransportSecurityDisabled(response, testContext);
                         }).onFailure(testContext::failNow).compose(HttpClientResponse::body))
                 .onComplete(testContext.succeeding(buffer -> testContext.verify(() -> {
                     assertThat(testContext.failed()).isFalse();
@@ -333,11 +345,12 @@ public class RestEndpointTestIT extends PlainTestBase {
         DEPLOYMENT_MANAGER.getClient().stopContainerCmd(DEPLOYMENT_MANAGER.getKafkaContainer(extensionContext).getContainerId()).exec();
         int publishedAdminPort = DEPLOYMENT_MANAGER.getAdminPort(extensionContext);
 
-        vertx.createHttpClient().request(HttpMethod.POST, publishedAdminPort, "localhost", "/rest/topics")
+        createHttpClient(vertx).request(HttpMethod.POST, publishedAdminPort, "localhost", "/rest/topics")
                 .compose(req -> req.putHeader("content-type", "application/json")
                         .send(MODEL_DESERIALIZER.serializeBody(topic)).onComplete(l -> testContext.verify(() -> {
                             if (l.succeeded()) {
                                 assertThat(l.result().statusCode()).isEqualTo(ReturnCodes.KAFKA_DOWN.code);
+                                assertStrictTransportSecurityDisabled(l.result(), testContext);
                             }
                             testContext.completeNow();
                         })).onFailure(testContext::failNow));
@@ -350,12 +363,13 @@ public class RestEndpointTestIT extends PlainTestBase {
         int publishedAdminPort = DEPLOYMENT_MANAGER.getAdminPort(extensionContext);
 
 
-        vertx.createHttpClient().request(HttpMethod.POST, publishedAdminPort, "localhost", "/rest/topics")
+        createHttpClient(vertx).request(HttpMethod.POST, publishedAdminPort, "localhost", "/rest/topics")
                 .compose(req -> req.putHeader("content-type", "application/json")
                         .send(MODEL_DESERIALIZER.serializeBody(topic) + "{./as}").onSuccess(response -> {
                             if (response.statusCode() !=  ReturnCodes.FAILED_REQUEST.code) {
                                 testContext.failNow("Status code " + response.statusCode() + " is not correct");
                             }
+                            assertStrictTransportSecurityDisabled(response, testContext);
                             testContext.completeNow();
                         }).onFailure(testContext::failNow));
         assertThat(testContext.awaitCompletion(1, TimeUnit.MINUTES)).isTrue();
@@ -367,12 +381,13 @@ public class RestEndpointTestIT extends PlainTestBase {
         int publishedAdminPort = DEPLOYMENT_MANAGER.getAdminPort(extensionContext);
 
 
-        vertx.createHttpClient().request(HttpMethod.POST, publishedAdminPort, "localhost", "/rest/topics")
+        createHttpClient(vertx).request(HttpMethod.POST, publishedAdminPort, "localhost", "/rest/topics")
                 .compose(req -> req.putHeader("content-type", "application/json")
                         .send("{" + MODEL_DESERIALIZER.serializeBody(topic)).onSuccess(response -> {
                             if (response.statusCode() !=  ReturnCodes.FAILED_REQUEST.code) {
                                 testContext.failNow("Status code " + response.statusCode() + " is not correct");
                             }
+                            assertStrictTransportSecurityDisabled(response, testContext);
                             testContext.completeNow();
                         }).onFailure(testContext::failNow));
         assertThat(testContext.awaitCompletion(1, TimeUnit.MINUTES)).isTrue();
@@ -384,12 +399,13 @@ public class RestEndpointTestIT extends PlainTestBase {
         final String topicName = "testTopic3_9-=";
         Types.NewTopic topic = RequestUtils.getTopicObject(topicName, 3);
 
-        vertx.createHttpClient().request(HttpMethod.POST, publishedAdminPort, "localhost", "/rest/topics")
+        createHttpClient(vertx).request(HttpMethod.POST, publishedAdminPort, "localhost", "/rest/topics")
                 .compose(req -> req.putHeader("content-type", "application/json")
                         .send(MODEL_DESERIALIZER.serializeBody(topic)).onSuccess(response -> {
                             if (response.statusCode() !=  ReturnCodes.FAILED_REQUEST.code) {
                                 testContext.failNow("Status code " + response.statusCode() + " is not correct");
                             }
+                            assertStrictTransportSecurityDisabled(response, testContext);
                             testContext.completeNow();
                         }).onFailure(testContext::failNow));
         assertThat(testContext.awaitCompletion(1, TimeUnit.MINUTES)).isTrue();
@@ -413,12 +429,13 @@ public class RestEndpointTestIT extends PlainTestBase {
         topic.setSettings(input);
 
 
-        vertx.createHttpClient().request(HttpMethod.POST, publishedAdminPort, "localhost", "/rest/topics")
+        createHttpClient(vertx).request(HttpMethod.POST, publishedAdminPort, "localhost", "/rest/topics")
                 .compose(req -> req.putHeader("content-type", "application/json")
                         .send(MODEL_DESERIALIZER.serializeBody(topic)).onSuccess(response -> {
                             if (response.statusCode() !=  ReturnCodes.FAILED_REQUEST.code) {
                                 testContext.failNow("Status code " + response.statusCode() + " is not correct");
                             }
+                            assertStrictTransportSecurityDisabled(response, testContext);
                         }).onFailure(testContext::failNow).compose(HttpClientResponse::body))
                 .onComplete(testContext.succeeding(buffer -> testContext.verify(() -> {
                     assertThat(testContext.failed()).isFalse();
@@ -436,12 +453,13 @@ public class RestEndpointTestIT extends PlainTestBase {
         Types.NewTopic topic = RequestUtils.getTopicObject(3);
         topic.setName("__" + topic.getName());
 
-        vertx.createHttpClient().request(HttpMethod.POST, publishedAdminPort, "localhost", "/rest/topics")
+        createHttpClient(vertx).request(HttpMethod.POST, publishedAdminPort, "localhost", "/rest/topics")
                 .compose(req -> req.putHeader("content-type", "application/json")
                         .send(MODEL_DESERIALIZER.serializeBody(topic)).onSuccess(response -> {
                             if (response.statusCode() !=  ReturnCodes.FAILED_REQUEST.code) {
                                 testContext.failNow("Status code " + response.statusCode() + " is not correct");
                             }
+                            assertStrictTransportSecurityDisabled(response, testContext);
                         }).onFailure(testContext::failNow).compose(HttpClientResponse::body))
                 .onComplete(testContext.succeeding(buffer -> testContext.verify(() -> {
                     assertThat(testContext.failed()).isFalse();
@@ -462,12 +480,13 @@ public class RestEndpointTestIT extends PlainTestBase {
                 new NewTopic(topic.getName(), 2, (short) 1)
         ));
         DynamicWait.waitForTopicExists(topic.getName(), kafkaClient);
-        vertx.createHttpClient().request(HttpMethod.POST, publishedAdminPort, "localhost", "/rest/topics")
+        createHttpClient(vertx).request(HttpMethod.POST, publishedAdminPort, "localhost", "/rest/topics")
                 .compose(req -> req.putHeader("content-type", "application/json")
                         .send(MODEL_DESERIALIZER.serializeBody(topic)).onSuccess(response -> {
                             if (response.statusCode() !=  ReturnCodes.DUPLICATED.code) {
                                 testContext.failNow("Status code " + response.statusCode() + " is not correct");
                             }
+                            assertStrictTransportSecurityDisabled(response, testContext);
                             testContext.completeNow();
                         }).onFailure(testContext::failNow));
         assertThat(testContext.awaitCompletion(1, TimeUnit.MINUTES)).isTrue();
@@ -482,12 +501,13 @@ public class RestEndpointTestIT extends PlainTestBase {
         int publishedAdminPort = DEPLOYMENT_MANAGER.getAdminPort(extensionContext);
         Types.NewTopic topic = RequestUtils.getTopicObject(numPartitions);
 
-        vertx.createHttpClient().request(HttpMethod.POST, publishedAdminPort, "localhost", "/rest/topics")
+        createHttpClient(vertx).request(HttpMethod.POST, publishedAdminPort, "localhost", "/rest/topics")
                 .compose(req -> req.putHeader("content-type", "application/json")
                         .send(MODEL_DESERIALIZER.serializeBody(topic)).onSuccess(response -> {
                             if (response.statusCode() !=  ReturnCodes.FAILED_REQUEST.code) {
                                 testContext.failNow("Status code " + response.statusCode() + " is not correct");
                             }
+                            assertStrictTransportSecurityDisabled(response, testContext);
                         }).onFailure(testContext::failNow).compose(HttpClientResponse::body))
                 .onComplete(testContext.succeeding(buffer -> testContext.verify(() -> {
                     assertThat(testContext.failed()).isFalse();
@@ -509,12 +529,13 @@ public class RestEndpointTestIT extends PlainTestBase {
                 new NewTopic(topicName, 2, (short) 1)
         ));
         DynamicWait.waitForTopicExists(topicName, kafkaClient);
-        vertx.createHttpClient().request(HttpMethod.DELETE, publishedAdminPort, "localhost", query)
+        createHttpClient(vertx).request(HttpMethod.DELETE, publishedAdminPort, "localhost", query)
                 .compose(req -> req.putHeader("content-type", "application/json")
                         .send().onSuccess(response -> {
                             if (response.statusCode() !=  ReturnCodes.SUCCESS.code) {
                                 testContext.failNow("Status code " + response.statusCode() + " is not correct");
                             }
+                            assertStrictTransportSecurityDisabled(response, testContext);
                         }).onFailure(testContext::failNow).compose(HttpClientResponse::body))
                 .onComplete(testContext.succeeding(buffer -> testContext.verify(() -> {
                     assertThat(testContext.failed()).isFalse();
@@ -537,12 +558,13 @@ public class RestEndpointTestIT extends PlainTestBase {
                 new NewTopic(topicName, 2, (short) 1)
         ));
         DynamicWait.waitForTopicExists(topicName, kafkaClient);
-        vertx.createHttpClient().request(HttpMethod.DELETE, publishedAdminPort, "localhost", query)
+        createHttpClient(vertx).request(HttpMethod.DELETE, publishedAdminPort, "localhost", query)
                 .compose(req -> req.putHeader("content-type", "application/json")
                         .send().onSuccess(response -> {
                             if (response.statusCode() !=  ReturnCodes.FAILED_REQUEST.code) {
                                 testContext.failNow("Status code " + response.statusCode() + " is not correct");
                             }
+                            assertStrictTransportSecurityDisabled(response, testContext);
                         }).onFailure(testContext::failNow).compose(HttpClientResponse::body))
                 .onComplete(testContext.succeeding(buffer -> testContext.verify(() -> {
                     assertThat(testContext.failed()).isFalse();
@@ -559,12 +581,13 @@ public class RestEndpointTestIT extends PlainTestBase {
         DEPLOYMENT_MANAGER.getClient().stopContainerCmd(DEPLOYMENT_MANAGER.getKafkaContainer(extensionContext).getContainerId()).exec();
         int publishedAdminPort = DEPLOYMENT_MANAGER.getAdminPort(extensionContext);
 
-        vertx.createHttpClient().request(HttpMethod.DELETE, publishedAdminPort, "localhost", query)
+        createHttpClient(vertx).request(HttpMethod.DELETE, publishedAdminPort, "localhost", query)
                 .compose(req -> req.putHeader("content-type", "application/json")
                         .send().onComplete(l -> testContext.verify(() -> {
                             if (l.succeeded()) {
                                 assertThat(l.result().statusCode()).isEqualTo(ReturnCodes.KAFKA_DOWN.code);
                             }
+                            assertStrictTransportSecurityDisabled(l.result(), testContext);
                             testContext.completeNow();
                         })).onFailure(testContext::failNow));
         assertThat(testContext.awaitCompletion(1, TimeUnit.MINUTES)).isTrue();
@@ -575,12 +598,13 @@ public class RestEndpointTestIT extends PlainTestBase {
         int publishedAdminPort = DEPLOYMENT_MANAGER.getAdminPort(extensionContext);
         final String topicName = "test-topic-non-existing";
         String query = "/rest/topics/" + topicName;
-        vertx.createHttpClient().request(HttpMethod.DELETE, publishedAdminPort, "localhost", query)
+        createHttpClient(vertx).request(HttpMethod.DELETE, publishedAdminPort, "localhost", query)
                 .compose(req -> req.putHeader("content-type", "application/json")
                         .send().onSuccess(response -> {
                             if (response.statusCode() !=  ReturnCodes.NOT_FOUND.code) {
                                 testContext.failNow("Status code " + response.statusCode() + " is not correct");
                             }
+                            assertStrictTransportSecurityDisabled(response, testContext);
                             testContext.completeNow();
                         }).onFailure(testContext::failNow));
         assertThat(testContext.awaitCompletion(1, TimeUnit.MINUTES)).isTrue();
@@ -606,12 +630,13 @@ public class RestEndpointTestIT extends PlainTestBase {
                 new NewTopic(topicName, 1, (short) 1)
         ));
         DynamicWait.waitForTopicExists(topicName, kafkaClient);
-        vertx.createHttpClient().request(HttpMethod.PATCH, publishedAdminPort, "localhost", "/rest/topics/" + topicName)
+        createHttpClient(vertx).request(HttpMethod.PATCH, publishedAdminPort, "localhost", "/rest/topics/" + topicName)
                 .compose(req -> req.putHeader("content-type", "application/json")
                         .send(MODEL_DESERIALIZER.serializeBody(topic1)).onSuccess(response -> {
                             if (response.statusCode() !=  ReturnCodes.SUCCESS.code) {
                                 testContext.failNow("Status code " + response.statusCode() + " is not correct");
                             }
+                            assertStrictTransportSecurityDisabled(response, testContext);
                         }).onFailure(testContext::failNow).compose(HttpClientResponse::body))
                 .onComplete(testContext.succeeding(buffer -> testContext.verify(() -> {
                     assertThat(testContext.failed()).isFalse();
@@ -639,12 +664,13 @@ public class RestEndpointTestIT extends PlainTestBase {
         topic1.setConfig(Collections.singletonList(conf));
         DEPLOYMENT_MANAGER.getClient().stopContainerCmd(DEPLOYMENT_MANAGER.getKafkaContainer(extensionContext).getContainerId()).exec();
 
-        vertx.createHttpClient().request(HttpMethod.PATCH, publishedAdminPort, "localhost", "/rest/topics/" + topicName)
+        createHttpClient(vertx).request(HttpMethod.PATCH, publishedAdminPort, "localhost", "/rest/topics/" + topicName)
                 .compose(req -> req.putHeader("content-type", "application/json")
                         .send(MODEL_DESERIALIZER.serializeBody(topic1)).onSuccess(response -> {
                             if (response.statusCode() !=  ReturnCodes.KAFKA_DOWN.code) {
                                 testContext.failNow("Status code " + response.statusCode() + " is not correct");
                             }
+                            assertStrictTransportSecurityDisabled(response, testContext);
                             testContext.completeNow();
                         }).onFailure(testContext::failNow));
         assertThat(testContext.awaitCompletion(1, TimeUnit.MINUTES)).isTrue();
@@ -669,12 +695,13 @@ public class RestEndpointTestIT extends PlainTestBase {
                 new NewTopic(topicName, 1, (short) 1)
         ));
         DynamicWait.waitForTopicExists(topicName, kafkaClient);
-        vertx.createHttpClient().request(HttpMethod.PATCH, publishedAdminPort, "localhost", "/rest/topics/" + topicName)
+        createHttpClient(vertx).request(HttpMethod.PATCH, publishedAdminPort, "localhost", "/rest/topics/" + topicName)
                 .compose(req -> req.putHeader("content-type", "application/json")
                         .send(MODEL_DESERIALIZER.serializeBody(topic1)).onSuccess(response -> {
                             if (response.statusCode() !=  ReturnCodes.FAILED_REQUEST.code) {
                                 testContext.failNow("Status code " + response.statusCode() + " is not correct");
                             }
+                            assertStrictTransportSecurityDisabled(response, testContext);
                         }).onFailure(testContext::failNow).compose(HttpClientResponse::body))
                 .onComplete(testContext.succeeding(buffer -> testContext.verify(() -> {
                     assertThat(testContext.failed()).isFalse();
