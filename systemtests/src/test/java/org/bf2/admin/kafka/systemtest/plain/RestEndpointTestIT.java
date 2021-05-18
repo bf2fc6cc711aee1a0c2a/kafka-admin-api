@@ -49,6 +49,7 @@ public class RestEndpointTestIT extends PlainTestBase {
                     if (response.statusCode() !=  ReturnCodes.SUCCESS.code) {
                         testContext.failNow("Status code not correct");
                     }
+                    assertStrictTransportSecurityDisabled(response, testContext);
                 }).onFailure(testContext::failNow).compose(HttpClientResponse::body))
                 .onComplete(testContext.succeeding(buffer -> testContext.verify(() -> {
                     assertThat(testContext.failed()).isFalse();
@@ -75,6 +76,7 @@ public class RestEndpointTestIT extends PlainTestBase {
                     if (response.statusCode() !=  ReturnCodes.SUCCESS.code) {
                         testContext.failNow("Status code not correct");
                     }
+                    assertStrictTransportSecurityDisabled(response, testContext);
                 }).onFailure(testContext::failNow).compose(HttpClientResponse::body))
                 .onComplete(testContext.succeeding(buffer -> testContext.verify(() -> {
                     assertThat(testContext.failed()).isFalse();
@@ -98,6 +100,7 @@ public class RestEndpointTestIT extends PlainTestBase {
                     if (l.succeeded()) {
                         assertThat(l.result().statusCode()).isEqualTo(ReturnCodes.KAFKA_DOWN.code);
                     }
+                    assertStrictTransportSecurityDisabled(l.result(), testContext);
                     testContext.completeNow();
                 })).onFailure(testContext::failNow));
         assertThat(testContext.awaitCompletion(1, TimeUnit.MINUTES)).isTrue();
@@ -119,6 +122,7 @@ public class RestEndpointTestIT extends PlainTestBase {
                     if (response.statusCode() !=  ReturnCodes.SUCCESS.code) {
                         testContext.failNow("Status code not correct");
                     }
+                    assertStrictTransportSecurityDisabled(response, testContext);
                 }).onFailure(testContext::failNow).compose(HttpClientResponse::body))
                 .onComplete(testContext.succeeding(buffer -> testContext.verify(() -> {
                     assertThat(testContext.failed()).isFalse();
@@ -145,6 +149,7 @@ public class RestEndpointTestIT extends PlainTestBase {
                     if (response.statusCode() !=  ReturnCodes.SUCCESS.code) {
                         testContext.failNow("Status code not correct");
                     }
+                    assertStrictTransportSecurityDisabled(response, testContext);
                 }).onFailure(testContext::failNow).compose(HttpClientResponse::body))
                 .onComplete(testContext.succeeding(buffer -> testContext.verify(() -> {
                     assertThat(testContext.failed()).isFalse();
@@ -173,6 +178,7 @@ public class RestEndpointTestIT extends PlainTestBase {
                     if (response.statusCode() !=  ReturnCodes.SUCCESS.code) {
                         testContext.failNow("Status code not correct");
                     }
+                    assertStrictTransportSecurityDisabled(response, testContext);
                 }).onFailure(testContext::failNow).compose(HttpClientResponse::body))
                 .onComplete(testContext.succeeding(buffer -> testContext.verify(() -> {
                     assertThat(testContext.failed()).isFalse();
@@ -202,6 +208,7 @@ public class RestEndpointTestIT extends PlainTestBase {
                             || (response.statusCode() !=  ReturnCodes.FAILED_REQUEST.code && offset == 4)) {
                         testContext.failNow("Status code not correct");
                     }
+                    assertStrictTransportSecurityDisabled(response, testContext);
                 }).onFailure(testContext::failNow).compose(HttpClientResponse::body))
                 .onComplete(testContext.succeeding(buffer -> testContext.verify(() -> {
                     assertThat(testContext.failed()).isFalse();
@@ -231,6 +238,7 @@ public class RestEndpointTestIT extends PlainTestBase {
                     if (response.statusCode() !=  ReturnCodes.SUCCESS.code) {
                         testContext.failNow("Status code not correct");
                     }
+                    assertStrictTransportSecurityDisabled(response, testContext);
                 }).onFailure(testContext::failNow).compose(HttpClientResponse::body))
                 .onComplete(testContext.succeeding(buffer -> testContext.verify(() -> {
                     assertThat(testContext.failed()).isFalse();
@@ -257,6 +265,7 @@ public class RestEndpointTestIT extends PlainTestBase {
         createHttpClient(vertx).request(HttpMethod.GET, publishedAdminPort, "localhost", queryReq)
                 .compose(req -> req.send().onSuccess(response -> {
                     if (response.statusCode() ==  ReturnCodes.FAILED_REQUEST.code) {
+                        assertStrictTransportSecurityDisabled(response, testContext);
                         testContext.completeNow();
                     } else {
                         testContext.failNow("Status code not correct");
@@ -277,6 +286,7 @@ public class RestEndpointTestIT extends PlainTestBase {
                 .compose(req -> req.send().onComplete(l -> testContext.verify(() -> {
                     if (l.succeeded()) {
                         assertThat(l.result().statusCode()).isEqualTo(ReturnCodes.KAFKA_DOWN.code);
+                        assertStrictTransportSecurityDisabled(l.result(), testContext);
                     }
                     testContext.completeNow();
                 })).onFailure(testContext::failNow));
@@ -295,6 +305,7 @@ public class RestEndpointTestIT extends PlainTestBase {
                     if (response.statusCode() !=  ReturnCodes.NOT_FOUND.code) {
                         testContext.failNow("Status code not correct");
                     }
+                    assertStrictTransportSecurityDisabled(response, testContext);
                     testContext.completeNow();
                 }).onFailure(testContext::failNow));
         assertThat(testContext.awaitCompletion(1, TimeUnit.MINUTES)).isTrue();
@@ -313,6 +324,7 @@ public class RestEndpointTestIT extends PlainTestBase {
                             if (response.statusCode() !=  ReturnCodes.TOPIC_CREATED.code) {
                                 testContext.failNow("Status code " + response.statusCode() + " is not correct");
                             }
+                            assertStrictTransportSecurityDisabled(response, testContext);
                         }).onFailure(testContext::failNow).compose(HttpClientResponse::body))
                 .onComplete(testContext.succeeding(buffer -> testContext.verify(() -> {
                     assertThat(testContext.failed()).isFalse();
@@ -338,6 +350,7 @@ public class RestEndpointTestIT extends PlainTestBase {
                         .send(MODEL_DESERIALIZER.serializeBody(topic)).onComplete(l -> testContext.verify(() -> {
                             if (l.succeeded()) {
                                 assertThat(l.result().statusCode()).isEqualTo(ReturnCodes.KAFKA_DOWN.code);
+                                assertStrictTransportSecurityDisabled(l.result(), testContext);
                             }
                             testContext.completeNow();
                         })).onFailure(testContext::failNow));
@@ -356,6 +369,7 @@ public class RestEndpointTestIT extends PlainTestBase {
                             if (response.statusCode() !=  ReturnCodes.FAILED_REQUEST.code) {
                                 testContext.failNow("Status code " + response.statusCode() + " is not correct");
                             }
+                            assertStrictTransportSecurityDisabled(response, testContext);
                             testContext.completeNow();
                         }).onFailure(testContext::failNow));
         assertThat(testContext.awaitCompletion(1, TimeUnit.MINUTES)).isTrue();
@@ -373,6 +387,7 @@ public class RestEndpointTestIT extends PlainTestBase {
                             if (response.statusCode() !=  ReturnCodes.FAILED_REQUEST.code) {
                                 testContext.failNow("Status code " + response.statusCode() + " is not correct");
                             }
+                            assertStrictTransportSecurityDisabled(response, testContext);
                             testContext.completeNow();
                         }).onFailure(testContext::failNow));
         assertThat(testContext.awaitCompletion(1, TimeUnit.MINUTES)).isTrue();
@@ -390,6 +405,7 @@ public class RestEndpointTestIT extends PlainTestBase {
                             if (response.statusCode() !=  ReturnCodes.FAILED_REQUEST.code) {
                                 testContext.failNow("Status code " + response.statusCode() + " is not correct");
                             }
+                            assertStrictTransportSecurityDisabled(response, testContext);
                             testContext.completeNow();
                         }).onFailure(testContext::failNow));
         assertThat(testContext.awaitCompletion(1, TimeUnit.MINUTES)).isTrue();
@@ -419,6 +435,7 @@ public class RestEndpointTestIT extends PlainTestBase {
                             if (response.statusCode() !=  ReturnCodes.FAILED_REQUEST.code) {
                                 testContext.failNow("Status code " + response.statusCode() + " is not correct");
                             }
+                            assertStrictTransportSecurityDisabled(response, testContext);
                         }).onFailure(testContext::failNow).compose(HttpClientResponse::body))
                 .onComplete(testContext.succeeding(buffer -> testContext.verify(() -> {
                     assertThat(testContext.failed()).isFalse();
@@ -442,6 +459,7 @@ public class RestEndpointTestIT extends PlainTestBase {
                             if (response.statusCode() !=  ReturnCodes.FAILED_REQUEST.code) {
                                 testContext.failNow("Status code " + response.statusCode() + " is not correct");
                             }
+                            assertStrictTransportSecurityDisabled(response, testContext);
                         }).onFailure(testContext::failNow).compose(HttpClientResponse::body))
                 .onComplete(testContext.succeeding(buffer -> testContext.verify(() -> {
                     assertThat(testContext.failed()).isFalse();
@@ -468,6 +486,7 @@ public class RestEndpointTestIT extends PlainTestBase {
                             if (response.statusCode() !=  ReturnCodes.DUPLICATED.code) {
                                 testContext.failNow("Status code " + response.statusCode() + " is not correct");
                             }
+                            assertStrictTransportSecurityDisabled(response, testContext);
                             testContext.completeNow();
                         }).onFailure(testContext::failNow));
         assertThat(testContext.awaitCompletion(1, TimeUnit.MINUTES)).isTrue();
@@ -488,6 +507,7 @@ public class RestEndpointTestIT extends PlainTestBase {
                             if (response.statusCode() !=  ReturnCodes.FAILED_REQUEST.code) {
                                 testContext.failNow("Status code " + response.statusCode() + " is not correct");
                             }
+                            assertStrictTransportSecurityDisabled(response, testContext);
                         }).onFailure(testContext::failNow).compose(HttpClientResponse::body))
                 .onComplete(testContext.succeeding(buffer -> testContext.verify(() -> {
                     assertThat(testContext.failed()).isFalse();
@@ -515,6 +535,7 @@ public class RestEndpointTestIT extends PlainTestBase {
                             if (response.statusCode() !=  ReturnCodes.SUCCESS.code) {
                                 testContext.failNow("Status code " + response.statusCode() + " is not correct");
                             }
+                            assertStrictTransportSecurityDisabled(response, testContext);
                         }).onFailure(testContext::failNow).compose(HttpClientResponse::body))
                 .onComplete(testContext.succeeding(buffer -> testContext.verify(() -> {
                     assertThat(testContext.failed()).isFalse();
@@ -543,6 +564,7 @@ public class RestEndpointTestIT extends PlainTestBase {
                             if (response.statusCode() !=  ReturnCodes.FAILED_REQUEST.code) {
                                 testContext.failNow("Status code " + response.statusCode() + " is not correct");
                             }
+                            assertStrictTransportSecurityDisabled(response, testContext);
                         }).onFailure(testContext::failNow).compose(HttpClientResponse::body))
                 .onComplete(testContext.succeeding(buffer -> testContext.verify(() -> {
                     assertThat(testContext.failed()).isFalse();
@@ -565,6 +587,7 @@ public class RestEndpointTestIT extends PlainTestBase {
                             if (l.succeeded()) {
                                 assertThat(l.result().statusCode()).isEqualTo(ReturnCodes.KAFKA_DOWN.code);
                             }
+                            assertStrictTransportSecurityDisabled(l.result(), testContext);
                             testContext.completeNow();
                         })).onFailure(testContext::failNow));
         assertThat(testContext.awaitCompletion(1, TimeUnit.MINUTES)).isTrue();
@@ -581,6 +604,7 @@ public class RestEndpointTestIT extends PlainTestBase {
                             if (response.statusCode() !=  ReturnCodes.NOT_FOUND.code) {
                                 testContext.failNow("Status code " + response.statusCode() + " is not correct");
                             }
+                            assertStrictTransportSecurityDisabled(response, testContext);
                             testContext.completeNow();
                         }).onFailure(testContext::failNow));
         assertThat(testContext.awaitCompletion(1, TimeUnit.MINUTES)).isTrue();
@@ -612,6 +636,7 @@ public class RestEndpointTestIT extends PlainTestBase {
                             if (response.statusCode() !=  ReturnCodes.SUCCESS.code) {
                                 testContext.failNow("Status code " + response.statusCode() + " is not correct");
                             }
+                            assertStrictTransportSecurityDisabled(response, testContext);
                         }).onFailure(testContext::failNow).compose(HttpClientResponse::body))
                 .onComplete(testContext.succeeding(buffer -> testContext.verify(() -> {
                     assertThat(testContext.failed()).isFalse();
@@ -645,6 +670,7 @@ public class RestEndpointTestIT extends PlainTestBase {
                             if (response.statusCode() !=  ReturnCodes.KAFKA_DOWN.code) {
                                 testContext.failNow("Status code " + response.statusCode() + " is not correct");
                             }
+                            assertStrictTransportSecurityDisabled(response, testContext);
                             testContext.completeNow();
                         }).onFailure(testContext::failNow));
         assertThat(testContext.awaitCompletion(1, TimeUnit.MINUTES)).isTrue();
@@ -675,6 +701,7 @@ public class RestEndpointTestIT extends PlainTestBase {
                             if (response.statusCode() !=  ReturnCodes.FAILED_REQUEST.code) {
                                 testContext.failNow("Status code " + response.statusCode() + " is not correct");
                             }
+                            assertStrictTransportSecurityDisabled(response, testContext);
                         }).onFailure(testContext::failNow).compose(HttpClientResponse::body))
                 .onComplete(testContext.succeeding(buffer -> testContext.verify(() -> {
                     assertThat(testContext.failed()).isFalse();

@@ -48,6 +48,7 @@ public class RestOAuthTestIT extends OauthTestBase {
                     if (response.statusCode() != ReturnCodes.SUCCESS.code) {
                         testContext.failNow("Status code not correct");
                     }
+                    assertStrictTransportSecurityEnabled(response, testContext);
                 }).onFailure(testContext::failNow).compose(HttpClientResponse::body))
                 .onComplete(testContext.succeeding(buffer -> testContext.verify(() -> {
                     Set<String> actualRestNames = kafkaClient.listTopics().names().get();
@@ -75,6 +76,7 @@ public class RestOAuthTestIT extends OauthTestBase {
                     if (response.statusCode() != ReturnCodes.SUCCESS.code) {
                         testContext.failNow("Status code not correct");
                     }
+                    assertStrictTransportSecurityEnabled(response, testContext);
                 }).onFailure(testContext::failNow).compose(HttpClientResponse::body))
                 .onComplete(testContext.succeeding(buffer -> testContext.verify(() -> {
                     assertThat(MODEL_DESERIALIZER.getNames(buffer).size()).isEqualTo(0);
@@ -105,6 +107,7 @@ public class RestOAuthTestIT extends OauthTestBase {
                 .compose(req -> req.putHeader("Authorization", "Bearer " + invalidToken).send()
                         .onSuccess(response -> testContext.verify(() -> {
                             assertThat(response.statusCode()).isEqualTo(ReturnCodes.UNAUTHORIZED.code);
+                            assertStrictTransportSecurityEnabled(response, testContext);
                             testContext.completeNow();
                         }))
                         .onFailure(testContext::failNow));
@@ -120,6 +123,7 @@ public class RestOAuthTestIT extends OauthTestBase {
                 .compose(req -> req.putHeader("Authorization", "Bearer " + token.getAccessToken()).send()
                         .onSuccess(response -> testContext.verify(() -> {
                             assertThat(response.statusCode()).isEqualTo(ReturnCodes.UNAUTHORIZED.code);
+                            assertStrictTransportSecurityEnabled(response, testContext);
                             testContext.completeNow();
                         })));
         assertThat(testContext.awaitCompletion(1, TimeUnit.MINUTES)).isTrue();
@@ -139,6 +143,7 @@ public class RestOAuthTestIT extends OauthTestBase {
                     if (response.statusCode() != ReturnCodes.SUCCESS.code) {
                         testContext.failNow("Status code not correct");
                     }
+                    assertStrictTransportSecurityEnabled(response, testContext);
                 }).onFailure(testContext::failNow).compose(HttpClientResponse::body))
                 .onComplete(testContext.succeeding(buffer -> testContext.verify(() -> {
                     Types.Topic topic = MODEL_DESERIALIZER.deserializeResponse(buffer, Types.Topic.class);
@@ -162,6 +167,7 @@ public class RestOAuthTestIT extends OauthTestBase {
                 .compose(req -> req.putHeader("Authorization", "Bearer " + token.getAccessToken()).send()
                         .onSuccess(response -> testContext.verify(() -> {
                             assertThat(response.statusCode()).isEqualTo(ReturnCodes.UNAUTHORIZED.code);
+                            assertStrictTransportSecurityEnabled(response, testContext);
                             testContext.completeNow();
                         })));
         assertThat(testContext.awaitCompletion(1, TimeUnit.MINUTES)).isTrue();
@@ -178,6 +184,7 @@ public class RestOAuthTestIT extends OauthTestBase {
                             if (response.statusCode() !=  ReturnCodes.TOPIC_CREATED.code) {
                                 testContext.failNow("Status code " + response.statusCode() + " is not correct");
                             }
+                            assertStrictTransportSecurityEnabled(response, testContext);
                         }).onFailure(testContext::failNow).compose(HttpClientResponse::body))
                 .onComplete(testContext.succeeding(buffer -> testContext.verify(() -> {
                     DynamicWait.waitForTopicExists(topic.getName(), kafkaClient);
@@ -199,6 +206,7 @@ public class RestOAuthTestIT extends OauthTestBase {
                         .putHeader("Authorization", "Bearer " + token.getAccessToken())
                         .send(MODEL_DESERIALIZER.serializeBody(topic)).onSuccess(response -> testContext.verify(() -> {
                             assertThat(response.statusCode()).isEqualTo(ReturnCodes.UNAUTHORIZED.code);
+                            assertStrictTransportSecurityEnabled(response, testContext);
                             testContext.completeNow();
                         })));
         assertThat(testContext.awaitCompletion(1, TimeUnit.MINUTES)).isTrue();
@@ -219,6 +227,7 @@ public class RestOAuthTestIT extends OauthTestBase {
                 .compose(req -> req.putHeader("content-type", "application/json")
                         .send(MODEL_DESERIALIZER.serializeBody(topic)).onSuccess(response -> testContext.verify(() -> {
                             assertThat(response.statusCode()).isEqualTo(ReturnCodes.UNAUTHORIZED.code);
+                            assertStrictTransportSecurityEnabled(response, testContext);
                             testContext.completeNow();
                         })));
         assertThat(testContext.awaitCompletion(1, TimeUnit.MINUTES)).isTrue();
@@ -249,6 +258,7 @@ public class RestOAuthTestIT extends OauthTestBase {
                             if (response.statusCode() !=  ReturnCodes.SUCCESS.code) {
                                 testContext.failNow("Status code " + response.statusCode() + " is not correct");
                             }
+                            assertStrictTransportSecurityEnabled(response, testContext);
                         }).onFailure(testContext::failNow).compose(HttpClientResponse::body))
                 .onComplete(testContext.succeeding(buffer -> testContext.verify(() -> {
                     DynamicWait.waitForTopicToBeDeleted(topicName, kafkaClient);
@@ -273,6 +283,7 @@ public class RestOAuthTestIT extends OauthTestBase {
                         .putHeader("Authorization", "Bearer " + token.getAccessToken())
                         .send().onSuccess(response -> testContext.verify(() -> {
                             assertThat(response.statusCode()).isEqualTo(ReturnCodes.UNAUTHORIZED.code);
+                            assertStrictTransportSecurityEnabled(response, testContext);
                             testContext.completeNow();
                         })));
         assertThat(testContext.awaitCompletion(1, TimeUnit.MINUTES)).isTrue();
@@ -300,6 +311,7 @@ public class RestOAuthTestIT extends OauthTestBase {
                             if (response.statusCode() !=  ReturnCodes.SUCCESS.code) {
                                 testContext.failNow("Status code " + response.statusCode() + " is not correct");
                             }
+                            assertStrictTransportSecurityEnabled(response, testContext);
                         }).onFailure(testContext::failNow).compose(HttpClientResponse::body))
                 .onComplete(testContext.succeeding(buffer -> testContext.verify(() -> {
                     DynamicWait.waitForTopicExists(topicName, kafkaClient);
@@ -334,6 +346,7 @@ public class RestOAuthTestIT extends OauthTestBase {
                         .putHeader("Authorization", "Bearer " + token.getAccessToken())
                         .send(MODEL_DESERIALIZER.serializeBody(topic1)).onSuccess(response -> testContext.verify(() -> {
                             assertThat(response.statusCode()).isEqualTo(ReturnCodes.UNAUTHORIZED.code);
+                            assertStrictTransportSecurityEnabled(response, testContext);
                             testContext.completeNow();
                         })));
         assertThat(testContext.awaitCompletion(1, TimeUnit.MINUTES)).isTrue();
@@ -357,6 +370,7 @@ public class RestOAuthTestIT extends OauthTestBase {
                     if (response.statusCode() != ReturnCodes.SUCCESS.code) {
                         testContext.failNow("Status code not correct");
                     }
+                    assertStrictTransportSecurityEnabled(response, testContext);
                 }).onFailure(testContext::failNow).compose(HttpClientResponse::body))
                 .onComplete(testContext.succeeding(buffer -> testContext.verify(() -> {
                     Set<String> actualRestNames = kafkaClient.listTopics().names().get();

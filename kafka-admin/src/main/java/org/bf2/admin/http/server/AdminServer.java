@@ -12,6 +12,7 @@ import io.vertx.core.http.HttpServerOptions;
 import io.vertx.core.net.PemKeyCertOptions;
 import io.vertx.ext.web.Router;
 import io.vertx.ext.web.handler.CorsHandler;
+import io.vertx.ext.web.handler.HSTSHandler;
 import io.vertx.ext.web.openapi.RouterBuilder;
 import io.vertx.ext.web.openapi.RouterBuilderOptions;
 import org.apache.logging.log4j.LogManager;
@@ -23,6 +24,7 @@ import org.bf2.admin.kafka.admin.handlers.RestOperations;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Duration;
 import java.util.Base64;
 import java.util.Base64.Decoder;
 import java.util.Set;
@@ -90,6 +92,7 @@ public class AdminServer extends AbstractVerticle {
     private Future<Router> getResourcesRouter() {
         final Router router = Router.router(vertx);
         router.route().handler(createCORSHander());
+        router.route().handler(HSTSHandler.create(Duration.ofDays(365).toSeconds(), false));
 
         final Promise<Router> promise = Promise.promise();
         final RouterBuilderOptions options = new RouterBuilderOptions();

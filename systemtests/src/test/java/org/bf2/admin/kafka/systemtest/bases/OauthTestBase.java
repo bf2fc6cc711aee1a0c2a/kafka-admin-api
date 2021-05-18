@@ -102,6 +102,10 @@ public class OauthTestBase extends TestBase {
         }
     }
 
+    protected void assertStrictTransportSecurityEnabled(HttpClientResponse response, VertxTestContext testContext) {
+        assertStrictTransportSecurity(response, testContext, true);
+    }
+
     @AfterEach
     public void teardown() {
         if (kafkaClient != null) {
