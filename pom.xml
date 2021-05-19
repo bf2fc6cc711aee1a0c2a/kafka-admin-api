@@ -1,14 +1,12 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<project xmlns="http://maven.apache.org/POM/4.0.0"
-         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
 
     <modelVersion>4.0.0</modelVersion>
 
     <groupId>org.bf2</groupId>
     <artifactId>kafka-admin-api</artifactId>
     <packaging>pom</packaging>
-    <version>0.0.8-SNAPSHOT</version>
+    <version>0.0.8</version>
 
     <modules>
         <module>kafka-admin</module>
@@ -43,7 +41,7 @@
     <scm>
         <connection>scm:git:git://github.com/bf2fc6cc711aee1a0c2a/kafka-admin-api.git</connection>
         <developerConnection>scm:git:git@github.com:bf2fc6cc711aee1a0c2a/kafka-admin-api.git</developerConnection>
-        <tag>HEAD</tag>
+        <tag>0.0.8</tag>
     </scm>
 
     <dependencyManagement>
@@ -267,8 +265,7 @@
                                 <include>**/ST*.java</include>
                                 <include>**/*ST.java</include>
                             </includes>
-                            <statelessTestsetReporter
-                                    implementation="org.apache.maven.plugin.surefire.extensions.junit5.JUnit5Xml30StatelessReporter">
+                            <statelessTestsetReporter implementation="org.apache.maven.plugin.surefire.extensions.junit5.JUnit5Xml30StatelessReporter">
                                 <disable>false</disable>
                                 <version>3.0</version>
                                 <usePhrasedFileName>false</usePhrasedFileName>
@@ -276,14 +273,12 @@
                                 <usePhrasedTestCaseClassName>true</usePhrasedTestCaseClassName>
                                 <usePhrasedTestCaseMethodName>true</usePhrasedTestCaseMethodName>
                             </statelessTestsetReporter>
-                            <consoleOutputReporter
-                                    implementation="org.apache.maven.plugin.surefire.extensions.junit5.JUnit5ConsoleOutputReporter">
+                            <consoleOutputReporter implementation="org.apache.maven.plugin.surefire.extensions.junit5.JUnit5ConsoleOutputReporter">
                                 <disable>false</disable>
                                 <encoding>UTF-8</encoding>
                                 <usePhrasedFileName>true</usePhrasedFileName>
                             </consoleOutputReporter>
-                            <statelessTestsetInfoReporter
-                                    implementation="org.apache.maven.plugin.surefire.extensions.junit5.JUnit5StatelessTestsetInfoReporter">
+                            <statelessTestsetInfoReporter implementation="org.apache.maven.plugin.surefire.extensions.junit5.JUnit5StatelessTestsetInfoReporter">
                                 <disable>false</disable>
                                 <usePhrasedFileName>false</usePhrasedFileName>
                                 <usePhrasedClassNameInRunning>false</usePhrasedClassNameInRunning>
