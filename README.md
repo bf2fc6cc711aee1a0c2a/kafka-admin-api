@@ -61,7 +61,9 @@ If you are using IntelliJ there are two Run configurations: `Main` and `Main (En
 
 ### Run the Admin Server
 
-Once all steps above have been completed, you can run the Kafka Admin API. The server will start at [http://localhost:8080](http://localhost:8080).
+Once all steps above have been completed, you can run the Kafka Admin API. The server will start the following interfaces:
+- Management (`/metrics` and `/health` endpoints) [http://localhost:9990](http://localhost:9990)
+- REST API (`/rest/*`) on either [http://localhost:8080](http://localhost:8080) or [https://localhost:8443](https://localhost:8443), depending on TLS configuration.
 
 ### Admin Server Configuration
 
@@ -94,30 +96,6 @@ These credentials will be used to push the release image to the repository confi
 ### Performing the Release
 Releases are performed by modifying the `.github/project.yml` file, setting `current-version` to the release version and `next-version` to the next SNAPSHOT. Open a pull request with the changed `project.yml` to initiate the pre-release workflows. At this phase, the project milestone will be checked and it will be verified that no issues for the release milestone are still open. Additionally, the project's integration test will be run.
 Once approved and the pull request is merged, the release action will execute. This action will execute the Maven release plugin to tag the release commit, build the application artifacts, create the build image, and push the image to (currently) quay.io. If successful, the action will push the new tag to the Github repository and generate release notes listing all of the closed issues included in the milestone. Finally, the milestone will be closed.
-
-## Interim release steps (DEPRECATED)
-
-```
-DOCKER_REPO=quay.io/k_wall
-NEW_VERSION=0.0.7
-NEXT_VERSION=0.0.8-SNAPSHOT
-
-mvn clean versions:set package -DnewVersion=${NEW_VERSION} -DskipTests -DgenerateBackupPoms=false
-vi Dockerfile # update KAFKA_ADMIN_API_VERSION
-git commit -m "Prepare release ${NEW_VERSION}" .
-git tag ${NEW_VERSION}
-docker build --build-arg kafka_admin_api_version=${NEW_VERSION} -t ${DOCKER_REPO}/kafka-admin-api:${NEW_VERSION} . && docker push ${DOCKER_REPO}/kafka-admin-api:${NEW_VERSION}
-
-mvn versions:set  -DnewVersion=${NEXT_VERSION} -DgenerateBackupPoms=false
-vi Dockerfile # update KAFKA_ADMIN_API_VERSION
-vi .run/Main.run.xml # update versioned jar file names to NEXT_VERSION
-vi .run/Main\ \(EnvFile\).run.xml # update versioned jar file names to NEXT_VERSION
-git commit -m "Prepare for development ${NEXT_VERSION}" .
-
-git push --dry-run upstream ${NEW_VERSION} main
-# Finally
-git push upstream ${NEW_VERSION} main
-```
 
 ## Logging Configuration Override
 The container image built from this repository includes support for providing an additional Log4J properties file at run time. The properties file must be given to the running
