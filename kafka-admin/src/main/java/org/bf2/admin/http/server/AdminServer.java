@@ -9,10 +9,16 @@ import io.vertx.core.Vertx;
 import io.vertx.core.buffer.Buffer;
 import io.vertx.core.http.HttpServer;
 import io.vertx.core.http.HttpServerOptions;
+import io.vertx.core.json.JsonObject;
 import io.vertx.core.net.PemKeyCertOptions;
+import io.vertx.ext.auth.JWTOptions;
+import io.vertx.ext.auth.oauth2.OAuth2Auth;
+import io.vertx.ext.auth.oauth2.OAuth2FlowType;
+import io.vertx.ext.auth.oauth2.OAuth2Options;
 import io.vertx.ext.web.Router;
 import io.vertx.ext.web.handler.CorsHandler;
 import io.vertx.ext.web.handler.HSTSHandler;
+import io.vertx.ext.web.handler.OAuth2AuthHandler;
 import io.vertx.ext.web.openapi.RouterBuilder;
 import io.vertx.ext.web.openapi.RouterBuilderOptions;
 import org.apache.logging.log4j.LogManager;
@@ -47,6 +53,7 @@ public class AdminServer extends AbstractVerticle {
     private static final int MANAGEMENT_PORT = 9990;
     private static final String SUCCESS_RESPONSE = "{\"status\": \"OK\"}";
     private static final String DEFAULT_TLS_VERSION = "TLSv1.3";
+    private static final String SECURITY_SCHEME_NAME = "Bearer";
     private static final Decoder BASE64_DECODER = Base64.getDecoder();
 
     private HttpMetrics httpMetrics = new HttpMetrics();
@@ -90,18 +97,47 @@ public class AdminServer extends AbstractVerticle {
     }
 
     private Future<Router> getResourcesRouter() {
+        final Promise<Router> promise = Promise.promise();
         final Router router = Router.router(vertx);
         router.route().handler(createCORSHander());
         router.route().handler(HSTSHandler.create(Duration.ofDays(365).toSeconds(), false));
 
-        final Promise<Router> promise = Promise.promise();
-        final RouterBuilderOptions options = new RouterBuilderOptions();
-        // OpenAPI contract document served at `/rest/openapi`
-        options.setContractEndpoint(RouterBuilderOptions.STANDARD_CONTRACT_ENDPOINT);
-
         return RouterBuilder.create(vertx, "openapi-specs/kafka-admin-rest.yaml")
             .onSuccess(builder -> {
+                final JsonObject openAPI = builder.getOpenAPI().getOpenAPI();
+                final RouterBuilderOptions options = new RouterBuilderOptions();
+                // OpenAPI contract document served at `/rest/openapi`
+                options.setContractEndpoint(RouterBuilderOptions.STANDARD_CONTRACT_ENDPOINT);
                 builder.setOptions(options);
+
+                if (System.getenv("KAFKA_ADMIN_OAUTH_JWKS_ENDPOINT_URI") != null) {
+                    OAuth2Options oauthOptions = new OAuth2Options();
+                    // TODO: Confirm flow and update Open API document with correct URLs (from environment)
+                    oauthOptions.setFlow(OAuth2FlowType.CLIENT);
+                    // TODO: Set path in fleetshard and systemtests (keycloak)
+                    oauthOptions.setJwkPath(System.getenv("KAFKA_ADMIN_OAUTH_JWKS_ENDPOINT_URI"));
+                    oauthOptions.setValidateIssuer(true);
+
+                    // TODO: Set issuer & audience in fleetshard and systemtests (keycloak)
+                    oauthOptions.setJWTOptions(new JWTOptions()
+                               .setIssuer(System.getenv("KAFKA_ADMIN_OAUTH_VALID_ISSUER_URI")));
+
+                    OAuth2Auth oauth2Provider = OAuth2Auth.create(vertx, oauthOptions);
+                    oauth2Provider.jWKSet().onFailure(cause -> LOGGER.error("Failed to retrieve JWKS: {}", cause.getMessage(), cause));
+                    OAuth2AuthHandler securityHandler = OAuth2AuthHandler.create(vertx, oauth2Provider);
+                    builder.securityHandler(SECURITY_SCHEME_NAME, securityHandler);
+
+                    openAPI.getJsonObject("components")
+                           .getJsonObject("securitySchemes")
+                           .getJsonObject(SECURITY_SCHEME_NAME)
+                           .getJsonObject("flows")
+                           .getJsonObject("clientCredentials")
+                           .put("tokenUrl", System.getenv("KAFKA_ADMIN_OAUTH_TOKEN_ENDPOINT_URI"));
+                } else {
+                    openAPI.remove("security");
+                    openAPI.getJsonObject("components").remove("securitySchemes");
+                }
+
                 assignRoutes(builder, vertx);
                 router.mountSubRouter("/rest", builder.createRouter());
             }).onFailure(promise::fail)

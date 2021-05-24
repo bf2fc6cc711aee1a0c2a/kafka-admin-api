@@ -216,6 +216,9 @@ public class AdminDeploymentManager {
         if (oauth) {
             env.add(String.format("KAFKA_ADMIN_TLS_CERT=%s", encodeTLSConfig("admin-tls-chain.crt")));
             env.add(String.format("KAFKA_ADMIN_TLS_KEY=%s", encodeTLSConfig("admin-tls.key")));
+            env.add(String.format("KAFKA_ADMIN_OAUTH_JWKS_ENDPOINT_URI=%s", "http://keycloak:8080/auth/realms/kafka-authz/protocol/openid-connect/certs"));
+            env.add(String.format("KAFKA_ADMIN_OAUTH_VALID_ISSUER_URI=%s", "http://keycloak:8080/auth/realms/kafka-authz"));
+            env.add(String.format("KAFKA_ADMIN_OAUTH_TOKEN_ENDPOINT_URI=%s", "http://keycloak:8080/auth/realms/kafka-authz/protocol/openid-connect/token"));
         }
 
         Integer configuredDebugPort = Integer.getInteger("debugPort");
