@@ -1,0 +1,27 @@
+name: Dispatch OpenAPI File Change event
+on:
+  push:
+    branches: 
+      - main
+    paths:
+      - "./kafka-admin/src/main/resources/openapi-specs/rest.yaml"
+
+jobs:
+  dispatch:
+    env:
+      APP_SERVICES_CI_TOKEN: "{{ secrets.APP_SERVICES_CI_TOKEN }}"
+    strategy:
+      matrix:
+        repo: ["redhat-developer/app-services-sdk-go", "redhat-developer/app-services-sdk-js"]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Repository Dispatch
+        uses: peter-evans/repository-dispatch@v1
+        with:
+          token: "${{ env.APP_SERVICES_CI_TOKEN }}"
+          repository: ${{ matrix.repo }}
+          event-type: openapi-spec-change
+          client-payload: '{
+            "id": "kafka-admin/v1",
+            "openapi": "./kafka-admin/src/main/resources/openapi-specs/rest.yaml"
+          }'
