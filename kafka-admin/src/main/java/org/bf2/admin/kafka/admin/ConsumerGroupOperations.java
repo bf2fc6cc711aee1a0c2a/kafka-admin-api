@@ -32,7 +32,7 @@ public class ConsumerGroupOperations {
     protected static final Logger log = LogManager.getLogger(ConsumerGroupOperations.class);
 
 
-    public static void getGroupList(KafkaAdminClient ac, Promise prom, Pattern pattern, int offset, final int limit) {
+    public static void getGroupList(KafkaAdminClient ac, Promise prom, Pattern pattern, int offset, final int limit, final String groupIdPrefix) {
         Promise<List<ConsumerGroupListing>> listConsumerGroupsFuture = Promise.promise();
 
         ac.listConsumerGroups(listConsumerGroupsFuture);
@@ -43,6 +43,7 @@ public class ConsumerGroupOperations {
 
                 List<String> groupIds = list.stream().map(group -> group.getGroupId())
                         .filter(groupId -> !internalGroupsAllowed ? !groupId.startsWith("strimzi") : true)
+                        .filter(groupId -> groupId.startsWith(groupIdPrefix))
                         .collect(Collectors.toList());
                 Promise<Map<String, ConsumerGroupDescription>> describeConsumerGroupsPromise = Promise.promise();
                 ac.describeConsumerGroups(groupIds, describeConsumerGroupsPromise);

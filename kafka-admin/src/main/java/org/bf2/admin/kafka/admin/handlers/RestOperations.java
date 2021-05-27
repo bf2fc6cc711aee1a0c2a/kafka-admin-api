@@ -260,6 +260,7 @@ public class RestOperations extends CommonHandler implements OperationsHandler {
             return;
         }
         String topicFilter = routingContext.queryParams().get("topic");
+        String consumerGroupIdFilter = routingContext.queryParams().get("group-id-filter") == null ? "" : routingContext.queryParams().get("group-id-filter");
         String limit = routingContext.queryParams().get("limit") == null ? "0" : routingContext.queryParams().get("limit");
         String offset = routingContext.queryParams().get("offset") == null ? "0" : routingContext.queryParams().get("offset");
         final Pattern pattern;
@@ -278,7 +279,7 @@ public class RestOperations extends CommonHandler implements OperationsHandler {
                     if (Integer.parseInt(offset) < 0 || Integer.parseInt(limit) < 0) {
                         throw new InvalidRequestException("Offset and limit have to be positive integers.");
                     }
-                    ConsumerGroupOperations.getGroupList(ac.result(), prom, pattern, Integer.parseInt(offset), Integer.parseInt(limit));
+                    ConsumerGroupOperations.getGroupList(ac.result(), prom, pattern, Integer.parseInt(offset), Integer.parseInt(limit), consumerGroupIdFilter);
                 } catch (NumberFormatException | InvalidRequestException e) {
                     prom.fail(e);
                     processResponse(prom, routingContext, HttpResponseStatus.BAD_REQUEST, httpMetrics, httpMetrics.getListGroupsRequestTimer(), requestTimerSample);
