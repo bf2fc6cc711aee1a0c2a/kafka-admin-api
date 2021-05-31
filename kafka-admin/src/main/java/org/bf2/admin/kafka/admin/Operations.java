@@ -2,7 +2,7 @@ package org.bf2.admin.kafka.admin;
 
 public class Operations {
     public static final String GET_TOPIC = "getTopic";
-    public static final String GET_TOPICS_LIST = "getTopicsList";
+    public static final String GET_TOPICS_LIST = "listTopics";
     public static final String DELETE_TOPIC = "deleteTopic";
     public static final String CREATE_TOPIC = "createTopic";
     public static final String UPDATE_TOPIC = "updateTopic";
