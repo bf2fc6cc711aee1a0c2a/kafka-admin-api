@@ -68,7 +68,7 @@ paths:
           description: Unable to connect to the Kafka cluster.
       # security:
         # - Bearer: []
-      operationId: getTopicsList
+      operationId: listTopics
       summary: List of topics
       description: >-
         Returns a list of all of the available topics, or the list of topics that meet the users URL
