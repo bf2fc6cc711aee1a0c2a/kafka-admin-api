@@ -99,7 +99,7 @@ public class AdminServer extends AbstractVerticle {
         // OpenAPI contract document served at `/rest/openapi`
         options.setContractEndpoint(RouterBuilderOptions.STANDARD_CONTRACT_ENDPOINT);
 
-        return RouterBuilder.create(vertx, "openapi-specs/rest.yaml")
+        return RouterBuilder.create(vertx, "openapi-specs/kafka-admin-rest.yaml")
             .onSuccess(builder -> {
                 builder.setOptions(options);
                 assignRoutes(builder, vertx);
