@@ -29,8 +29,8 @@ public class RestOperations extends CommonHandler implements OperationsHandler {
     private final KafkaAdminConfigRetriever kaConfig;
     private final HttpMetrics httpMetrics;
 
-    public RestOperations(HttpMetrics httpMetrics) {
-        this.kaConfig = new KafkaAdminConfigRetriever();
+    public RestOperations(KafkaAdminConfigRetriever config, HttpMetrics httpMetrics) {
+        this.kaConfig = config;
         this.httpMetrics = httpMetrics;
     }
 

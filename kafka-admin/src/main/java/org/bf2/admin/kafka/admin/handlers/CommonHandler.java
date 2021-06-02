@@ -53,13 +53,24 @@ public class CommonHandler {
     protected static final Logger log = LogManager.getLogger(CommonHandler.class);
 
     protected static boolean setOAuthToken(Map<String, Object> acConfig, RoutingContext rc) {
-        String token = rc.request().getHeader("Authorization");
-        if (token != null && !token.trim().isEmpty()) {
-            if (token.startsWith("Bearer ")) {
+        String token;
+
+        if (rc.user() != null) {
+            token = rc.user().principal().getString("access_token");
+        } else {
+            // Backward compatibility before Fleetshard configures JWKS endpoint
+            token = rc.request().getHeader("Authorization");
+
+            if (token != null && token.startsWith("Bearer ")) {
                 token = token.substring("Bearer ".length());
+            } else {
+                token = null;
             }
+        }
+
+        if (token != null) {
             acConfig.put(SaslConfigs.SASL_JAAS_CONFIG, "org.apache.kafka.common.security.oauthbearer.OAuthBearerLoginModule required oauth.access.token=\"" + token + "\";");
-        } else if (KafkaAdminConfigRetriever.isOauthEnabled(acConfig)) {
+        } else if (KafkaAdminConfigRetriever.isOauthEnabled()) {
             rc.fail(HttpResponseStatus.UNAUTHORIZED.code(), new IllegalStateException("Required `Authorization` header missing"));
             return false;
         }

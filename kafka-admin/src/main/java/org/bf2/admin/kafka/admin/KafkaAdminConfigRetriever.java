@@ -9,6 +9,7 @@ import org.apache.logging.log4j.Logger;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
@@ -17,12 +18,26 @@ import java.util.stream.Collectors;
 public class KafkaAdminConfigRetriever {
 
     protected final Logger log = LogManager.getLogger(KafkaAdminConfigRetriever.class);
+
     private static final String PREFIX = "KAFKA_ADMIN_";
     private static final String OAUTHBEARER = "OAUTHBEARER";
-    private final Map<String, Object> config;
+    private static final String DEFAULT_TLS_VERSION = "TLSv1.3";
+
+    private static final String OAUTH_ENABLED_ENV = PREFIX + "OAUTH_ENABLED";
+    private static final String OAUTH_JWKS_ENDPOINT_URI = PREFIX + "OAUTH_JWKS_ENDPOINT_URI";
+    private static final String OAUTH_VALID_ISSUER_URI = PREFIX + "OAUTH_VALID_ISSUER_URI";
+    private static final String OAUTH_TOKEN_ENDPOINT_URI = PREFIX + "OAUTH_TOKEN_ENDPOINT_URI";
+
+    private static final String TLS_CERT = PREFIX + "TLS_CERT";
+    private static final String TLS_KEY = PREFIX + "TLS_KEY";
+    private static final String TLS_VERSION = PREFIX + "TLS_VERSION";
+
+    private static final boolean OAUTH_ENABLED = System.getenv(OAUTH_ENABLED_ENV) == null || Boolean.valueOf(System.getenv(OAUTH_ENABLED_ENV));
+
+    private final Map<String, Object> adminClientConfig;
 
     public KafkaAdminConfigRetriever() {
-        config = envVarsToAdminClientConfig(PREFIX);
+        adminClientConfig = envVarsToAdminClientConfig(PREFIX);
         logConfiguration();
     }
 
@@ -36,7 +51,7 @@ public class KafkaAdminConfigRetriever {
         adminClientConfig.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, envConfig.get(PREFIX + "BOOTSTRAP_SERVERS").toString());
 
         // oAuth
-        if (System.getenv(PREFIX + "OAUTH_ENABLED") == null ? true : Boolean.valueOf(System.getenv(PREFIX + "OAUTH_ENABLED"))) {
+        if (OAUTH_ENABLED) {
             log.info("oAuth enabled");
             adminClientConfig.put(CommonClientConfigs.SECURITY_PROTOCOL_CONFIG, "SASL_PLAINTEXT");
             adminClientConfig.put(SaslConfigs.SASL_MECHANISM, OAUTHBEARER);
@@ -54,17 +69,45 @@ public class KafkaAdminConfigRetriever {
 
     private void logConfiguration() {
         log.info("AdminClient configuration:");
-        config.entrySet().forEach(entry -> {
+        adminClientConfig.entrySet().forEach(entry -> {
             log.info("\t{} = {}", entry.getKey(), entry.getValue());
         });
     }
 
-    public static boolean isOauthEnabled(Map<String, Object> config) {
-        return OAUTHBEARER.equals(config.get(SaslConfigs.SASL_MECHANISM));
+    public static boolean isOauthEnabled() {
+        return OAUTH_ENABLED;
     }
 
     public Map<String, Object> getAcConfig() {
-        return new HashMap<>(config);
+        return new HashMap<>(adminClientConfig);
+    }
+
+    public String getOauthJwksEndpointUri() {
+        return System.getenv(OAUTH_JWKS_ENDPOINT_URI);
+    }
+
+    public String getOauthValidIssuerUri() {
+        return System.getenv(OAUTH_VALID_ISSUER_URI);
+    }
+
+    public String getOauthTokenEndpointUri() {
+        return System.getenv(OAUTH_TOKEN_ENDPOINT_URI);
+    }
+
+    public String getTlsCertificate() {
+        return System.getenv(TLS_CERT);
+    }
+
+    public String getTlsKey() {
+        return System.getenv(TLS_KEY);
+    }
+
+    public Set<String> getTlsVersions() {
+        return Set.of(System.getenv().getOrDefault(TLS_VERSION, DEFAULT_TLS_VERSION).split(","));
+    }
+
+    public String getCorsAllowPattern() {
+        return System.getenv().getOrDefault("CORS_ALLOW_LIST_REGEX", "(https?:\\/\\/localhost(:\\d*)?)");
     }
 }
 

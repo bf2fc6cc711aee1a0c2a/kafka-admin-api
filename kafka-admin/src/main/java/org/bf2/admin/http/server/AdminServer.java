@@ -24,6 +24,7 @@ import io.vertx.ext.web.openapi.RouterBuilderOptions;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.bf2.admin.kafka.admin.HttpMetrics;
+import org.bf2.admin.kafka.admin.KafkaAdminConfigRetriever;
 import org.bf2.admin.kafka.admin.Operations;
 import org.bf2.admin.kafka.admin.handlers.RestOperations;
 
@@ -52,10 +53,10 @@ public class AdminServer extends AbstractVerticle {
     private static final int HTTPS_PORT = 8443;
     private static final int MANAGEMENT_PORT = 9990;
     private static final String SUCCESS_RESPONSE = "{\"status\": \"OK\"}";
-    private static final String DEFAULT_TLS_VERSION = "TLSv1.3";
     private static final String SECURITY_SCHEME_NAME = "Bearer";
     private static final Decoder BASE64_DECODER = Base64.getDecoder();
 
+    private final KafkaAdminConfigRetriever config = new KafkaAdminConfigRetriever();
     private HttpMetrics httpMetrics = new HttpMetrics();
 
     @Override
@@ -110,29 +111,32 @@ public class AdminServer extends AbstractVerticle {
                 options.setContractEndpoint(RouterBuilderOptions.STANDARD_CONTRACT_ENDPOINT);
                 builder.setOptions(options);
 
-                if (System.getenv("KAFKA_ADMIN_OAUTH_JWKS_ENDPOINT_URI") != null) {
+                if (config.getOauthJwksEndpointUri() != null) {
                     OAuth2Options oauthOptions = new OAuth2Options();
-                    // TODO: Confirm flow and update Open API document with correct URLs (from environment)
                     oauthOptions.setFlow(OAuth2FlowType.CLIENT);
-                    // TODO: Set path in fleetshard and systemtests (keycloak)
-                    oauthOptions.setJwkPath(System.getenv("KAFKA_ADMIN_OAUTH_JWKS_ENDPOINT_URI"));
+                    oauthOptions.setJwkPath(config.getOauthJwksEndpointUri());
                     oauthOptions.setValidateIssuer(true);
 
-                    // TODO: Set issuer & audience in fleetshard and systemtests (keycloak)
-                    oauthOptions.setJWTOptions(new JWTOptions()
-                               .setIssuer(System.getenv("KAFKA_ADMIN_OAUTH_VALID_ISSUER_URI")));
+                    if (config.getOauthValidIssuerUri() != null) {
+                        oauthOptions.setJWTOptions(new JWTOptions().setIssuer(config.getOauthValidIssuerUri()));
+                    }
 
                     OAuth2Auth oauth2Provider = OAuth2Auth.create(vertx, oauthOptions);
                     oauth2Provider.jWKSet().onFailure(cause -> LOGGER.error("Failed to retrieve JWKS: {}", cause.getMessage(), cause));
                     OAuth2AuthHandler securityHandler = OAuth2AuthHandler.create(vertx, oauth2Provider);
                     builder.securityHandler(SECURITY_SCHEME_NAME, securityHandler);
 
-                    openAPI.getJsonObject("components")
-                           .getJsonObject("securitySchemes")
-                           .getJsonObject(SECURITY_SCHEME_NAME)
-                           .getJsonObject("flows")
-                           .getJsonObject("clientCredentials")
-                           .put("tokenUrl", System.getenv("KAFKA_ADMIN_OAUTH_TOKEN_ENDPOINT_URI"));
+                    JsonObject clientCredentialsFlow = openAPI.getJsonObject("components")
+                            .getJsonObject("securitySchemes")
+                            .getJsonObject(SECURITY_SCHEME_NAME)
+                            .getJsonObject("flows")
+                            .getJsonObject("clientCredentials");
+
+                    if (config.getOauthTokenEndpointUri() != null) {
+                        clientCredentialsFlow.put("tokenUrl", config.getOauthTokenEndpointUri());
+                    } else {
+                        clientCredentialsFlow.remove("tokenUrl");
+                    }
                 } else {
                     openAPI.remove("security");
                     openAPI.getJsonObject("components").remove("securitySchemes");
@@ -145,9 +149,7 @@ public class AdminServer extends AbstractVerticle {
     }
 
     private CorsHandler createCORSHander() {
-        String defaultAllowRegex = "(https?:\\/\\/localhost(:\\d*)?)";
-        String envAllowList = System.getenv("CORS_ALLOW_LIST_REGEX");
-        String allowList = envAllowList == null ? defaultAllowRegex : envAllowList;
+        String allowList = config.getCorsAllowPattern();
         LOGGER.info("CORS allow list regex is {}", allowList);
 
         return CorsHandler.create(allowList)
@@ -165,7 +167,7 @@ public class AdminServer extends AbstractVerticle {
     }
 
     private void assignRoutes(final RouterBuilder routerFactory, final Vertx vertx) {
-        RestOperations ro = new RestOperations(httpMetrics);
+        RestOperations ro = new RestOperations(config, httpMetrics);
 
         routerFactory.operation(Operations.GET_TOPIC).handler(ro::describeTopic).failureHandler(ro::errorHandler);
         routerFactory.operation(Operations.GET_TOPICS_LIST).handler(ro::listTopics).failureHandler(ro::errorHandler);
@@ -181,7 +183,7 @@ public class AdminServer extends AbstractVerticle {
     }
 
     private void startResourcesHttpServer(final Promise<Void> startServer, Router router) {
-        final String tlsCert = System.getenv("KAFKA_ADMIN_TLS_CERT");
+        final String tlsCert = config.getTlsCertificate();
         final HttpServer server;
         final int listenerPort;
         final String portType;
@@ -191,8 +193,8 @@ public class AdminServer extends AbstractVerticle {
             listenerPort = HTTP_PORT;
             portType = "plain HTTP";
         } else {
-            Set<String> tlsVersions = Set.of(System.getenv().getOrDefault("KAFKA_ADMIN_TLS_VERSION", DEFAULT_TLS_VERSION).split(","));
-            String tlsKey = System.getenv("KAFKA_ADMIN_TLS_KEY");
+            Set<String> tlsVersions = config.getTlsVersions();
+            String tlsKey = config.getTlsKey();
 
             LOGGER.info("Starting secure admin server with TLS version(s) {}", tlsVersions);
 
