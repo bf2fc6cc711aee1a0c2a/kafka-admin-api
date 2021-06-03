@@ -69,8 +69,12 @@ Once all steps above have been completed, you can run the Kafka Admin API. The s
 
 | Environment Variable | Description |
 | -------------------- | ----------- |
+| CORS_ALLOW_LIST_REGEX | Regular expression to match origins for CORS. An origin follows rfc6454#section-7 and is expected to have the format: `<scheme> "://" <hostname> [ ":" <port> ]` |
 | KAFKA_ADMIN_BOOTSTRAP_SERVERS | A comma-separated list of host and port pairs that are the addresses of the Kafka brokers in a "bootstrap" Kafka cluster.   |
 | KAFKA_ADMIN_OAUTH_ENABLED | Enables a third party application to obtain limited access to the Admin API. |
+| KAFKA_ADMIN_OAUTH_JWKS_ENDPOINT_URI | Endpoint serving JWKS to be use to verify JWT access tokens. Only valid if OAuth is enabled. |
+| KAFKA_ADMIN_OAUTH_VALID_ISSUER_URI | Optional issuer that, when provided, must match the issuer (`iss` claim) present in JWTs. Only valid if OAuth and JWKS endpoint are enabled. |
+| KAFKA_ADMIN_OAUTH_TOKEN_ENDPOINT_URI | Optional token endpoint that will be published in the OpenAPI document describing the REST service. Only valid if OAuth and JWKS endpoint are enabled. |
 | KAFKA_ADMIN_TLS_CERT | TLS encryption certificate in PEM format. The value may be either a path to a file containing the certificate *or* text of the certificate. |
 | KAFKA_ADMIN_TLS_KEY | TLS encryption private key in PEM format. The value may be either a path to a file containing the key *or* text of the key. *required when `KAFKA_ADMIN_TLS_CERT` is used* |
 | KAFKA_ADMIN_TLS_VERSION | A comma-separated list of TLS versions to support for TLS/HTTPS endpoints. E.g. `TLSv1.3,TLSv1.2`. Default value if not specified is `TLSv1.3` |
@@ -78,7 +82,6 @@ Once all steps above have been completed, you can run the Kafka Admin API. The s
 | KAFKA_ADMIN_INTERNAL_CONSUMER_GROUPS_ENABLED | Internal consumer groups are used internally by the Strimzi Canary application. |
 | KAFKA_ADMIN_REPLICATION_FACTOR | Replication factor defines the number of copies of a topic in a Kafka cluster. |
 | KAFKA_ADMIN_NUM_PARTITIONS_MAX | Maximum (inclusive) number of partitions that may be used for the creation of a new topic. |
-
 
 ## Releasing
 

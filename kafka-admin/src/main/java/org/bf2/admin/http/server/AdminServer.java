@@ -5,7 +5,6 @@ import io.netty.handler.codec.http.HttpResponseStatus;
 import io.vertx.core.AbstractVerticle;
 import io.vertx.core.Future;
 import io.vertx.core.Promise;
-import io.vertx.core.Vertx;
 import io.vertx.core.buffer.Buffer;
 import io.vertx.core.http.HttpServer;
 import io.vertx.core.http.HttpServerOptions;
@@ -61,22 +60,27 @@ public class AdminServer extends AbstractVerticle {
 
     @Override
     public void start(final Promise<Void> startServer) {
-        getManagementRouter()
-            .onSuccess(router -> {
-                final HttpServer server = vertx.createHttpServer();
-                server.requestHandler(router).listen(MANAGEMENT_PORT);
-                LOGGER.info("Admin Server management is listening on port {}", MANAGEMENT_PORT);
-            })
-            .onFailure(throwable -> LOGGER.atFatal().withThrowable(throwable).log("Loading of management routes was unsuccessful."));
-
-        getResourcesRouter()
-            .onSuccess(router -> startResourcesHttpServer(startServer, router))
-            .onFailure(throwable -> LOGGER.atFatal().withThrowable(throwable).log("Loading of routes was unsuccessful."));
+        startManagementServer()
+            .compose(nothing -> startResourcesServer())
+            .onFailure(startServer::fail);
     }
 
-    private Future<Router> getManagementRouter() {
-        return addHealthRouter(Router.router(vertx))
-                .compose(this::addMetricsRouter);
+    private Future<Void> startManagementServer() {
+        Promise<Void> promise = Promise.promise();
+
+        addHealthRouter(Router.router(vertx))
+                .compose(this::addMetricsRouter)
+                .compose(router -> vertx.createHttpServer().requestHandler(router).listen(MANAGEMENT_PORT))
+                .onSuccess(server -> {
+                    LOGGER.info("Admin Server management is listening on port {}", MANAGEMENT_PORT);
+                    promise.complete();
+                })
+                .onFailure(cause -> {
+                    LOGGER.atFatal().log("Loading of management routes was unsuccessful.");
+                    promise.fail(cause);
+                });
+
+        return promise.future();
     }
 
     Future<Router> addHealthRouter(final Router root) {
@@ -97,55 +101,39 @@ public class AdminServer extends AbstractVerticle {
         return Future.succeededFuture(root);
     }
 
-    private Future<Router> getResourcesRouter() {
-        final Promise<Router> promise = Promise.promise();
+    private Future<Void> startResourcesServer() {
+        final Promise<Void> promise = Promise.promise();
         final Router router = Router.router(vertx);
         router.route().handler(createCORSHander());
         router.route().handler(HSTSHandler.create(Duration.ofDays(365).toSeconds(), false));
 
-        return RouterBuilder.create(vertx, "openapi-specs/kafka-admin-rest.yaml")
-            .onSuccess(builder -> {
+        RouterBuilder.create(vertx, "openapi-specs/kafka-admin-rest.yaml")
+            .compose(builder -> {
+                final Future<Void> result;
                 final JsonObject openAPI = builder.getOpenAPI().getOpenAPI();
                 final RouterBuilderOptions options = new RouterBuilderOptions();
+
                 // OpenAPI contract document served at `/rest/openapi`
                 options.setContractEndpoint(RouterBuilderOptions.STANDARD_CONTRACT_ENDPOINT);
                 builder.setOptions(options);
 
-                if (config.getOauthJwksEndpointUri() != null) {
-                    OAuth2Options oauthOptions = new OAuth2Options();
-                    oauthOptions.setFlow(OAuth2FlowType.CLIENT);
-                    oauthOptions.setJwkPath(config.getOauthJwksEndpointUri());
-                    oauthOptions.setValidateIssuer(true);
-
-                    if (config.getOauthValidIssuerUri() != null) {
-                        oauthOptions.setJWTOptions(new JWTOptions().setIssuer(config.getOauthValidIssuerUri()));
-                    }
-
-                    OAuth2Auth oauth2Provider = OAuth2Auth.create(vertx, oauthOptions);
-                    oauth2Provider.jWKSet().onFailure(cause -> LOGGER.error("Failed to retrieve JWKS: {}", cause.getMessage(), cause));
-                    OAuth2AuthHandler securityHandler = OAuth2AuthHandler.create(vertx, oauth2Provider);
-                    builder.securityHandler(SECURITY_SCHEME_NAME, securityHandler);
-
-                    JsonObject clientCredentialsFlow = openAPI.getJsonObject("components")
-                            .getJsonObject("securitySchemes")
-                            .getJsonObject(SECURITY_SCHEME_NAME)
-                            .getJsonObject("flows")
-                            .getJsonObject("clientCredentials");
-
-                    if (config.getOauthTokenEndpointUri() != null) {
-                        clientCredentialsFlow.put("tokenUrl", config.getOauthTokenEndpointUri());
-                    } else {
-                        clientCredentialsFlow.remove("tokenUrl");
-                    }
+                if (config.isOauthEnabled() && config.getOauthJwksEndpointUri() != null) {
+                    result = configureOAuth(builder, openAPI);
                 } else {
                     openAPI.remove("security");
                     openAPI.getJsonObject("components").remove("securitySchemes");
+                    result = Future.succeededFuture();
                 }
 
-                assignRoutes(builder, vertx);
+                assignRoutes(builder);
                 router.mountSubRouter("/rest", builder.createRouter());
-            }).onFailure(promise::fail)
-            .map(router);
+                return result;
+            })
+            .compose(nothing -> startResourcesHttpServer(router))
+            .onSuccess(promise::complete)
+            .onFailure(promise::fail);
+
+        return promise.future();
     }
 
     private CorsHandler createCORSHander() {
@@ -166,7 +154,40 @@ public class AdminServer extends AbstractVerticle {
                 .allowedHeader("Content-Type");
     }
 
-    private void assignRoutes(final RouterBuilder routerFactory, final Vertx vertx) {
+    private Future<Void> configureOAuth(RouterBuilder builder, JsonObject openAPI) {
+        OAuth2Options oauthOptions = new OAuth2Options();
+        oauthOptions.setFlow(OAuth2FlowType.CLIENT);
+        oauthOptions.setJwkPath(config.getOauthJwksEndpointUri());
+        oauthOptions.setValidateIssuer(true);
+
+        if (config.getOauthValidIssuerUri() != null) {
+            LOGGER.info("JWT issuer (iss) claim valid value: {}", config.getOauthValidIssuerUri());
+            oauthOptions.setJWTOptions(new JWTOptions().setIssuer(config.getOauthValidIssuerUri()));
+        }
+
+        OAuth2Auth oauth2Provider = OAuth2Auth.create(vertx, oauthOptions);
+        OAuth2AuthHandler securityHandler = OAuth2AuthHandler.create(vertx, oauth2Provider);
+        builder.securityHandler(SECURITY_SCHEME_NAME, securityHandler);
+
+        JsonObject clientCredentialsFlow = openAPI.getJsonObject("components")
+                .getJsonObject("securitySchemes")
+                .getJsonObject(SECURITY_SCHEME_NAME)
+                .getJsonObject("flows")
+                .getJsonObject("clientCredentials");
+
+        if (config.getOauthTokenEndpointUri() != null) {
+            LOGGER.info("Setting Oauth2 token endpoint URL: {}", config.getOauthTokenEndpointUri());
+            clientCredentialsFlow.put("tokenUrl", config.getOauthTokenEndpointUri());
+        } else {
+            clientCredentialsFlow.remove("tokenUrl");
+        }
+
+        return oauth2Provider.jWKSet()
+                .onSuccess(ignored -> LOGGER.info("Loaded JWKS from {}", config.getOauthJwksEndpointUri()))
+                .onFailure(cause -> LOGGER.error("Failed to retrieve JWKS: {}", cause.getMessage()));
+    }
+
+    private void assignRoutes(final RouterBuilder routerFactory) {
         RestOperations ro = new RestOperations(config, httpMetrics);
 
         routerFactory.operation(Operations.GET_TOPIC).handler(ro::describeTopic).failureHandler(ro::errorHandler);
@@ -182,7 +203,8 @@ public class AdminServer extends AbstractVerticle {
         routerFactory.operation(Operations.DELETE_CONSUMER_GROUP).handler(ro::deleteGroup).failureHandler(ro::errorHandler);
     }
 
-    private void startResourcesHttpServer(final Promise<Void> startServer, Router router) {
+    private Future<Void> startResourcesHttpServer(Router router) {
+        Promise<Void> promise = Promise.promise();
         final String tlsCert = config.getTlsCertificate();
         final HttpServer server;
         final int listenerPort;
@@ -212,8 +234,17 @@ public class AdminServer extends AbstractVerticle {
             portType = "secure HTTPS";
         }
 
-        server.requestHandler(router).listen(listenerPort).onFailure(startServer::fail);
-        LOGGER.info("Admin Server is listening on {} port {}", portType, listenerPort);
+        server.requestHandler(router).listen(listenerPort)
+            .onSuccess(httpServer -> {
+                LOGGER.info("Admin Server is listening on {} port {}", portType, listenerPort);
+                promise.complete();
+            })
+            .onFailure(cause -> {
+                LOGGER.atFatal().log("Startup of Admin Server resources listener was unsuccessful.");
+                promise.fail(cause);
+            });
+
+        return promise.future();
     }
 
     private void setCertConfig(String value, Consumer<String> pathSetter, Consumer<Buffer> valueSetter) {

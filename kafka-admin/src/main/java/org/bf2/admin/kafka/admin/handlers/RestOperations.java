@@ -26,11 +26,10 @@ import java.util.regex.Pattern;
 
 public class RestOperations extends CommonHandler implements OperationsHandler {
 
-    private final KafkaAdminConfigRetriever kaConfig;
     private final HttpMetrics httpMetrics;
 
     public RestOperations(KafkaAdminConfigRetriever config, HttpMetrics httpMetrics) {
-        this.kaConfig = config;
+        super(config);
         this.httpMetrics = httpMetrics;
     }
 

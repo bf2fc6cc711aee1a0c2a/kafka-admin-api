@@ -51,8 +51,13 @@ import java.util.regex.PatternSyntaxException;
 @SuppressWarnings({"checkstyle:CyclomaticComplexity"})
 public class CommonHandler {
     protected static final Logger log = LogManager.getLogger(CommonHandler.class);
+    protected final KafkaAdminConfigRetriever kaConfig;
 
-    protected static boolean setOAuthToken(Map<String, Object> acConfig, RoutingContext rc) {
+    protected CommonHandler(KafkaAdminConfigRetriever config) {
+        this.kaConfig = config;
+    }
+
+    protected boolean setOAuthToken(Map<String, Object> acConfig, RoutingContext rc) {
         String token;
 
         if (rc.user() != null) {
@@ -70,7 +75,7 @@ public class CommonHandler {
 
         if (token != null) {
             acConfig.put(SaslConfigs.SASL_JAAS_CONFIG, "org.apache.kafka.common.security.oauthbearer.OAuthBearerLoginModule required oauth.access.token=\"" + token + "\";");
-        } else if (KafkaAdminConfigRetriever.isOauthEnabled()) {
+        } else if (kaConfig.isOauthEnabled()) {
             rc.fail(HttpResponseStatus.UNAUTHORIZED.code(), new IllegalStateException("Required `Authorization` header missing"));
             return false;
         }
