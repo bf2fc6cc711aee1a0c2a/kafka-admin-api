@@ -372,7 +372,28 @@ public class RestOperations extends CommonHandler implements OperationsHandler {
             if (ac.failed()) {
                 prom.fail(ac.cause());
             } else {
-                ConsumerGroupOperations.resetGroupOffset(ac.result(), groupToReset, prom);
+                ObjectMapper mapper = new ObjectMapper();
+                Types.ConsumerGroupOffsetResetParameters parameters;
+                try {
+                    parameters = mapper.readValue(routingContext.getBody().getBytes(), Types.ConsumerGroupOffsetResetParameters.class);
+                    parameters.setGroupId(groupToReset);
+                    Pattern pattern = Pattern.compile("timestamp|earliest|latest|\\d+");
+                    if (parameters.getOffset() == null || !pattern.matcher(parameters.getOffset()).matches()) {
+                        throw new InvalidRequestException("Offset can be set to values timestamp, earliest, latest, [0-9]+ only.");
+                    }
+                } catch (IOException | InvalidRequestException e) {
+                    routingContext.response().setStatusCode(HttpResponseStatus.BAD_REQUEST.code());
+                    JsonObject jsonObject = new JsonObject();
+                    jsonObject.put("code", routingContext.response().getStatusCode());
+                    jsonObject.put("error", e.getMessage());
+                    routingContext.response().end(jsonObject.toBuffer());
+                    requestTimerSample.stop(httpMetrics.getResetGroupOffsetRequestTimer());
+                    httpMetrics.getFailedRequestsCounter(HttpResponseStatus.BAD_REQUEST.code()).increment();
+                    prom.fail(e);
+                    log.error(e);
+                    return;
+                }
+                ConsumerGroupOperations.resetGroupOffset(ac.result(), parameters, prom);
             }
             processResponse(prom, routingContext, HttpResponseStatus.OK, httpMetrics, httpMetrics.getResetGroupOffsetRequestTimer(), requestTimerSample);
         });

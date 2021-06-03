@@ -447,6 +447,62 @@ paths:
       operationId: getConsumerGroups
       summary: List of consumer groups in the Kafka instance.
       description: Returns a list of all consumer groups for a particular Kafka instance.
+  '/consumer-groups/{consumerGroupId}/reset-offset':
+    post:
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ConsumerGroupResetOffsetParameters'
+            examples:
+              ConsumerGroupOffsetResetExample:
+                value:
+                  topic: my-topic
+                  partition: 0
+                  offset: '42'
+        required: true
+      parameters:
+        - name: consumerGroupId
+          description: The ID of the consumer group.
+          schema:
+            type: string
+          in: path
+          required: true
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                $ref: '#/components/schemas/ConsumerGroup'
+          description: The consumer group offsets have been reset.
+        '400':
+          description: The consumer group to reset the offset does have active consumers.
+        '401':
+          content:
+            application/json: {}
+          description: >-
+            Unauthorized, request has not been applied because it lacks valid authentication
+            credentials.
+        '403':
+          content:
+            application/json: {}
+          description: Forbidden to delete this consumer group.
+        '404':
+          content:
+            application/json: {}
+          description: Specified topic or its partition does not exist.
+        '500':
+          content:
+            application/json: {}
+          description: Internal Server Error.
+        '503':
+          content:
+            application/json: {}
+          description: Unable to connect to the Kafka cluster.
+      operationId: resetConsumerGroupOffset
+      summary: Reset the offset for a consumer group.
+      description: Reset the offset for a particular consumer group.
   /: {}
 components:
   schemas:
@@ -797,6 +853,47 @@ components:
           -
             key: max.message.bytes
             value: '1050000'
+    ConsumerGroupResetOffsetParameters:
+      title: Root Type for ConsumerGroupResetOffsetParameters
+      description: ''
+      required:
+        - offset
+      type: object
+      properties:
+        offset:
+          type: string
+        timestamp:
+          format: int32
+          description: ''
+          type: integer
+        partitions:
+          type: array
+          items:
+            $ref: '#/components/schemas/PartitionToResetOffset'
+      example:
+        topic: my-topic
+        partition: 0
+        offset: 42
+    PartitionToResetOffset:
+      title: Root Type for PartitionToResetOffset
+      description: ''
+      required:
+        - topic
+      type: object
+      properties:
+        topic:
+          type: string
+        partitions:
+          type: array
+          items:
+            format: int32
+            type: integer
+      example:
+        topic: foo
+        partitions:
+          - 0
+          - 1
+          - 2
   securitySchemes:
     Bearer:
       type: oauth2

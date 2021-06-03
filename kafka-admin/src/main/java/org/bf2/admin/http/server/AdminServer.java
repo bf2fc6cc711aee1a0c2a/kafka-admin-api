@@ -200,7 +200,9 @@ public class AdminServer extends AbstractVerticle {
             clientCredentialsFlow.put("tokenUrl", config.getOauthTokenEndpointUri());
         } else {
             clientCredentialsFlow.remove("tokenUrl");
-        }
+
+        routerFactory.operation(Operations.RESET_CONSUMER_GROUP_OFFSET).handler(ro::resetGroupOffset).failureHandler(ro::errorHandler);
+    }
 
         return oauth2Provider.jWKSet()
                 .onSuccess(ignored -> LOGGER.info("Loaded JWKS from {}", config.getOauthJwksEndpointUri()))

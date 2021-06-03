@@ -148,7 +148,8 @@ public class CommonHandler {
                         || failureCause instanceof InvalidTopicException
                         || failureCause instanceof BodyProcessorException
                         || failureCause instanceof UnknownMemberIdException
-                        || failureCause instanceof InvalidConsumerGroupException) {
+                        || failureCause instanceof InvalidConsumerGroupException
+                        || res.cause() instanceof LeaderNotAvailableException) {
                     routingContext.response().setStatusCode(HttpResponseStatus.BAD_REQUEST.code());
                 } else if (failureCause instanceof KafkaException) {
                     // Most of the kafka related exceptions are extended from KafkaException

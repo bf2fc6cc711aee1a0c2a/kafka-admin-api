@@ -226,6 +226,100 @@ public class Types {
         }
     }
 
+    public static class TopicPartitionsToReset {
+
+        private String topic;
+        private List<Integer> partitions;
+
+        public String getTopic() {
+            return topic;
+        }
+
+        public void setTopic(String topic) {
+            this.topic = topic;
+        }
+
+        public List<Integer> getPartitions() {
+            return partitions;
+        }
+
+        public void setPartitions(List<Integer> partitions) {
+            this.partitions = partitions;
+        }
+    }
+
+    public static class TopicPartitionResetResult {
+
+        private String topic;
+        private Integer partition;
+        private Long offset;
+
+        public String getTopic() {
+            return topic;
+        }
+
+        public void setTopic(String topic) {
+            this.topic = topic;
+        }
+
+        public Integer getPartition() {
+            return partition;
+        }
+
+        public void setPartition(Integer partition) {
+            this.partition = partition;
+        }
+
+        public Long getOffset() {
+            return offset;
+        }
+
+        public void setOffset(Long offset) {
+            this.offset = offset;
+        }
+    }
+
+    public static class ConsumerGroupOffsetResetParameters {
+
+        private String groupId;
+        private List<TopicPartitionsToReset> partitions;
+        private String offset;
+
+        public Long getTimestamp() {
+            return timestamp;
+        }
+
+        public void setTimestamp(Long timestamp) {
+            this.timestamp = timestamp;
+        }
+
+        private Long timestamp;
+
+        public String getGroupId() {
+            return groupId;
+        }
+
+        public void setGroupId(String groupId) {
+            this.groupId = groupId;
+        }
+
+        public List<TopicPartitionsToReset> getPartitions() {
+            return partitions;
+        }
+
+        public void setPartitions(List<TopicPartitionsToReset> partitions) {
+            this.partitions = partitions;
+        }
+
+        public String getOffset() {
+            return offset;
+        }
+
+        public void setOffset(String offset) {
+            this.offset = offset;
+        }
+    }
+
     public static class UpdatedTopic {
         private String name;
         private List<NewTopicConfigEntry> config;
