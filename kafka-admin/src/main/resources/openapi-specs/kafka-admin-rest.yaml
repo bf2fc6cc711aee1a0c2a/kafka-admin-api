@@ -767,5 +767,6 @@ components:
       description: Access token used with OAuth 2.0
       flows:
         clientCredentials:
-          tokenUrl: "http://example.com"
+          # Place-holder value for `tokenUrl`
+          tokenUrl: "/token"
           scopes: {}
