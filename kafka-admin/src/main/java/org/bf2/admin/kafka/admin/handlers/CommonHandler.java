@@ -1,13 +1,5 @@
 package org.bf2.admin.kafka.admin.handlers;
 
-import io.vertx.ext.web.validation.BodyProcessorException;
-import org.apache.kafka.common.errors.GroupNotEmptyException;
-import org.apache.kafka.common.errors.UnknownMemberIdException;
-import org.bf2.admin.kafka.admin.InvalidConsumerGroupException;
-import org.bf2.admin.kafka.admin.InvalidTopicException;
-import org.bf2.admin.kafka.admin.KafkaAdminConfigRetriever;
-import org.bf2.admin.kafka.admin.HttpMetrics;
-import org.bf2.admin.kafka.admin.model.Types;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.ObjectWriter;
@@ -21,6 +13,7 @@ import io.vertx.core.json.DecodeException;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.RoutingContext;
 import io.vertx.ext.web.handler.impl.HttpStatusException;
+import io.vertx.ext.web.validation.BodyProcessorException;
 import io.vertx.json.schema.ValidationException;
 import io.vertx.kafka.admin.KafkaAdminClient;
 import org.apache.kafka.common.KafkaException;
@@ -29,15 +22,22 @@ import org.apache.kafka.common.errors.AuthenticationException;
 import org.apache.kafka.common.errors.AuthorizationException;
 import org.apache.kafka.common.errors.GroupAuthorizationException;
 import org.apache.kafka.common.errors.GroupIdNotFoundException;
+import org.apache.kafka.common.errors.GroupNotEmptyException;
 import org.apache.kafka.common.errors.InvalidConfigurationException;
 import org.apache.kafka.common.errors.InvalidReplicationFactorException;
 import org.apache.kafka.common.errors.InvalidRequestException;
 import org.apache.kafka.common.errors.SaslAuthenticationException;
 import org.apache.kafka.common.errors.TimeoutException;
 import org.apache.kafka.common.errors.TopicExistsException;
+import org.apache.kafka.common.errors.UnknownMemberIdException;
 import org.apache.kafka.common.errors.UnknownTopicOrPartitionException;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.bf2.admin.kafka.admin.HttpMetrics;
+import org.bf2.admin.kafka.admin.InvalidConsumerGroupException;
+import org.bf2.admin.kafka.admin.InvalidTopicException;
+import org.bf2.admin.kafka.admin.KafkaAdminConfigRetriever;
+import org.bf2.admin.kafka.admin.model.Types;
 
 import java.security.GeneralSecurityException;
 import java.util.Comparator;
@@ -50,37 +50,39 @@ import java.util.regex.PatternSyntaxException;
 
 @SuppressWarnings({"checkstyle:CyclomaticComplexity"})
 public class CommonHandler {
+
     protected static final Logger log = LogManager.getLogger(CommonHandler.class);
+    protected static final String ADMIN_CLIENT_CONFIG = RestOperations.class.getName() + ".ADMIN_CLIENT_CONFIG";
+    private static final String SASL_CONFIG_TEMPLATE = "org.apache.kafka.common.security.oauthbearer.OAuthBearerLoginModule required oauth.access.token=\"%s\";";
+
     protected final KafkaAdminConfigRetriever kaConfig;
 
     protected CommonHandler(KafkaAdminConfigRetriever config) {
         this.kaConfig = config;
     }
 
-    protected boolean setOAuthToken(Map<String, Object> acConfig, RoutingContext rc) {
-        String token;
+    /**
+     * Route handler common to all Kafka resource routes. Responsible for creating
+     * the map of properties used to configure the Kafka Admin Client. When OAuth
+     * has been enabled via the environment, the access token will be retrieved from
+     * the authenticated user principal present in the context (created by Vert.x
+     * handler when a valid JWT was presented by the client). The configuration property
+     * map will be placed in the context under the key identified by the
+     * {@link #ADMIN_CLIENT_CONFIG} constant.
+     *
+     * @param context
+     */
+    public void setAdminClientConfig(RoutingContext context) {
+        Map<String, Object> acConfig = kaConfig.getAcConfig();
 
-        if (rc.user() != null) {
-            token = rc.user().principal().getString("access_token");
+        if (kaConfig.isOauthEnabled()) {
+            final String accessToken = context.user().principal().getString("access_token");
+            acConfig.put(SaslConfigs.SASL_JAAS_CONFIG, String.format(SASL_CONFIG_TEMPLATE, accessToken));
         } else {
-            // Backward compatibility before Fleetshard configures JWKS endpoint
-            token = rc.request().getHeader("Authorization");
-
-            if (token != null && token.startsWith("Bearer ")) {
-                token = token.substring("Bearer ".length());
-            } else {
-                token = null;
-            }
+            log.debug("OAuth is disabled - no attempt to set access token in Admin Client config");
         }
 
-        if (token != null) {
-            acConfig.put(SaslConfigs.SASL_JAAS_CONFIG, "org.apache.kafka.common.security.oauthbearer.OAuthBearerLoginModule required oauth.access.token=\"" + token + "\";");
-        } else if (kaConfig.isOauthEnabled()) {
-            rc.fail(HttpResponseStatus.UNAUTHORIZED.code(), new IllegalStateException("Required `Authorization` header missing"));
-            return false;
-        }
-
-        return true;
+        context.put(ADMIN_CLIENT_CONFIG, acConfig);
     }
 
     protected static Future<KafkaAdminClient> createAdminClient(Vertx vertx, Map<String, Object> acConfig) {
@@ -105,6 +107,7 @@ public class CommonHandler {
             if (res.failed()) {
                 Throwable failureCause = res.cause();
 
+                // TODO: Refactor this...
                 if (failureCause instanceof HttpStatusException) {
                     HttpStatusException cause = (HttpStatusException) failureCause;
                     routingContext.response().setStatusCode(cause.getStatusCode());

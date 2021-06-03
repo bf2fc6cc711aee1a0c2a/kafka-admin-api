@@ -4,6 +4,7 @@ package org.bf2.admin.http.server;
 import io.netty.handler.codec.http.HttpResponseStatus;
 import io.vertx.core.AbstractVerticle;
 import io.vertx.core.Future;
+import io.vertx.core.Handler;
 import io.vertx.core.Promise;
 import io.vertx.core.buffer.Buffer;
 import io.vertx.core.http.HttpServer;
@@ -15,6 +16,7 @@ import io.vertx.ext.auth.oauth2.OAuth2Auth;
 import io.vertx.ext.auth.oauth2.OAuth2FlowType;
 import io.vertx.ext.auth.oauth2.OAuth2Options;
 import io.vertx.ext.web.Router;
+import io.vertx.ext.web.RoutingContext;
 import io.vertx.ext.web.handler.CorsHandler;
 import io.vertx.ext.web.handler.HSTSHandler;
 import io.vertx.ext.web.handler.OAuth2AuthHandler;
@@ -33,6 +35,7 @@ import java.nio.file.Path;
 import java.time.Duration;
 import java.util.Base64;
 import java.util.Base64.Decoder;
+import java.util.Map;
 import java.util.Set;
 import java.util.function.Consumer;
 
@@ -56,7 +59,7 @@ public class AdminServer extends AbstractVerticle {
     private static final Decoder BASE64_DECODER = Base64.getDecoder();
 
     private final KafkaAdminConfigRetriever config = new KafkaAdminConfigRetriever();
-    private HttpMetrics httpMetrics = new HttpMetrics();
+    private final HttpMetrics httpMetrics = new HttpMetrics();
 
     @Override
     public void start(final Promise<Void> startServer) {
@@ -117,7 +120,7 @@ public class AdminServer extends AbstractVerticle {
                 options.setContractEndpoint(RouterBuilderOptions.STANDARD_CONTRACT_ENDPOINT);
                 builder.setOptions(options);
 
-                if (config.isOauthEnabled() && config.getOauthJwksEndpointUri() != null) {
+                if (config.isOauthEnabled()) {
                     result = configureOAuth(builder, openAPI);
                 } else {
                     openAPI.remove("security");
@@ -155,6 +158,13 @@ public class AdminServer extends AbstractVerticle {
     }
 
     private Future<Void> configureOAuth(RouterBuilder builder, JsonObject openAPI) {
+        if (config.getOauthJwksEndpointUri() == null) {
+            return Future.failedFuture(String.format(""
+                    + "Environment variable `%s` must be provided when OAuth is enabled (`%s` is unset or `true`)",
+                    KafkaAdminConfigRetriever.OAUTH_JWKS_ENDPOINT_URI,
+                    KafkaAdminConfigRetriever.OAUTH_ENABLED));
+        }
+
         OAuth2Options oauthOptions = new OAuth2Options();
         oauthOptions.setFlow(OAuth2FlowType.CLIENT);
         oauthOptions.setJwkPath(config.getOauthJwksEndpointUri());
@@ -162,7 +172,9 @@ public class AdminServer extends AbstractVerticle {
 
         if (config.getOauthValidIssuerUri() != null) {
             LOGGER.info("JWT issuer (iss) claim valid value: {}", config.getOauthValidIssuerUri());
-            oauthOptions.setJWTOptions(new JWTOptions().setIssuer(config.getOauthValidIssuerUri()));
+            oauthOptions.setJWTOptions(new JWTOptions().setIssuer(config.getOauthValidIssuerUri())
+                                       // FIXME: Remove
+                                       .setLeeway(Integer.MAX_VALUE));
         }
 
         OAuth2Auth oauth2Provider = OAuth2Auth.create(vertx, oauthOptions);
@@ -190,17 +202,24 @@ public class AdminServer extends AbstractVerticle {
     private void assignRoutes(final RouterBuilder routerFactory) {
         RestOperations ro = new RestOperations(config, httpMetrics);
 
-        routerFactory.operation(Operations.GET_TOPIC).handler(ro::describeTopic).failureHandler(ro::errorHandler);
-        routerFactory.operation(Operations.GET_TOPICS_LIST).handler(ro::listTopics).failureHandler(ro::errorHandler);
+        Map<String, Handler<RoutingContext>> routes = Map.of(Operations.GET_TOPIC, ro::describeTopic,
+                                                             Operations.GET_TOPICS_LIST, ro::listTopics,
+                                                             Operations.DELETE_TOPIC, ro::deleteTopic,
+                                                             Operations.CREATE_TOPIC, ro::createTopic,
+                                                             Operations.UPDATE_TOPIC, ro::updateTopic,
+                                                             Operations.GET_CONSUMER_GROUP, ro::describeGroup,
+                                                             Operations.GET_CONSUMER_GROUPS_LIST, ro::listGroups,
+                                                             Operations.DELETE_CONSUMER_GROUP, ro::deleteGroup);
 
-        routerFactory.operation(Operations.DELETE_TOPIC).handler(ro::deleteTopic).failureHandler(ro::errorHandler);
-        routerFactory.operation(Operations.CREATE_TOPIC).handler(ro::createTopic).failureHandler(ro::errorHandler);
-        routerFactory.operation(Operations.UPDATE_TOPIC).handler(ro::updateTopic).failureHandler(ro::errorHandler);
-
-        routerFactory.operation(Operations.GET_CONSUMER_GROUP).handler(ro::describeGroup).failureHandler(ro::errorHandler);
-        routerFactory.operation(Operations.GET_CONSUMER_GROUPS_LIST).handler(ro::listGroups).failureHandler(ro::errorHandler);
-
-        routerFactory.operation(Operations.DELETE_CONSUMER_GROUP).handler(ro::deleteGroup).failureHandler(ro::errorHandler);
+        routes.entrySet().forEach(route ->
+            routerFactory.operation(route.getKey())
+                .handler(context -> {
+                    // Setup AdminClient configuration for all routes before invoking handler
+                    ro.setAdminClientConfig(context);
+                    route.getValue().handle(context);
+                })
+                // Common error handling for all routes
+                .failureHandler(ro::errorHandler));
     }
 
     private Future<Void> startResourcesHttpServer(Router router) {

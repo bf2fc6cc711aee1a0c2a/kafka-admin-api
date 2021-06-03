@@ -23,15 +23,15 @@ public class KafkaAdminConfigRetriever {
     private static final String OAUTHBEARER = "OAUTHBEARER";
     private static final String DEFAULT_TLS_VERSION = "TLSv1.3";
 
-    private static final String BOOTSTRAP_SERVERS = PREFIX + "BOOTSTRAP_SERVERS";
-    private static final String OAUTH_ENABLED = PREFIX + "OAUTH_ENABLED";
-    private static final String OAUTH_JWKS_ENDPOINT_URI = PREFIX + "OAUTH_JWKS_ENDPOINT_URI";
-    private static final String OAUTH_VALID_ISSUER_URI = PREFIX + "OAUTH_VALID_ISSUER_URI";
-    private static final String OAUTH_TOKEN_ENDPOINT_URI = PREFIX + "OAUTH_TOKEN_ENDPOINT_URI";
+    public static final String BOOTSTRAP_SERVERS = PREFIX + "BOOTSTRAP_SERVERS";
+    public static final String OAUTH_ENABLED = PREFIX + "OAUTH_ENABLED";
+    public static final String OAUTH_JWKS_ENDPOINT_URI = PREFIX + "OAUTH_JWKS_ENDPOINT_URI";
+    public static final String OAUTH_VALID_ISSUER_URI = PREFIX + "OAUTH_VALID_ISSUER_URI";
+    public static final String OAUTH_TOKEN_ENDPOINT_URI = PREFIX + "OAUTH_TOKEN_ENDPOINT_URI";
 
-    private static final String TLS_CERT = PREFIX + "TLS_CERT";
-    private static final String TLS_KEY = PREFIX + "TLS_KEY";
-    private static final String TLS_VERSION = PREFIX + "TLS_VERSION";
+    public static final String TLS_CERT = PREFIX + "TLS_CERT";
+    public static final String TLS_KEY = PREFIX + "TLS_KEY";
+    public static final String TLS_VERSION = PREFIX + "TLS_VERSION";
 
 
     private final boolean oauthEnabled;
