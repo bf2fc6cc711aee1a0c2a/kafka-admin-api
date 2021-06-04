@@ -138,8 +138,8 @@ public class ConsumerGroupOperations {
     @SuppressWarnings({"checkstyle:JavaNCSS"})
     public static void resetGroupOffset(KafkaAdminClient ac, Types.ConsumerGroupOffsetResetParameters parameters, Promise prom) {
         if (parameters.getTimestamp() != null && !"timestamp".equals(parameters.getOffset())) {
-            log.error("if the timestamp is used, offset should se set to timestamp");
-            prom.fail(new InvalidConfigurationException("if the timestamp is used, offset should se set to timestamp"));
+            log.error("if the timestamp is used, offset should be set to 'timestamp'");
+            prom.fail(new InvalidConfigurationException("if the timestamp is used, offset should be set to 'timestamp'"));
             return;
         }
         if ("timestamp".equals(parameters.getOffset()) && parameters.getTimestamp() == null) {
@@ -151,7 +151,7 @@ public class ConsumerGroupOperations {
         Set<TopicPartition> topicPartitionsToReset = new HashSet<>();
         Promise partitionsToResetPromise = Promise.promise();
         ArrayList<Future> promises = new ArrayList<>();
-        if (parameters.getPartitions() == null) {
+        if (parameters.getPartitions() == null || parameters.getPartitions().isEmpty()) {
             // reset everything
             Promise promise = Promise.promise();
             promises.add(promise.future());
