@@ -227,7 +227,7 @@ public class RestOperations extends CommonHandler implements OperationsHandler {
         final Pattern pattern;
         Promise<Types.TopicList> prom = Promise.promise();
         if (filter != null && !filter.isEmpty()) {
-            pattern = Pattern.compile(filter);
+            pattern = Pattern.compile(filter, Pattern.CASE_INSENSITIVE);
         } else {
             pattern = null;
         }
@@ -265,7 +265,7 @@ public class RestOperations extends CommonHandler implements OperationsHandler {
         final Pattern pattern;
         Promise<Types.TopicList> prom = Promise.promise();
         if (topicFilter != null && !topicFilter.isEmpty()) {
-            pattern = Pattern.compile(topicFilter);
+            pattern = Pattern.compile(topicFilter, Pattern.CASE_INSENSITIVE);
         } else {
             pattern = Pattern.compile(".*");
         }
