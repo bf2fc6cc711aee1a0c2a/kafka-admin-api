@@ -32,7 +32,7 @@ public class ConsumerGroupOperations {
     protected static final Logger log = LogManager.getLogger(ConsumerGroupOperations.class);
 
 
-    public static void getGroupList(KafkaAdminClient ac, Promise prom, Pattern pattern, int offset, final int limit, final String groupIdPrefix) {
+    public static void getGroupList(KafkaAdminClient ac, Promise prom, Pattern pattern, int offset, final int limit, final String groupIdPrefix, Types.OrderByInput orderByInput) {
         Promise<List<ConsumerGroupListing>> listConsumerGroupsFuture = Promise.promise();
 
         ac.listConsumerGroups(listConsumerGroupsFuture);
@@ -91,7 +91,11 @@ public class ConsumerGroupOperations {
                     return Future.failedFuture(new InvalidRequestException("Offset (" + offset + ") cannot be greater than consumer group list size (" + list.size() + ")"));
                 }
 
-                list.sort(new CommonHandler.ConsumerGroupComparator());
+                if (orderByInput.getOrder().equals(Types.SortDirectionEnum.ASC)) {
+                    list.sort(new CommonHandler.ConsumerGroupComparator(orderByInput.getField()));
+                } else {
+                    list.sort(new CommonHandler.ConsumerGroupComparator(orderByInput.getField()).reversed());
+                }
 
                 int tmpLimit = limit;
                 if (tmpLimit == 0) {

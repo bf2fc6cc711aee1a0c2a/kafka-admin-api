@@ -41,6 +41,13 @@ paths:
             type: string
           in: query
           required: false
+        - name: orderKey
+          description: >-
+            Order key to sort the items by. Values 'name', 'partitions', 'retentionTime' and 'retentionBytes' are applicable.
+          schema:
+            type: string
+          in: query
+          required: false
       responses:
         '200':
           content:
@@ -350,6 +357,21 @@ paths:
           schema:
             type: string
           in: query
+        - name: order
+          description: >-
+            Order of the items sorting. If "asc" is set as a value, ascending order is used,
+            descending otherwise.
+          schema:
+            type: string
+          in: query
+          required: false
+        - name: orderKey
+          description: >-
+            Order key to sort the items by. Only the value 'name' is currently applicable.
+          schema:
+            type: string
+          in: query
+          required: false
       responses:
         '200':
           content:
