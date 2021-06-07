@@ -172,9 +172,7 @@ public class AdminServer extends AbstractVerticle {
 
         if (config.getOauthValidIssuerUri() != null) {
             LOGGER.info("JWT issuer (iss) claim valid value: {}", config.getOauthValidIssuerUri());
-            oauthOptions.setJWTOptions(new JWTOptions().setIssuer(config.getOauthValidIssuerUri())
-                                       // FIXME: Remove
-                                       .setLeeway(Integer.MAX_VALUE));
+            oauthOptions.setJWTOptions(new JWTOptions().setIssuer(config.getOauthValidIssuerUri()));
         }
 
         OAuth2Auth oauth2Provider = OAuth2Auth.create(vertx, oauthOptions);
