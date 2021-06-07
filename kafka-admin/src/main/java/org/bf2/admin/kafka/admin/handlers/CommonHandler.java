@@ -222,8 +222,9 @@ public class CommonHandler {
             } else if ("partitions".equals(key)) {
                 return firstTopic.getPartitions().size() - secondTopic.getPartitions().size();
             } else if ("retentionTime".equals(key)) {
-                return firstTopic.getConfig().stream().filter(entry -> entry.getKey().equals("retention.ms")).findFirst().get().getValue()
-                        .compareToIgnoreCase(secondTopic.getConfig().stream().filter(entry -> entry.getKey().equals("retention.ms")).findFirst().get().getValue());
+                String first = firstTopic.getConfig().stream().filter(entry -> entry.getKey().equals("retention.ms")).findFirst().get().getValue();
+                String second = secondTopic.getConfig().stream().filter(entry -> entry.getKey().equals("retention.ms")).findFirst().get().getValue();
+                Long.compare(first.equals("-1") ? Long.MAX_VALUE : Long.parseLong(first), second.equals("-1") ? Long.MAX_VALUE : Long.parseLong(second));
             } else if ("retentionBytes".equals(key)) {
                 String first = firstTopic.getConfig().stream().filter(entry -> entry.getKey().equals("retention.bytes")).findFirst().get().getValue();
                 String second = secondTopic.getConfig().stream().filter(entry -> entry.getKey().equals("retention.bytes")).findFirst().get().getValue();
