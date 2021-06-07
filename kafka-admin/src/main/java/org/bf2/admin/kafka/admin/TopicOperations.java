@@ -1,5 +1,6 @@
 package org.bf2.admin.kafka.admin;
 
+import io.vertx.kafka.admin.NewPartitions;
 import org.bf2.admin.kafka.admin.model.Types;
 import org.bf2.admin.kafka.admin.handlers.CommonHandler;
 import io.vertx.core.Future;
@@ -198,11 +199,16 @@ public class TopicOperations {
         Config cfg = new Config(ceList);
 
         ConfigResource resource = new ConfigResource(org.apache.kafka.common.config.ConfigResource.Type.TOPIC, topicToUpdate.getName());
-        Promise<Void> updateTopicConfigPromise = Promise.promise();
 
         // we have to describe first, otherwise we cannot determine whether the topic exists or not (alterConfigs returns just server error)
         getTopicDescAndConf(ac, topicToUpdate.getName()).future()
-                .compose(a -> {
+                .compose(topic -> {
+                    Promise<Void> updateTopicPartitions = Promise.promise();
+                    ac.createPartitions(Collections.singletonMap(topic.getName(), new NewPartitions(topicToUpdate.getPartitions(), null)), updateTopicPartitions);
+                    return updateTopicPartitions.future();
+                })
+                .compose(i -> {
+                    Promise<Void> updateTopicConfigPromise = Promise.promise();
                     ac.alterConfigs(Collections.singletonMap(resource, cfg), updateTopicConfigPromise);
                     return updateTopicConfigPromise.future();
                 })

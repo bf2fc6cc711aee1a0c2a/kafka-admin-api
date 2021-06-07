@@ -1,5 +1,14 @@
 package org.bf2.admin.kafka.admin.handlers;
 
+import io.vertx.ext.web.validation.BodyProcessorException;
+import org.apache.kafka.common.errors.GroupNotEmptyException;
+import org.apache.kafka.common.errors.InvalidPartitionsException;
+import org.apache.kafka.common.errors.UnknownMemberIdException;
+import org.bf2.admin.kafka.admin.InvalidConsumerGroupException;
+import org.bf2.admin.kafka.admin.InvalidTopicException;
+import org.bf2.admin.kafka.admin.KafkaAdminConfigRetriever;
+import org.bf2.admin.kafka.admin.HttpMetrics;
+import org.bf2.admin.kafka.admin.model.Types;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.ObjectWriter;
@@ -133,7 +142,10 @@ public class CommonHandler {
                     routingContext.response().setStatusCode(HttpResponseStatus.CONFLICT.code());
                 } else if (failureCause instanceof InvalidRequestException
                         || failureCause instanceof InvalidConfigurationException
-                        || failureCause instanceof IllegalArgumentException) {
+                        || failureCause instanceof IllegalArgumentException
+                        || res.cause() instanceof InvalidReplicationFactorException
+                        || res.cause() instanceof org.apache.kafka.common.errors.InvalidTopicException
+                        || res.cause() instanceof InvalidPartitionsException) {
                     routingContext.response().setStatusCode(HttpResponseStatus.BAD_REQUEST.code());
                 } else if (failureCause instanceof IllegalStateException) {
                     routingContext.response().setStatusCode(HttpResponseStatus.UNAUTHORIZED.code());
