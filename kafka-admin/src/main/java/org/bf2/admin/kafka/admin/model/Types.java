@@ -227,6 +227,7 @@ public class Types {
     }
 
     public static class UpdatedTopic {
+        private Integer partitions;
         private String name;
         private List<NewTopicConfigEntry> config;
 
@@ -254,6 +255,14 @@ public class Types {
 
         public void setConfig(List<NewTopicConfigEntry> config) {
             this.config = config;
+        }
+
+        public Integer getPartitions() {
+            return partitions;
+        }
+
+        public void setPartitions(Integer partitions) {
+            this.partitions = partitions;
         }
     }
 
