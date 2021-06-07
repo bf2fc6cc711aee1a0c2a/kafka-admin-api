@@ -188,7 +188,7 @@ public class TopicOperations {
         });
     }
 
-    public static void updateTopic(KafkaAdminClient ac, Types.UpdatedTopic topicToUpdate, Promise prom) {
+    public static void updateTopic(KafkaAdminClient ac, Types.UpdatedTopic topicToUpdate, int maxPartitions, Promise prom) {
         List<ConfigEntry> ceList = new ArrayList<>();
         if (topicToUpdate.getConfig() != null) {
             topicToUpdate.getConfig().stream().forEach(cfgEntry -> {
@@ -204,7 +204,7 @@ public class TopicOperations {
         getTopicDescAndConf(ac, topicToUpdate.getName()).future()
                 .compose(topic -> {
                     Promise<Void> updateTopicPartitions = Promise.promise();
-                    ac.createPartitions(Collections.singletonMap(topic.getName(), new NewPartitions(topicToUpdate.getPartitions(), null)), updateTopicPartitions);
+                    ac.createPartitions(Collections.singletonMap(topic.getName(), new NewPartitions(topicToUpdate.getNumPartitions(), null)), updateTopicPartitions);
                     return updateTopicPartitions.future();
                 })
                 .compose(i -> {

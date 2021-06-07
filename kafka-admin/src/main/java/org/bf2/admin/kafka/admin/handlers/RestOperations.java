@@ -163,7 +163,16 @@ public class RestOperations extends CommonHandler implements OperationsHandler {
                     log.error(e);
                     return;
                 }
-                TopicOperations.updateTopic(ac.result(), updatedTopic, prom);
+                int maxPartitions = getNumPartitionsMax();
+
+                if (!numPartitionsValid(updatedTopic, maxPartitions)) {
+                    prom.fail(new InvalidTopicException(String.format("Number of partitions for topic %s must between 1 and %d (inclusive)",
+                            updatedTopic.getName(), maxPartitions)));
+                    processResponse(prom, routingContext, HttpResponseStatus.BAD_REQUEST, httpMetrics, httpMetrics.getCreateTopicRequestTimer(), requestTimerSample);
+                    return;
+                }
+
+                TopicOperations.updateTopic(ac.result(), updatedTopic, getNumPartitionsMax(), prom);
             }
             processResponse(prom, routingContext, HttpResponseStatus.OK, httpMetrics, httpMetrics.getUpdateTopicRequestTimer(), requestTimerSample);
         });
@@ -369,7 +378,7 @@ public class RestOperations extends CommonHandler implements OperationsHandler {
                 ? false : Boolean.valueOf(System.getenv("KAFKA_ADMIN_INTERNAL_CONSUMER_GROUPS_ENABLED"));
     }
 
-    private boolean numPartitionsValid(Types.NewTopicInput settings, int maxPartitions) {
+    private <T extends Types.TopicWithPartitions> boolean numPartitionsValid(T settings, int maxPartitions) {
         int partitions = settings.getNumPartitions() != null ?
                 settings.getNumPartitions() :
                     TopicOperations.DEFAULT_PARTITIONS;
