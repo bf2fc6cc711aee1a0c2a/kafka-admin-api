@@ -183,7 +183,10 @@ public class Types {
         }
     }
 
-    public static class TopicWithPartitions {
+
+    public static class NewTopicInput {
+        private List<NewTopicConfigEntry> config;
+
         private Integer numPartitions;
 
         public Integer getNumPartitions() {
@@ -193,10 +196,6 @@ public class Types {
         public void setNumPartitions(Integer numPartitions) {
             this.numPartitions = numPartitions;
         }
-    }
-
-    public static class NewTopicInput extends TopicWithPartitions {
-        private List<NewTopicConfigEntry> config;
 
         public List<NewTopicConfigEntry> getConfig() {
             return config;
@@ -227,9 +226,19 @@ public class Types {
         }
     }
 
-    public static class UpdatedTopic extends TopicWithPartitions {
+    public static class UpdatedTopic {
         private String name;
         private List<NewTopicConfigEntry> config;
+
+        private Integer numPartitions;
+
+        public Integer getNumPartitions() {
+            return numPartitions;
+        }
+
+        public void setNumPartitions(Integer numPartitions) {
+            this.numPartitions = numPartitions;
+        }
 
         public String getName() {
             return name;
