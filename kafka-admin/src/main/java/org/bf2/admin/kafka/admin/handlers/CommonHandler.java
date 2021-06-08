@@ -221,14 +221,22 @@ public class CommonHandler {
                 return firstTopic.getName().compareToIgnoreCase(secondTopic.getName());
             } else if ("partitions".equals(key)) {
                 return firstTopic.getPartitions().size() - secondTopic.getPartitions().size();
-            } else if ("retentionTime".equals(key)) {
-                String first = firstTopic.getConfig().stream().filter(entry -> entry.getKey().equals("retention.ms")).findFirst().get().getValue();
-                String second = secondTopic.getConfig().stream().filter(entry -> entry.getKey().equals("retention.ms")).findFirst().get().getValue();
-                Long.compare(first.equals("-1") ? Long.MAX_VALUE : Long.parseLong(first), second.equals("-1") ? Long.MAX_VALUE : Long.parseLong(second));
-            } else if ("retentionBytes".equals(key)) {
-                String first = firstTopic.getConfig().stream().filter(entry -> entry.getKey().equals("retention.bytes")).findFirst().get().getValue();
-                String second = secondTopic.getConfig().stream().filter(entry -> entry.getKey().equals("retention.bytes")).findFirst().get().getValue();
-                Long.compare(first.equals("-1") ? Long.MAX_VALUE : Long.parseLong(first), second.equals("-1") ? Long.MAX_VALUE : Long.parseLong(second));
+            } else if ("retention.ms".equals(key)) {
+                Types.ConfigEntry first = firstTopic.getConfig().stream().filter(entry -> entry.getKey().equals("retention.ms")).findFirst().orElseGet(() -> null);
+                Types.ConfigEntry second = secondTopic.getConfig().stream().filter(entry -> entry.getKey().equals("retention.ms")).findFirst().orElseGet(() -> null);
+                if (first == null || second == null || first.getValue() == null || second.getValue() == null) {
+                    throw new IllegalStateException("Sorting failed");
+                } else {
+                    return Long.compare(first.equals("-1") ? Long.MAX_VALUE : Long.parseLong(first.getValue()), second.equals("-1") ? Long.MAX_VALUE : Long.parseLong(second.getValue()));
+                }
+            } else if ("retention.bytes".equals(key)) {
+                Types.ConfigEntry first = firstTopic.getConfig().stream().filter(entry -> entry.getKey().equals("retention.bytes")).findFirst().orElseGet(() -> null);
+                Types.ConfigEntry second = secondTopic.getConfig().stream().filter(entry -> entry.getKey().equals("retention.bytes")).findFirst().orElseGet(() -> null);
+                if (first == null || second == null || first.getValue() == null || second.getValue() == null) {
+                    throw new IllegalStateException("Sorting failed");
+                } else {
+                    return Long.compare(first.equals("-1") ? Long.MAX_VALUE : Long.parseLong(first.getValue()), second.equals("-1") ? Long.MAX_VALUE : Long.parseLong(second.getValue()));
+                }
             }
             return 0;
         }
@@ -247,10 +255,14 @@ public class CommonHandler {
 
         @Override
         public int compare(Types.ConsumerGroup firstConsumerGroup, Types.ConsumerGroup secondConsumerGroup) {
-            if (key.equals("name")) {
-                return firstConsumerGroup.getGroupId().compareToIgnoreCase(secondConsumerGroup.getGroupId());
+            if ("name".equals(key)) {
+                if (firstConsumerGroup == null || firstConsumerGroup.getGroupId() == null
+                    || secondConsumerGroup == null || secondConsumerGroup.getGroupId() == null) {
+                    throw new IllegalStateException("Sorting failed");
+                } else {
+                    return firstConsumerGroup.getGroupId().compareToIgnoreCase(secondConsumerGroup.getGroupId());
+                }
             }
-
             return 0;
         }
     }

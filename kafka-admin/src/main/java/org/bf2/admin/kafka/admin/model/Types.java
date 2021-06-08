@@ -267,7 +267,17 @@ public class Types {
     }
     public enum SortDirectionEnum {
         DESC,
-        ASC
+        ASC;
+
+        public static SortDirectionEnum fromString(String input) {
+            if (input == null) {
+                return ASC;
+            } else if ("desc".equalsIgnoreCase(input)) {
+                return DESC;
+            } else {
+                return ASC;
+            }
+        }
     }
 
     public static class OrderByInput {

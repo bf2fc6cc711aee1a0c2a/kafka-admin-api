@@ -209,8 +209,7 @@ public class RestOperations extends CommonHandler implements OperationsHandler {
         String filter = routingContext.queryParams().get("filter");
         String limit = routingContext.queryParams().get("limit") == null ? "0" : routingContext.queryParams().get("limit");
         String offset = routingContext.queryParams().get("offset") == null ? "0" : routingContext.queryParams().get("offset");
-        Types.SortDirectionEnum sortReverse = routingContext.queryParams().get("order") == null ?
-            Types.SortDirectionEnum.ASC : "desc".equals(routingContext.queryParams().get("order")) ? Types.SortDirectionEnum.DESC : Types.SortDirectionEnum.ASC;
+        Types.SortDirectionEnum sortReverse = Types.SortDirectionEnum.fromString(routingContext.queryParams().get("order"));
         String sortKey = routingContext.queryParams().get("orderKey") == null ? "name" : routingContext.queryParams().get("orderKey");
         Types.OrderByInput orderBy = new Types.OrderByInput();
         orderBy.setField(sortKey);
@@ -252,8 +251,7 @@ public class RestOperations extends CommonHandler implements OperationsHandler {
         String limit = routingContext.queryParams().get("limit") == null ? "0" : routingContext.queryParams().get("limit");
         String offset = routingContext.queryParams().get("offset") == null ? "0" : routingContext.queryParams().get("offset");
 
-        Types.SortDirectionEnum sortReverse = routingContext.queryParams().get("order") == null ?
-                Types.SortDirectionEnum.ASC : "desc".equals(routingContext.queryParams().get("order")) ? Types.SortDirectionEnum.DESC : Types.SortDirectionEnum.ASC;
+        Types.SortDirectionEnum sortReverse = Types.SortDirectionEnum.fromString(routingContext.queryParams().get("order"));
         String sortKey = routingContext.queryParams().get("orderKey") == null ? "name" : routingContext.queryParams().get("orderKey");
         Types.OrderByInput orderBy = new Types.OrderByInput();
         orderBy.setField(sortKey);
@@ -396,7 +394,7 @@ public class RestOperations extends CommonHandler implements OperationsHandler {
     public void errorHandler(RoutingContext routingContext) {
         Timer.Sample requestTimerSample = Timer.start(httpMetrics.getRegistry());
         Promise<List<String>> prom = Promise.promise();
-        prom.fail(routingContext.failure());
+        prom.fail(routingContext.failure().getCause());
         processResponse(prom, routingContext, HttpResponseStatus.OK, httpMetrics, httpMetrics.getOpenApiRequestTimer(), requestTimerSample);
     }
 }
