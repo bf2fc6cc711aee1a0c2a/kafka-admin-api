@@ -204,7 +204,7 @@ public class TopicOperations {
         getTopicDescAndConf(ac, topicToUpdate.getName()).future()
                 .compose(topic -> {
                     Promise<Void> updateTopicPartitions = Promise.promise();
-                    if (topicToUpdate.getNumPartitions() != null || topicToUpdate.getNumPartitions() != topic.getPartitions().size()) {
+                    if (topicToUpdate.getNumPartitions() != null && topicToUpdate.getNumPartitions() != topic.getPartitions().size()) {
                         ac.createPartitions(Collections.singletonMap(topic.getName(), new NewPartitions(topicToUpdate.getNumPartitions(), null)), updateTopicPartitions);
                     } else {
                         updateTopicPartitions.complete();
