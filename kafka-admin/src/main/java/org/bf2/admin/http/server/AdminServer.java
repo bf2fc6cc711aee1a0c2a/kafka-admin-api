@@ -4,20 +4,28 @@ package org.bf2.admin.http.server;
 import io.netty.handler.codec.http.HttpResponseStatus;
 import io.vertx.core.AbstractVerticle;
 import io.vertx.core.Future;
+import io.vertx.core.Handler;
 import io.vertx.core.Promise;
-import io.vertx.core.Vertx;
 import io.vertx.core.buffer.Buffer;
 import io.vertx.core.http.HttpServer;
 import io.vertx.core.http.HttpServerOptions;
+import io.vertx.core.json.JsonObject;
 import io.vertx.core.net.PemKeyCertOptions;
+import io.vertx.ext.auth.JWTOptions;
+import io.vertx.ext.auth.oauth2.OAuth2Auth;
+import io.vertx.ext.auth.oauth2.OAuth2FlowType;
+import io.vertx.ext.auth.oauth2.OAuth2Options;
 import io.vertx.ext.web.Router;
+import io.vertx.ext.web.RoutingContext;
 import io.vertx.ext.web.handler.CorsHandler;
 import io.vertx.ext.web.handler.HSTSHandler;
+import io.vertx.ext.web.handler.OAuth2AuthHandler;
 import io.vertx.ext.web.openapi.RouterBuilder;
 import io.vertx.ext.web.openapi.RouterBuilderOptions;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.bf2.admin.kafka.admin.HttpMetrics;
+import org.bf2.admin.kafka.admin.KafkaAdminConfigRetriever;
 import org.bf2.admin.kafka.admin.Operations;
 import org.bf2.admin.kafka.admin.handlers.RestOperations;
 
@@ -27,6 +35,7 @@ import java.nio.file.Path;
 import java.time.Duration;
 import java.util.Base64;
 import java.util.Base64.Decoder;
+import java.util.Map;
 import java.util.Set;
 import java.util.function.Consumer;
 
@@ -46,29 +55,35 @@ public class AdminServer extends AbstractVerticle {
     private static final int HTTPS_PORT = 8443;
     private static final int MANAGEMENT_PORT = 9990;
     private static final String SUCCESS_RESPONSE = "{\"status\": \"OK\"}";
-    private static final String DEFAULT_TLS_VERSION = "TLSv1.3";
+    private static final String SECURITY_SCHEME_NAME = "Bearer";
     private static final Decoder BASE64_DECODER = Base64.getDecoder();
 
-    private HttpMetrics httpMetrics = new HttpMetrics();
+    private final KafkaAdminConfigRetriever config = new KafkaAdminConfigRetriever();
+    private final HttpMetrics httpMetrics = new HttpMetrics();
 
     @Override
     public void start(final Promise<Void> startServer) {
-        getManagementRouter()
-            .onSuccess(router -> {
-                final HttpServer server = vertx.createHttpServer();
-                server.requestHandler(router).listen(MANAGEMENT_PORT);
-                LOGGER.info("Admin Server management is listening on port {}", MANAGEMENT_PORT);
-            })
-            .onFailure(throwable -> LOGGER.atFatal().withThrowable(throwable).log("Loading of management routes was unsuccessful."));
-
-        getResourcesRouter()
-            .onSuccess(router -> startResourcesHttpServer(startServer, router))
-            .onFailure(throwable -> LOGGER.atFatal().withThrowable(throwable).log("Loading of routes was unsuccessful."));
+        startManagementServer()
+            .compose(nothing -> startResourcesServer())
+            .onFailure(startServer::fail);
     }
 
-    private Future<Router> getManagementRouter() {
-        return addHealthRouter(Router.router(vertx))
-                .compose(this::addMetricsRouter);
+    private Future<Void> startManagementServer() {
+        Promise<Void> promise = Promise.promise();
+
+        addHealthRouter(Router.router(vertx))
+                .compose(this::addMetricsRouter)
+                .compose(router -> vertx.createHttpServer().requestHandler(router).listen(MANAGEMENT_PORT))
+                .onSuccess(server -> {
+                    LOGGER.info("Admin Server management is listening on port {}", MANAGEMENT_PORT);
+                    promise.complete();
+                })
+                .onFailure(cause -> {
+                    LOGGER.atFatal().log("Loading of management routes was unsuccessful.");
+                    promise.fail(cause);
+                });
+
+        return promise.future();
     }
 
     Future<Router> addHealthRouter(final Router root) {
@@ -89,29 +104,43 @@ public class AdminServer extends AbstractVerticle {
         return Future.succeededFuture(root);
     }
 
-    private Future<Router> getResourcesRouter() {
+    private Future<Void> startResourcesServer() {
+        final Promise<Void> promise = Promise.promise();
         final Router router = Router.router(vertx);
         router.route().handler(createCORSHander());
         router.route().handler(HSTSHandler.create(Duration.ofDays(365).toSeconds(), false));
 
-        final Promise<Router> promise = Promise.promise();
-        final RouterBuilderOptions options = new RouterBuilderOptions();
-        // OpenAPI contract document served at `/rest/openapi`
-        options.setContractEndpoint(RouterBuilderOptions.STANDARD_CONTRACT_ENDPOINT);
+        RouterBuilder.create(vertx, "openapi-specs/kafka-admin-rest.yaml")
+            .compose(builder -> {
+                final Future<Void> result;
+                final JsonObject openAPI = builder.getOpenAPI().getOpenAPI();
+                final RouterBuilderOptions options = new RouterBuilderOptions();
 
-        return RouterBuilder.create(vertx, "openapi-specs/kafka-admin-rest.yaml")
-            .onSuccess(builder -> {
+                // OpenAPI contract document served at `/rest/openapi`
+                options.setContractEndpoint(RouterBuilderOptions.STANDARD_CONTRACT_ENDPOINT);
                 builder.setOptions(options);
-                assignRoutes(builder, vertx);
+
+                if (config.isOauthEnabled()) {
+                    result = configureOAuth(builder, openAPI);
+                } else {
+                    openAPI.remove("security");
+                    openAPI.getJsonObject("components").remove("securitySchemes");
+                    result = Future.succeededFuture();
+                }
+
+                assignRoutes(builder);
                 router.mountSubRouter("/rest", builder.createRouter());
-            }).onFailure(promise::fail)
-            .map(router);
+                return result;
+            })
+            .compose(nothing -> startResourcesHttpServer(router))
+            .onSuccess(promise::complete)
+            .onFailure(promise::fail);
+
+        return promise.future();
     }
 
     private CorsHandler createCORSHander() {
-        String defaultAllowRegex = "(https?:\\/\\/localhost(:\\d*)?)";
-        String envAllowList = System.getenv("CORS_ALLOW_LIST_REGEX");
-        String allowList = envAllowList == null ? defaultAllowRegex : envAllowList;
+        String allowList = config.getCorsAllowPattern();
         LOGGER.info("CORS allow list regex is {}", allowList);
 
         return CorsHandler.create(allowList)
@@ -128,24 +157,72 @@ public class AdminServer extends AbstractVerticle {
                 .allowedHeader("Content-Type");
     }
 
-    private void assignRoutes(final RouterBuilder routerFactory, final Vertx vertx) {
-        RestOperations ro = new RestOperations(httpMetrics);
+    private Future<Void> configureOAuth(RouterBuilder builder, JsonObject openAPI) {
+        if (config.getOauthJwksEndpointUri() == null) {
+            return Future.failedFuture(String.format(""
+                    + "Environment variable `%s` must be provided when OAuth is enabled (`%s` is unset or `true`)",
+                    KafkaAdminConfigRetriever.OAUTH_JWKS_ENDPOINT_URI,
+                    KafkaAdminConfigRetriever.OAUTH_ENABLED));
+        }
 
-        routerFactory.operation(Operations.GET_TOPIC).handler(ro::describeTopic).failureHandler(ro::errorHandler);
-        routerFactory.operation(Operations.GET_TOPICS_LIST).handler(ro::listTopics).failureHandler(ro::errorHandler);
+        OAuth2Options oauthOptions = new OAuth2Options();
+        oauthOptions.setFlow(OAuth2FlowType.CLIENT);
+        oauthOptions.setJwkPath(config.getOauthJwksEndpointUri());
+        oauthOptions.setValidateIssuer(true);
 
-        routerFactory.operation(Operations.DELETE_TOPIC).handler(ro::deleteTopic).failureHandler(ro::errorHandler);
-        routerFactory.operation(Operations.CREATE_TOPIC).handler(ro::createTopic).failureHandler(ro::errorHandler);
-        routerFactory.operation(Operations.UPDATE_TOPIC).handler(ro::updateTopic).failureHandler(ro::errorHandler);
+        if (config.getOauthValidIssuerUri() != null) {
+            LOGGER.info("JWT issuer (iss) claim valid value: {}", config.getOauthValidIssuerUri());
+            oauthOptions.setJWTOptions(new JWTOptions().setIssuer(config.getOauthValidIssuerUri()));
+        }
 
-        routerFactory.operation(Operations.GET_CONSUMER_GROUP).handler(ro::describeGroup).failureHandler(ro::errorHandler);
-        routerFactory.operation(Operations.GET_CONSUMER_GROUPS_LIST).handler(ro::listGroups).failureHandler(ro::errorHandler);
+        OAuth2Auth oauth2Provider = OAuth2Auth.create(vertx, oauthOptions);
+        OAuth2AuthHandler securityHandler = OAuth2AuthHandler.create(vertx, oauth2Provider);
+        builder.securityHandler(SECURITY_SCHEME_NAME, securityHandler);
 
-        routerFactory.operation(Operations.DELETE_CONSUMER_GROUP).handler(ro::deleteGroup).failureHandler(ro::errorHandler);
+        JsonObject clientCredentialsFlow = openAPI.getJsonObject("components")
+                .getJsonObject("securitySchemes")
+                .getJsonObject(SECURITY_SCHEME_NAME)
+                .getJsonObject("flows")
+                .getJsonObject("clientCredentials");
+
+        if (config.getOauthTokenEndpointUri() != null) {
+            LOGGER.info("Setting Oauth2 token endpoint URL: {}", config.getOauthTokenEndpointUri());
+            clientCredentialsFlow.put("tokenUrl", config.getOauthTokenEndpointUri());
+        } else {
+            clientCredentialsFlow.remove("tokenUrl");
+        }
+
+        return oauth2Provider.jWKSet()
+                .onSuccess(ignored -> LOGGER.info("Loaded JWKS from {}", config.getOauthJwksEndpointUri()))
+                .onFailure(cause -> LOGGER.error("Failed to retrieve JWKS: {}", cause.getMessage()));
     }
 
-    private void startResourcesHttpServer(final Promise<Void> startServer, Router router) {
-        final String tlsCert = System.getenv("KAFKA_ADMIN_TLS_CERT");
+    private void assignRoutes(final RouterBuilder routerFactory) {
+        RestOperations ro = new RestOperations(config, httpMetrics);
+
+        Map<String, Handler<RoutingContext>> routes = Map.of(Operations.GET_TOPIC, ro::describeTopic,
+                                                             Operations.GET_TOPICS_LIST, ro::listTopics,
+                                                             Operations.DELETE_TOPIC, ro::deleteTopic,
+                                                             Operations.CREATE_TOPIC, ro::createTopic,
+                                                             Operations.UPDATE_TOPIC, ro::updateTopic,
+                                                             Operations.GET_CONSUMER_GROUP, ro::describeGroup,
+                                                             Operations.GET_CONSUMER_GROUPS_LIST, ro::listGroups,
+                                                             Operations.DELETE_CONSUMER_GROUP, ro::deleteGroup);
+
+        routes.entrySet().forEach(route ->
+            routerFactory.operation(route.getKey())
+                .handler(context -> {
+                    // Setup AdminClient configuration for all routes before invoking handler
+                    ro.setAdminClientConfig(context);
+                    route.getValue().handle(context);
+                })
+                // Common error handling for all routes
+                .failureHandler(ro::errorHandler));
+    }
+
+    private Future<Void> startResourcesHttpServer(Router router) {
+        Promise<Void> promise = Promise.promise();
+        final String tlsCert = config.getTlsCertificate();
         final HttpServer server;
         final int listenerPort;
         final String portType;
@@ -155,8 +232,8 @@ public class AdminServer extends AbstractVerticle {
             listenerPort = HTTP_PORT;
             portType = "plain HTTP";
         } else {
-            Set<String> tlsVersions = Set.of(System.getenv().getOrDefault("KAFKA_ADMIN_TLS_VERSION", DEFAULT_TLS_VERSION).split(","));
-            String tlsKey = System.getenv("KAFKA_ADMIN_TLS_KEY");
+            Set<String> tlsVersions = config.getTlsVersions();
+            String tlsKey = config.getTlsKey();
 
             LOGGER.info("Starting secure admin server with TLS version(s) {}", tlsVersions);
 
@@ -174,8 +251,17 @@ public class AdminServer extends AbstractVerticle {
             portType = "secure HTTPS";
         }
 
-        server.requestHandler(router).listen(listenerPort).onFailure(startServer::fail);
-        LOGGER.info("Admin Server is listening on {} port {}", portType, listenerPort);
+        server.requestHandler(router).listen(listenerPort)
+            .onSuccess(httpServer -> {
+                LOGGER.info("Admin Server is listening on {} port {}", portType, listenerPort);
+                promise.complete();
+            })
+            .onFailure(cause -> {
+                LOGGER.atFatal().log("Startup of Admin Server resources listener was unsuccessful.");
+                promise.fail(cause);
+            });
+
+        return promise.future();
     }
 
     private void setCertConfig(String value, Consumer<String> pathSetter, Consumer<Buffer> valueSetter) {

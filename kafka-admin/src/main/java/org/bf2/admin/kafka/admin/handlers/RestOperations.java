@@ -1,22 +1,21 @@
 package org.bf2.admin.kafka.admin.handlers;
 
-import org.bf2.admin.kafka.admin.ConsumerGroupOperations;
-import org.bf2.admin.kafka.admin.InvalidConsumerGroupException;
-import org.bf2.admin.kafka.admin.InvalidTopicException;
-import org.bf2.admin.kafka.admin.KafkaAdminConfigRetriever;
-import org.bf2.admin.kafka.admin.TopicOperations;
-import org.bf2.admin.kafka.admin.model.Types;
-
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.micrometer.core.instrument.Timer;
 import io.netty.handler.codec.http.HttpResponseStatus;
-import org.bf2.admin.kafka.admin.HttpMetrics;
 import io.vertx.core.Promise;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.RoutingContext;
 import org.apache.kafka.common.errors.InvalidRequestException;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.bf2.admin.kafka.admin.ConsumerGroupOperations;
+import org.bf2.admin.kafka.admin.HttpMetrics;
+import org.bf2.admin.kafka.admin.InvalidConsumerGroupException;
+import org.bf2.admin.kafka.admin.InvalidTopicException;
+import org.bf2.admin.kafka.admin.KafkaAdminConfigRetriever;
+import org.bf2.admin.kafka.admin.TopicOperations;
+import org.bf2.admin.kafka.admin.model.Types;
 
 import java.io.IOException;
 import java.util.Collections;
@@ -26,30 +25,28 @@ import java.util.regex.Pattern;
 
 public class RestOperations extends CommonHandler implements OperationsHandler {
 
-    private final KafkaAdminConfigRetriever kaConfig;
-    private final HttpMetrics httpMetrics;
+    private static final Logger log = LogManager.getLogger(RestOperations.class);
 
-    public RestOperations(HttpMetrics httpMetrics) {
-        this.kaConfig = new KafkaAdminConfigRetriever();
-        this.httpMetrics = httpMetrics;
-    }
-
-    protected final Logger log = LogManager.getLogger(RestOperations.class);
     /**
      * Default limit to the number of partitions that new topics may have configured.
      * This value may be overridden via environment variable <code>KAFKA_ADMIN_NUM_PARTITIONS_MAX</code>.
      */
     private static final String DEFAULT_NUM_PARTITIONS_MAX = "100";
 
+    private final HttpMetrics httpMetrics;
+
+    public RestOperations(KafkaAdminConfigRetriever config, HttpMetrics httpMetrics) {
+        super(config);
+        this.httpMetrics = httpMetrics;
+    }
+
     @Override
     public void createTopic(RoutingContext routingContext) {
-        Map<String, Object> acConfig = kaConfig.getAcConfig();
+        Map<String, Object> acConfig = routingContext.get(ADMIN_CLIENT_CONFIG);
         httpMetrics.getCreateTopicCounter().increment();
         httpMetrics.getRequestsCounter().increment();
         Timer.Sample requestTimerSample = Timer.start(httpMetrics.getRegistry());
-        if (!setOAuthToken(acConfig, routingContext)) {
-            return;
-        }
+
         createAdminClient(routingContext.vertx(), acConfig).onComplete(ac -> {
             Types.NewTopic inputTopic = new Types.NewTopic();
             Promise<Types.NewTopic> prom = Promise.promise();
@@ -96,13 +93,11 @@ public class RestOperations extends CommonHandler implements OperationsHandler {
 
     @Override
     public void describeTopic(RoutingContext routingContext) {
-        Map<String, Object> acConfig = kaConfig.getAcConfig();
+        Map<String, Object> acConfig = routingContext.get(ADMIN_CLIENT_CONFIG);
         httpMetrics.getDescribeTopicCounter().increment();
         httpMetrics.getRequestsCounter().increment();
         Timer.Sample requestTimerSample = Timer.start(httpMetrics.getRegistry());
-        if (!setOAuthToken(acConfig, routingContext)) {
-            return;
-        }
+
         String topicToDescribe = routingContext.pathParam("topicName");
         Promise<Types.Topic> prom = Promise.promise();
         if (topicToDescribe == null || topicToDescribe.isEmpty()) {
@@ -128,13 +123,11 @@ public class RestOperations extends CommonHandler implements OperationsHandler {
 
     @Override
     public void updateTopic(RoutingContext routingContext) {
-        Map<String, Object> acConfig = kaConfig.getAcConfig();
+        Map<String, Object> acConfig = routingContext.get(ADMIN_CLIENT_CONFIG);
         httpMetrics.getUpdateTopicCounter().increment();
         httpMetrics.getRequestsCounter().increment();
         Timer.Sample requestTimerSample = Timer.start(httpMetrics.getRegistry());
-        if (!setOAuthToken(acConfig, routingContext)) {
-            return;
-        }
+
         Promise<Types.UpdatedTopic> prom = Promise.promise();
         String topicToUpdate = routingContext.pathParam("topicName");
         if (topicToUpdate == null || topicToUpdate.isEmpty()) {
@@ -179,13 +172,10 @@ public class RestOperations extends CommonHandler implements OperationsHandler {
 
     @Override
     public void deleteTopic(RoutingContext routingContext) {
-        Map<String, Object> acConfig = kaConfig.getAcConfig();
+        Map<String, Object> acConfig = routingContext.get(ADMIN_CLIENT_CONFIG);
         httpMetrics.getDeleteTopicCounter().increment();
         httpMetrics.getRequestsCounter().increment();
         Timer.Sample requestTimerSample = Timer.start(httpMetrics.getRegistry());
-        if (!setOAuthToken(acConfig, routingContext)) {
-            return;
-        }
         String topicToDelete = routingContext.pathParam("topicName");
         Promise<List<String>> prom = Promise.promise();
         if (topicToDelete == null || topicToDelete.isEmpty()) {
@@ -212,13 +202,10 @@ public class RestOperations extends CommonHandler implements OperationsHandler {
 
     @Override
     public void listTopics(RoutingContext routingContext) {
-        Map<String, Object> acConfig = kaConfig.getAcConfig();
+        Map<String, Object> acConfig = routingContext.get(ADMIN_CLIENT_CONFIG);
         Timer.Sample requestTimerSample = Timer.start(httpMetrics.getRegistry());
         httpMetrics.getListTopicsCounter().increment();
         httpMetrics.getRequestsCounter().increment();
-        if (!setOAuthToken(acConfig, routingContext)) {
-            return;
-        }
         String filter = routingContext.queryParams().get("filter");
         String limit = routingContext.queryParams().get("limit") == null ? "0" : routingContext.queryParams().get("limit");
         String offset = routingContext.queryParams().get("offset") == null ? "0" : routingContext.queryParams().get("offset");
@@ -252,13 +239,10 @@ public class RestOperations extends CommonHandler implements OperationsHandler {
 
     @Override
     public void listGroups(RoutingContext routingContext) {
-        Map<String, Object> acConfig = kaConfig.getAcConfig();
+        Map<String, Object> acConfig = routingContext.get(ADMIN_CLIENT_CONFIG);
         Timer.Sample requestTimerSample = Timer.start(httpMetrics.getRegistry());
         httpMetrics.getListGroupsCounter().increment();
         httpMetrics.getRequestsCounter().increment();
-        if (!setOAuthToken(acConfig, routingContext)) {
-            return;
-        }
         String topicFilter = routingContext.queryParams().get("topic");
         String consumerGroupIdFilter = routingContext.queryParams().get("group-id-filter") == null ? "" : routingContext.queryParams().get("group-id-filter");
         String limit = routingContext.queryParams().get("limit") == null ? "0" : routingContext.queryParams().get("limit");
@@ -291,13 +275,10 @@ public class RestOperations extends CommonHandler implements OperationsHandler {
 
     @Override
     public void describeGroup(RoutingContext routingContext) {
-        Map<String, Object> acConfig = kaConfig.getAcConfig();
+        Map<String, Object> acConfig = routingContext.get(ADMIN_CLIENT_CONFIG);
         httpMetrics.getDescribeGroupCounter().increment();
         httpMetrics.getRequestsCounter().increment();
         Timer.Sample requestTimerSample = Timer.start(httpMetrics.getRegistry());
-        if (!setOAuthToken(acConfig, routingContext)) {
-            return;
-        }
         String groupToDescribe = routingContext.pathParam("consumerGroupId");
         Promise<Types.Topic> prom = Promise.promise();
         if (!internalGroupsAllowed() && groupToDescribe.startsWith("strimzi")) {
@@ -322,13 +303,10 @@ public class RestOperations extends CommonHandler implements OperationsHandler {
 
     @Override
     public void deleteGroup(RoutingContext routingContext) {
-        Map<String, Object> acConfig = kaConfig.getAcConfig();
+        Map<String, Object> acConfig = routingContext.get(ADMIN_CLIENT_CONFIG);
         httpMetrics.getDeleteGroupCounter().increment();
         httpMetrics.getRequestsCounter().increment();
         Timer.Sample requestTimerSample = Timer.start(httpMetrics.getRegistry());
-        if (!setOAuthToken(acConfig, routingContext)) {
-            return;
-        }
         String groupToDelete = routingContext.pathParam("consumerGroupId");
         Promise<List<String>> prom = Promise.promise();
         if (!internalGroupsAllowed() && groupToDelete.startsWith("strimzi")) {
@@ -354,13 +332,10 @@ public class RestOperations extends CommonHandler implements OperationsHandler {
 
     @Override
     public void resetGroupOffset(RoutingContext routingContext) {
-        Map<String, Object> acConfig = kaConfig.getAcConfig();
+        Map<String, Object> acConfig = routingContext.get(ADMIN_CLIENT_CONFIG);
         httpMetrics.getRequestsCounter().increment();
         httpMetrics.getRequestsCounter().increment();
         Timer.Sample requestTimerSample = Timer.start(httpMetrics.getRegistry());
-        if (!setOAuthToken(acConfig, routingContext)) {
-            return;
-        }
         String groupToReset = routingContext.pathParam("consumerGroupId");
 
         Promise<List<String>> prom = Promise.promise();
