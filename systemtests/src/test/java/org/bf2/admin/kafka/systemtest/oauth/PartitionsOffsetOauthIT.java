@@ -15,10 +15,11 @@ import org.bf2.admin.kafka.systemtest.utils.AsyncMessaging;
 import org.bf2.admin.kafka.systemtest.utils.ClientsConfig;
 import org.junit.jupiter.api.Test;
 
-import java.sql.Timestamp;
+import java.text.SimpleDateFormat;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Date;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
@@ -43,7 +44,7 @@ public class PartitionsOffsetOauthIT extends OauthTestBase {
         consumer.close();
         List<PartitionsModel> partList = Collections.singletonList(new PartitionsModel(topic.name(), new ArrayList<>()));
 
-        OffsetModel model = new OffsetModel("earliest", partList);
+        OffsetModel model = new OffsetModel("relative", "earliest", partList);
         CountDownLatch cd2 = new CountDownLatch(1);
         createHttpClient(vertx).request(HttpMethod.POST, publishedAdminPort, "localhost", "/rest/consumer-groups/" + groupID + "/reset-offset")
                 .compose(req -> req.putHeader("content-type", "application/json")
@@ -87,7 +88,7 @@ public class PartitionsOffsetOauthIT extends OauthTestBase {
         consumer.close();
         List<PartitionsModel> partList = Collections.singletonList(new PartitionsModel(topic.name(), new ArrayList<>()));
 
-        OffsetModel model = new OffsetModel("latest", partList);
+        OffsetModel model = new OffsetModel("relative", "latest", partList);
         CountDownLatch cd2 = new CountDownLatch(1);
         createHttpClient(vertx).request(HttpMethod.POST, publishedAdminPort, "localhost", "/rest/consumer-groups/" + groupID + "/reset-offset")
                 .compose(req -> req.putHeader("content-type", "application/json")
@@ -100,11 +101,12 @@ public class PartitionsOffsetOauthIT extends OauthTestBase {
                         }).onFailure(testContext::failNow).compose(HttpClientResponse::body))
                 .onComplete(testContext.succeeding(buffer -> testContext.verify(() -> {
                     Types.TopicPartitionResetResult result = MODEL_DESERIALIZER.getResetResult(buffer);
+                    assertThat(result).isNot(null);
                     assertThat(result.getOffset()).isEqualTo(10);
                     assertThat(result.getTopic()).isEqualTo(topic.name());
                     cd2.countDown();
                 })));
-        testContext.verify(() -> assertThat(cd2.await(1, TimeUnit.MINUTES)).isTrue());
+        assertThat(cd2.await(1, TimeUnit.MINUTES)).isTrue();
 
 
         KafkaConsumer<String, String> consumer2 = KafkaConsumer.create(vertx, ClientsConfig.getConsumerConfigOauth("localhost:9092", groupID, token));
@@ -131,7 +133,7 @@ public class PartitionsOffsetOauthIT extends OauthTestBase {
         consumer.close();
         List<PartitionsModel> partList = Collections.singletonList(new PartitionsModel(topic.name(), new ArrayList<>()));
 
-        OffsetModel model = new OffsetModel("5", partList);
+        OffsetModel model = new OffsetModel("absolute", "5", partList);
         CountDownLatch cd2 = new CountDownLatch(1);
         createHttpClient(vertx).request(HttpMethod.POST, publishedAdminPort, "localhost", "/rest/consumer-groups/" + groupID + "/reset-offset")
                 .compose(req -> req.putHeader("content-type", "application/json")
@@ -144,11 +146,12 @@ public class PartitionsOffsetOauthIT extends OauthTestBase {
                         }).onFailure(testContext::failNow).compose(HttpClientResponse::body))
                 .onComplete(testContext.succeeding(buffer -> testContext.verify(() -> {
                     Types.TopicPartitionResetResult result = MODEL_DESERIALIZER.getResetResult(buffer);
+                    assertThat(result).isNot(null);
                     assertThat(result.getOffset()).isEqualTo(5);
                     assertThat(result.getTopic()).isEqualTo(topic.name());
                     cd2.countDown();
                 })));
-        testContext.verify(() -> assertThat(cd2.await(1, TimeUnit.MINUTES)).isTrue());
+        assertThat(cd2.await(1, TimeUnit.MINUTES)).isTrue();
 
 
         KafkaConsumer<String, String> consumer2 = KafkaConsumer.create(vertx, ClientsConfig.getConsumerConfigOauth("localhost:9092", groupID, token));
@@ -172,16 +175,20 @@ public class PartitionsOffsetOauthIT extends OauthTestBase {
         AsyncMessaging.produceMessages(vertx, "localhost:9092", topic.name(), 5, token, "A");
         // Sleep between sections
         Thread.sleep(10_000);
-        String timestamp = new Timestamp(System.currentTimeMillis()).toString();
+
+        SimpleDateFormat sdfDate = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+        Date now = new Date();
+        String timestamp = sdfDate.format(now);
+
         Thread.sleep(10_000);
         AsyncMessaging.produceMessages(vertx, "localhost:9092", topic.name(), 5, token, "B");
 
-        AsyncMessaging.consumeMessages(vertx, consumer, topic.name(), 5).onComplete(x -> cd.countDown()).onFailure(y -> testContext.failNow("Could not receive messages"));
+        AsyncMessaging.consumeMessages(vertx, consumer, topic.name(), 10).onComplete(x -> cd.countDown()).onFailure(y -> testContext.failNow("Could not receive messages"));
         assertThat(cd.await(2, TimeUnit.MINUTES)).isTrue();
 
         List<PartitionsModel> partList = Collections.singletonList(new PartitionsModel(topic.name(), new ArrayList<>()));
 
-        OffsetModel model = new OffsetModel("5", partList);
+        OffsetModel model = new OffsetModel("timestamp", timestamp, partList);
         CountDownLatch cd2 = new CountDownLatch(1);
         createHttpClient(vertx).request(HttpMethod.POST, publishedAdminPort, "localhost", "/rest/consumer-groups/" + groupID + "/reset-offset")
                 .compose(req -> req.putHeader("content-type", "application/json")
@@ -193,12 +200,14 @@ public class PartitionsOffsetOauthIT extends OauthTestBase {
                             assertStrictTransportSecurityEnabled(response, testContext);
                         }).onFailure(testContext::failNow).compose(HttpClientResponse::body))
                 .onComplete(testContext.succeeding(buffer -> testContext.verify(() -> {
+                    assertThat(testContext.failed()).isFalse();
                     Types.TopicPartitionResetResult result = MODEL_DESERIALIZER.getResetResult(buffer);
+                    assertThat(result).isNot(null);
                     assertThat(result.getOffset()).isEqualTo(5);
                     assertThat(result.getTopic()).isEqualTo(topic.name());
                     cd2.countDown();
                 })));
-        testContext.verify(() -> assertThat(cd2.await(1, TimeUnit.MINUTES)).isTrue());
+        assertThat(cd2.await(1, TimeUnit.MINUTES)).isTrue();
 
 
         KafkaConsumer<String, String> consumer2 = KafkaConsumer.create(vertx, ClientsConfig.getConsumerConfigOauth("localhost:9092", groupID, token));
@@ -206,6 +215,9 @@ public class PartitionsOffsetOauthIT extends OauthTestBase {
         consumer2.poll(Duration.ofSeconds(20), result -> testContext.verify(() -> {
             assertThat(result.succeeded()).isTrue();
             assertThat(result.result().size()).isEqualTo(5);
+            result.result().records().records(topic.name()).forEach(record -> {
+                assertThat(record.value()).containsSequence("B");
+            });
         }));
         consumer2.close();
         testContext.completeNow();

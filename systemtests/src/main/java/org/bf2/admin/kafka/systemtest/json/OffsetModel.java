@@ -4,11 +4,13 @@ import java.util.List;
 
 public class OffsetModel {
     String offset;
-    List<PartitionsModel> partitions;
+    String value;
+    List<PartitionsModel> topics;
 
-    public OffsetModel(String offset, List<PartitionsModel> partitions) {
+    public OffsetModel(String offset, String value, List<PartitionsModel> topics) {
         this.offset = offset;
-        this.partitions = partitions;
+        this.value = value;
+        this.topics = topics;
     }
 
     public String getOffset() {
@@ -19,11 +21,19 @@ public class OffsetModel {
         this.offset = offset;
     }
 
-    public List<PartitionsModel> getPartitions() {
-        return partitions;
+    public List<PartitionsModel> getTopics() {
+        return topics;
     }
 
-    public void setPartitions(List<PartitionsModel> partitions) {
-        this.partitions = partitions;
+    public void setTopics(List<PartitionsModel> topics) {
+        this.topics = topics;
+    }
+
+    public String getValue() {
+        return value;
+    }
+
+    public void setValue(String value) {
+        this.value = value;
     }
 }

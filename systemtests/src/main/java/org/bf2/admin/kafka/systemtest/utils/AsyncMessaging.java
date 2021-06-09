@@ -58,7 +58,7 @@ public class AsyncMessaging {
                         .map(partition -> {
                             var tp = new TopicPartition(partition.getTopic(), partition.getPartition());
                             return (Future) consumer.assign(tp)
-                                    .compose(__ -> consumer.seekToEnd(tp))
+                                    .compose(__ -> consumer.seekToBeginning(tp))
 
                                     // the seekToEnd take place only once consumer.position() is called
                                     .compose(__ -> consumer.position(tp)
