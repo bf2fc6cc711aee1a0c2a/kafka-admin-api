@@ -139,8 +139,11 @@ public class AsyncMessaging {
         return consumer;
     }
 
-    //todo: return future
     public static void produceMessages(Vertx vertx, String bootstrap, String topicName, int numberOfMessages, TokenModel token) {
+        produceMessages(vertx, bootstrap, topicName, numberOfMessages, token, "");
+    }
+
+    public static void produceMessages(Vertx vertx, String bootstrap, String topicName, int numberOfMessages, TokenModel token, String messagePrefix) {
         final Properties props;
         if (token == null) {
             props = ClientsConfig.getProducerConfig(bootstrap);
@@ -150,7 +153,7 @@ public class AsyncMessaging {
         KafkaProducer<String, String> producer = KafkaProducer.create(vertx, props);
         for (int i = 0; i < numberOfMessages; i++) {
             KafkaProducerRecord<String, String> record =
-                    KafkaProducerRecord.create(topicName, "message_" + i);
+                    KafkaProducerRecord.create(topicName, messagePrefix + "_message_" + i);
 
             producer.send(record).onSuccess(recordMetadata ->
                     LOGGER.info(
