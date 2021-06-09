@@ -282,18 +282,9 @@ public class Types {
     public static class ConsumerGroupOffsetResetParameters {
 
         private String groupId;
-        private List<TopicPartitionsToReset> partitions;
+        private List<TopicPartitionsToReset> topics;
         private String offset;
-
-        public Long getTimestamp() {
-            return timestamp;
-        }
-
-        public void setTimestamp(Long timestamp) {
-            this.timestamp = timestamp;
-        }
-
-        private Long timestamp;
+        private String value;
 
         public String getGroupId() {
             return groupId;
@@ -303,12 +294,12 @@ public class Types {
             this.groupId = groupId;
         }
 
-        public List<TopicPartitionsToReset> getPartitions() {
-            return partitions;
+        public List<TopicPartitionsToReset> getTopics() {
+            return topics;
         }
 
-        public void setPartitions(List<TopicPartitionsToReset> partitions) {
-            this.partitions = partitions;
+        public void setTopics(List<TopicPartitionsToReset> topics) {
+            this.topics = topics;
         }
 
         public String getOffset() {
@@ -317,6 +308,14 @@ public class Types {
 
         public void setOffset(String offset) {
             this.offset = offset;
+        }
+
+        public String getValue() {
+            return value;
+        }
+
+        public void setValue(String value) {
+            this.value = value;
         }
     }
 

@@ -377,10 +377,6 @@ public class RestOperations extends CommonHandler implements OperationsHandler {
                 try {
                     parameters = mapper.readValue(routingContext.getBody().getBytes(), Types.ConsumerGroupOffsetResetParameters.class);
                     parameters.setGroupId(groupToReset);
-                    Pattern pattern = Pattern.compile("timestamp|earliest|latest|\\d+");
-                    if (parameters.getOffset() == null || !pattern.matcher(parameters.getOffset()).matches()) {
-                        throw new InvalidRequestException("Offset can be set to values timestamp, earliest, latest, [0-9]+ only.");
-                    }
                 } catch (IOException | InvalidRequestException e) {
                     routingContext.response().setStatusCode(HttpResponseStatus.BAD_REQUEST.code());
                     JsonObject jsonObject = new JsonObject();

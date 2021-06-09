@@ -459,7 +459,8 @@ paths:
                 value:
                   topic: my-topic
                   partition: 0
-                  offset: '42'
+                  offset: absolute
+                  value: '42'
         required: true
       parameters:
         - name: consumerGroupId
@@ -858,10 +859,15 @@ components:
       description: ''
       required:
         - offset
+        - value
       type: object
       properties:
         offset:
           type: string
+          enum:
+            - timestamp
+            - absolute
+            - relative
         timestamp:
           format: int32
           description: ''

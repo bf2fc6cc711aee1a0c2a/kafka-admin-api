@@ -1,7 +1,6 @@
 package org.bf2.admin.kafka.admin;
 
 import io.vertx.core.CompositeFuture;
-import org.apache.kafka.common.errors.InvalidConfigurationException;
 import org.bf2.admin.kafka.admin.model.Types;
 import org.bf2.admin.kafka.admin.handlers.CommonHandler;
 import io.vertx.core.Future;
@@ -18,6 +17,8 @@ import org.apache.kafka.common.errors.InvalidRequestException;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -137,21 +138,9 @@ public class ConsumerGroupOperations {
 
     @SuppressWarnings({"checkstyle:JavaNCSS"})
     public static void resetGroupOffset(KafkaAdminClient ac, Types.ConsumerGroupOffsetResetParameters parameters, Promise prom) {
-        if (parameters.getTimestamp() != null && !"timestamp".equals(parameters.getOffset())) {
-            log.error("if the timestamp is used, offset should be set to 'timestamp'");
-            prom.fail(new InvalidConfigurationException("if the timestamp is used, offset should be set to 'timestamp'"));
-            return;
-        }
-        if ("timestamp".equals(parameters.getOffset()) && parameters.getTimestamp() == null) {
-            log.error("Timestamp value needs to be configured");
-            prom.fail(new InvalidConfigurationException("Timestamp value needs to be configured"));
-            return;
-        }
-
         Set<TopicPartition> topicPartitionsToReset = new HashSet<>();
-        Promise partitionsToResetPromise = Promise.promise();
-        ArrayList<Future> promises = new ArrayList<>();
-        if (parameters.getPartitions() == null || parameters.getPartitions().isEmpty()) {
+        List<Future> promises = new ArrayList<>();
+        if (parameters.getTopics() == null || parameters.getTopics().isEmpty()) {
             // reset everything
             Promise promise = Promise.promise();
             promises.add(promise.future());
@@ -163,10 +152,9 @@ public class ConsumerGroupOperations {
                         return Future.succeededFuture(topicPartitionsToReset);
                     }).onComplete(topicPartitions -> {
                         promise.complete();
-                        partitionsToResetPromise.complete(topicPartitions);
                     });
         } else {
-            parameters.getPartitions().forEach(paramPartition -> {
+            parameters.getTopics().forEach(paramPartition -> {
                 Promise promise = Promise.promise();
                 promises.add(promise.future());
                 if (paramPartition.getPartitions() == null || paramPartition.getPartitions().isEmpty()) {
@@ -197,16 +185,23 @@ public class ConsumerGroupOperations {
         }).compose(i -> {
             Map<TopicPartition, OffsetSpec> partitionsToFetchOffset = new HashMap<>();
             topicPartitionsToReset.forEach(topicPartition -> {
-                OffsetSpec offsetSpec;
-                if (parameters.getOffset().equals("latest")) {
-                    offsetSpec = OffsetSpec.LATEST;
-                } else if (parameters.getOffset().equals("earliest")) {
-                    offsetSpec = OffsetSpec.EARLIEST;
-                } else if (parameters.getOffset().equals("timestamp")) {
-                    offsetSpec = OffsetSpec.TIMESTAMP(parameters.getTimestamp());
-                } else {
-                    // just for the warning that set offset could be higher than latest
-                    offsetSpec = OffsetSpec.LATEST;
+                OffsetSpec offsetSpec = OffsetSpec.LATEST;
+                // absolute - just for the warning that set offset could be higher than latest
+                if ("relative".equalsIgnoreCase(parameters.getOffset())) {
+                    if ("latest".equals(parameters.getValue())) {
+                        offsetSpec = OffsetSpec.LATEST;
+                    } else if ("earliest".equals(parameters.getValue())) {
+                        offsetSpec = OffsetSpec.EARLIEST;
+                    } else {
+                        throw new InvalidRequestException("Offset 'relative' can have values 'latest' or 'earliest' only");
+                    }
+                } else if ("timestamp".equals(parameters.getOffset())) {
+                    try {
+                        SimpleDateFormat formatter = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+                        offsetSpec = OffsetSpec.TIMESTAMP(formatter.parse(parameters.getValue()).getTime());
+                    } catch (ParseException e) {
+                        throw new InvalidRequestException("Timestamp must be in format 'yyyy-MM-dd HH:mm:ss'");
+                    }
                 }
                 partitionsToFetchOffset.put(topicPartition, offsetSpec);
             });
@@ -218,29 +213,34 @@ public class ConsumerGroupOperations {
                     promise.fail(partitionsOffsets.cause());
                     return;
                 }
-                if (!"latest".equals(parameters.getOffset()) && !"earliest".equals(parameters.getOffset()) && !"timestamp".equals(parameters.getOffset())) {
+                if ("absolute".equals(parameters.getOffset())) {
                     // numeric offset provided; check whether x > latest
                     promise.complete(partitionsOffsets.result().entrySet().stream().collect(Collectors.toMap(
                         entry -> entry.getKey(),
                         entry -> {
-                            if (entry.getValue().getOffset() < Long.parseLong(parameters.getOffset())) {
-                                log.warn("Selected offset {} is larger than latest {}", parameters.getOffset(), entry.getValue().getOffset());
+                            if (entry.getValue().getOffset() < Long.parseLong(parameters.getValue())) {
+                                log.warn("Selected offset {} is larger than latest {}", parameters.getValue(), entry.getValue().getOffset());
                             }
-                            return new ListOffsetsResultInfo(Long.parseLong(parameters.getOffset()), entry.getValue().getTimestamp(), entry.getValue().getLeaderEpoch());
+                            return new ListOffsetsResultInfo(Long.parseLong(parameters.getValue()), entry.getValue().getTimestamp(), entry.getValue().getLeaderEpoch());
                         })));
                 } else {
-                    promise.complete(partitionsOffsets.result().entrySet().stream().collect(Collectors.toMap(
+                    Map<TopicPartition, ListOffsetsResultInfo> kokot = partitionsOffsets.result().entrySet().stream().collect(Collectors.toMap(
                         entry -> entry.getKey(),
-                        entry ->  new ListOffsetsResultInfo(partitionsOffsets.result().get(entry.getKey()).getOffset(), entry.getValue().getTimestamp(), entry.getValue().getLeaderEpoch()))));
+                        entry -> new ListOffsetsResultInfo(partitionsOffsets.result().get(entry.getKey()).getOffset(), entry.getValue().getTimestamp(), entry.getValue().getLeaderEpoch())));
+                    promise.complete(kokot);
                 }
             });
             return promise.future();
         }).compose(newOffsets -> {
-            // assembly new offsets object
+            // assemble new offsets object
             Promise<Map<TopicPartition, OffsetAndMetadata>> promise = Promise.promise();
             ac.listConsumerGroupOffsets(parameters.getGroupId(), list -> {
                 if (list.failed()) {
                     promise.fail(list.cause());
+                    return;
+                }
+                if (list.result().isEmpty()) {
+                    promise.fail(new InvalidRequestException("Consumer Group " + parameters.getGroupId() + " does not consume any topics/partitions"));
                     return;
                 }
                 promise.complete(newOffsets.entrySet().stream().collect(Collectors.toMap(
