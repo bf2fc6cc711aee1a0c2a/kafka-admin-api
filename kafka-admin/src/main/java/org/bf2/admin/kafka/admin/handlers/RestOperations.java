@@ -394,7 +394,7 @@ public class RestOperations extends CommonHandler implements OperationsHandler {
     public void errorHandler(RoutingContext routingContext) {
         Timer.Sample requestTimerSample = Timer.start(httpMetrics.getRegistry());
         Promise<List<String>> prom = Promise.promise();
-        prom.fail(routingContext.failure().getCause());
+        prom.fail(routingContext.failure());
         processResponse(prom, routingContext, HttpResponseStatus.OK, httpMetrics, httpMetrics.getOpenApiRequestTimer(), requestTimerSample);
     }
 }
