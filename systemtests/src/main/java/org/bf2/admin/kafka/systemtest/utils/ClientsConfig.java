@@ -43,12 +43,22 @@ public class ClientsConfig {
         return props;
     }
 
-    public static Properties getConsumerConfigOauth(String bootstrap, String groupID, TokenModel token) {
-        Properties props = getConsumerConfig(bootstrap, groupID);
+    private static void getOauthConfig(Properties props, TokenModel token) {
         props.put(SaslConfigs.SASL_MECHANISM, "OAUTHBEARER");
         props.put(CommonClientConfigs.SECURITY_PROTOCOL_CONFIG, "SASL_PLAINTEXT");
         props.put(SaslConfigs.SASL_JAAS_CONFIG, "org.apache.kafka.common.security.oauthbearer.OAuthBearerLoginModule required oauth.access.token=\"" + token.getAccessToken() + "\";");
         props.put(SaslConfigs.SASL_LOGIN_CALLBACK_HANDLER_CLASS, "io.strimzi.kafka.oauth.client.JaasClientOauthLoginCallbackHandler");
+    }
+
+    public static Properties getConsumerConfigOauth(String bootstrap, String groupID, TokenModel token) {
+        Properties props = getConsumerConfig(bootstrap, groupID);
+        getOauthConfig(props, token);
+        return props;
+    }
+
+    public static Properties getProducerConfigOauth(String bootstrap, TokenModel token) {
+        Properties props = getProducerConfig(bootstrap);
+        getOauthConfig(props, token);
         return props;
     }
 }

@@ -7,6 +7,8 @@ import io.vertx.core.Vertx;
 import io.vertx.kafka.client.common.TopicPartition;
 import io.vertx.kafka.client.consumer.KafkaConsumer;
 import io.vertx.kafka.client.consumer.KafkaConsumerRecord;
+import io.vertx.kafka.client.producer.KafkaProducer;
+import io.vertx.kafka.client.producer.KafkaProducerRecord;
 import org.apache.kafka.clients.admin.AdminClient;
 import org.apache.kafka.clients.admin.NewTopic;
 import org.apache.logging.log4j.LogManager;
@@ -105,6 +107,7 @@ public class AsyncMessaging {
             return completeFuture;
         });
     }
+
     public static KafkaConsumer<String, String> createActiveConsumerGroupOauth(Vertx vertx, AdminClient kafkaClient, String bootstrap, String groupID, String topicName, TokenModel token) throws Exception {
         kafkaClient.createTopics(Collections.singletonList(
                 new NewTopic(topicName, 1, (short) 1)
@@ -126,14 +129,36 @@ public class AsyncMessaging {
         return consumer;
     }
 
-    private static KafkaConsumer<String, String> createConsumer(Vertx vertx, String topic, String groupID, String boostrap) {
+    public static KafkaConsumer<String, String> createConsumer(Vertx vertx, String topic, String groupID, String boostrap) {
         final Properties props = ClientsConfig.getConsumerConfig(boostrap, groupID);
-
 
         // Create the consumer using props.
         final KafkaConsumer<String, String> consumer = KafkaConsumer.create(vertx, props);
         consumer.subscribe(topic);
 
         return consumer;
+    }
+
+    //todo: return future
+    public static void produceMessages(Vertx vertx, String bootstrap, String topicName, int numberOfMessages, TokenModel token) {
+        final Properties props;
+        if (token == null) {
+            props = ClientsConfig.getProducerConfig(bootstrap);
+        } else {
+            props = ClientsConfig.getProducerConfigOauth(bootstrap, token);
+        }
+        KafkaProducer<String, String> producer = KafkaProducer.create(vertx, props);
+        for (int i = 0; i < numberOfMessages; i++) {
+            KafkaProducerRecord<String, String> record =
+                    KafkaProducerRecord.create(topicName, "message_" + i);
+
+            producer.send(record).onSuccess(recordMetadata ->
+                    LOGGER.info(
+                            "Message " + record.value() + " written on topic=" + recordMetadata.getTopic() +
+                                    ", partition=" + recordMetadata.getPartition() +
+                                    ", offset=" + recordMetadata.getOffset()
+                    )
+            );
+        }
     }
 }
