@@ -140,7 +140,7 @@ public class AsyncMessaging {
     }
 
     public static void produceMessages(Vertx vertx, String bootstrap, String topicName, int numberOfMessages, TokenModel token) {
-        produceMessages(vertx, bootstrap, topicName, numberOfMessages, token, "");
+        produceMessages(vertx, bootstrap, topicName, numberOfMessages, token, "X");
     }
 
     public static void produceMessages(Vertx vertx, String bootstrap, String topicName, int numberOfMessages, TokenModel token, String messagePrefix) {
@@ -151,6 +151,7 @@ public class AsyncMessaging {
             props = ClientsConfig.getProducerConfigOauth(bootstrap, token);
         }
         KafkaProducer<String, String> producer = KafkaProducer.create(vertx, props);
+
         for (int i = 0; i < numberOfMessages; i++) {
             KafkaProducerRecord<String, String> record =
                     KafkaProducerRecord.create(topicName, messagePrefix + "_message_" + i);
