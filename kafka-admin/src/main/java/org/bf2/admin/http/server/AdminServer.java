@@ -279,8 +279,9 @@ public class AdminServer extends AbstractVerticle {
         } else {
             try {
                 value = new String(BASE64_DECODER.decode(value), StandardCharsets.UTF_8);
+                LOGGER.debug("Successfully decoded base-64 cert config value");
             } catch (IllegalArgumentException e) {
-                LOGGER.info("Cert config value was not base-64 encoded, using raw value. Illegal argument: {}", e.getMessage());
+                LOGGER.debug("Cert config value was not base-64 encoded: {}", e.getMessage());
             }
 
             valueSetter.accept(Buffer.buffer(value));
