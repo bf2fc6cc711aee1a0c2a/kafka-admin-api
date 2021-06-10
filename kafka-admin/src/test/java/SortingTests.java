@@ -71,7 +71,7 @@ public class SortingTests {
         CommonHandler.TopicComparator topicComparator = new CommonHandler.TopicComparator(key);
         topicComparator.compare(first, second);
 
-        Assertions.assertEquals(1, topicComparator.compare(first, second));
+        Assertions.assertEquals(-1, topicComparator.compare(first, second));
     }
 
 
@@ -116,9 +116,7 @@ public class SortingTests {
         second.setConfig(Collections.singletonList(ce2));
 
         CommonHandler.TopicComparator topicComparator = new CommonHandler.TopicComparator(key);
-        Throwable exception = Assertions.assertThrows(IllegalStateException.class, () -> topicComparator.compare(first, second));
-
-        Assertions.assertEquals("Sorting failed", exception.getMessage());
+        Assertions.assertEquals(0, topicComparator.compare(first, second));
     }
 
     @Test
@@ -139,9 +137,7 @@ public class SortingTests {
         second.setConfig(Collections.singletonList(ce2));
 
         CommonHandler.TopicComparator topicComparator = new CommonHandler.TopicComparator(key);
-        Throwable exception = Assertions.assertThrows(IllegalStateException.class, () -> topicComparator.compare(first, second));
-
-        Assertions.assertEquals("Sorting failed", exception.getMessage());
+        Assertions.assertEquals(0, topicComparator.compare(first, second));
     }
 
     // consumer group
@@ -195,8 +191,7 @@ public class SortingTests {
         second.setGroupId("my-group");
 
         CommonHandler.ConsumerGroupComparator consumerGroupComparator = new CommonHandler.ConsumerGroupComparator(key);
-        Throwable ex = Assertions.assertThrows(IllegalStateException.class, () -> consumerGroupComparator.compare(first, second));
-        Assertions.assertEquals("Sorting failed", ex.getMessage());
+        Assertions.assertEquals(0, consumerGroupComparator.compare(first, second));
     }
 
 }

@@ -228,17 +228,17 @@ public class CommonHandler {
                 Types.ConfigEntry first = firstTopic.getConfig().stream().filter(entry -> entry.getKey().equals("retention.ms")).findFirst().orElseGet(() -> null);
                 Types.ConfigEntry second = secondTopic.getConfig().stream().filter(entry -> entry.getKey().equals("retention.ms")).findFirst().orElseGet(() -> null);
                 if (first == null || second == null || first.getValue() == null || second.getValue() == null) {
-                    throw new IllegalStateException("Sorting failed");
+                    return 0;
                 } else {
-                    return Long.compare(first.equals("-1") ? Long.MAX_VALUE : Long.parseLong(first.getValue()), second.equals("-1") ? Long.MAX_VALUE : Long.parseLong(second.getValue()));
+                    return Long.compare(first.getValue().equals("-1") ? Long.MAX_VALUE : Long.parseLong(first.getValue()), second.getValue().equals("-1") ? Long.MAX_VALUE : Long.parseLong(second.getValue()));
                 }
             } else if ("retention.bytes".equals(key)) {
                 Types.ConfigEntry first = firstTopic.getConfig().stream().filter(entry -> entry.getKey().equals("retention.bytes")).findFirst().orElseGet(() -> null);
                 Types.ConfigEntry second = secondTopic.getConfig().stream().filter(entry -> entry.getKey().equals("retention.bytes")).findFirst().orElseGet(() -> null);
                 if (first == null || second == null || first.getValue() == null || second.getValue() == null) {
-                    throw new IllegalStateException("Sorting failed");
+                    return 0;
                 } else {
-                    return Long.compare(first.equals("-1") ? Long.MAX_VALUE : Long.parseLong(first.getValue()), second.equals("-1") ? Long.MAX_VALUE : Long.parseLong(second.getValue()));
+                    return Long.compare(first.getValue().equals("-1") ? Long.MAX_VALUE : Long.parseLong(first.getValue()), second.getValue().equals("-1") ? Long.MAX_VALUE : Long.parseLong(second.getValue()));
                 }
             }
             return 0;
@@ -261,7 +261,7 @@ public class CommonHandler {
             if ("name".equals(key)) {
                 if (firstConsumerGroup == null || firstConsumerGroup.getGroupId() == null
                     || secondConsumerGroup == null || secondConsumerGroup.getGroupId() == null) {
-                    throw new IllegalStateException("Sorting failed");
+                    return 0;
                 } else {
                     return firstConsumerGroup.getGroupId().compareToIgnoreCase(secondConsumerGroup.getGroupId());
                 }

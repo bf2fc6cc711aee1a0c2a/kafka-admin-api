@@ -144,7 +144,7 @@ public class TopicOperations {
                     fullTopicDescriptions.add(topicWithDescription);
                 });
 
-                if (orderByInput.getOrder().equals(Types.SortDirectionEnum.ASC)) {
+                if (Types.SortDirectionEnum.ASC.equals(orderByInput.getOrder())) {
                     fullTopicDescriptions.sort(new CommonHandler.TopicComparator(orderByInput.getField()));
                 } else {
                     fullTopicDescriptions.sort(new CommonHandler.TopicComparator(orderByInput.getField()).reversed());
