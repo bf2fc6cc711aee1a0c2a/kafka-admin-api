@@ -690,7 +690,6 @@ public class RestEndpointTestIT extends PlainTestBase {
         conf.setKey(configKey);
         conf.setValue("2");
         topic1.setConfig(Collections.singletonList(conf));
-
         kafkaClient.createTopics(Collections.singletonList(
                 new NewTopic(topicName, 1, (short) 1)
         ));
@@ -711,6 +710,84 @@ public class RestEndpointTestIT extends PlainTestBase {
                     String configVal = kafkaClient.describeConfigs(Collections.singletonList(resource))
                             .all().get().get(resource).get("min.insync.replicas").value();
                     assertThat(configVal).isEqualTo("1");
+                    testContext.completeNow();
+                })));
+        assertThat(testContext.awaitCompletion(1, TimeUnit.MINUTES)).isTrue();
+    }
+
+    @ParallelTest
+    void testIncreaseTopicPartitions(Vertx vertx, VertxTestContext testContext, ExtensionContext extensionContext) throws Exception {
+        AdminClient kafkaClient = AdminClient.create(RequestUtils.getKafkaAdminConfig(DEPLOYMENT_MANAGER
+                .getKafkaContainer(extensionContext).getBootstrapServers()));
+        int publishedAdminPort = DEPLOYMENT_MANAGER.getAdminPort(extensionContext);
+
+        final String topicName = UUID.randomUUID().toString();
+        final String configKey = "min.insync.replicas";
+        Types.UpdatedTopic topic1 = new Types.UpdatedTopic();
+        topic1.setName(topicName);
+        Types.NewTopicConfigEntry conf = new Types.NewTopicConfigEntry();
+        conf.setKey(configKey);
+        conf.setValue("2");
+        topic1.setConfig(Collections.singletonList(conf));
+        topic1.setNumPartitions(3);
+
+        kafkaClient.createTopics(Collections.singletonList(
+                new NewTopic(topicName, 1, (short) 1)
+        ));
+        DynamicWait.waitForTopicExists(topicName, kafkaClient);
+        createHttpClient(vertx).request(HttpMethod.PATCH, publishedAdminPort, "localhost", "/rest/topics/" + topicName)
+                .compose(req -> req.putHeader("content-type", "application/json")
+                        .send(MODEL_DESERIALIZER.serializeBody(topic1)).onSuccess(response -> {
+                            if (response.statusCode() !=  ReturnCodes.SUCCESS.code) {
+                                testContext.failNow("Status code " + response.statusCode() + " is not correct");
+                            }
+                            assertStrictTransportSecurityDisabled(response, testContext);
+                        }).onFailure(testContext::failNow).compose(HttpClientResponse::body))
+                .onComplete(testContext.succeeding(buffer -> testContext.verify(() -> {
+                    assertThat(testContext.failed()).isFalse();
+                    DynamicWait.waitForTopicExists(topicName, kafkaClient);
+                    ConfigResource resource = new ConfigResource(org.apache.kafka.common.config.ConfigResource.Type.TOPIC,
+                            topicName);
+                    String configVal = kafkaClient.describeConfigs(Collections.singletonList(resource))
+                            .all().get().get(resource).get("min.insync.replicas").value();
+                    assertThat(configVal).isEqualTo("2");
+                    int partitions = kafkaClient.describeTopics(Collections.singletonList(topicName)).all().get().get(topicName).partitions().size();
+                    assertThat(partitions).isEqualTo(3);
+                    testContext.completeNow();
+                })));
+        assertThat(testContext.awaitCompletion(1, TimeUnit.MINUTES)).isTrue();
+    }
+
+    @ParallelTest
+    void testDecreaseTopicPartitions(Vertx vertx, VertxTestContext testContext, ExtensionContext extensionContext) throws Exception {
+        AdminClient kafkaClient = AdminClient.create(RequestUtils.getKafkaAdminConfig(DEPLOYMENT_MANAGER
+                .getKafkaContainer(extensionContext).getBootstrapServers()));
+        int publishedAdminPort = DEPLOYMENT_MANAGER.getAdminPort(extensionContext);
+
+        final String topicName = UUID.randomUUID().toString();
+        final String configKey = "min.insync.replicas";
+        Types.UpdatedTopic topic1 = new Types.UpdatedTopic();
+        topic1.setName(topicName);
+        Types.NewTopicConfigEntry conf = new Types.NewTopicConfigEntry();
+        conf.setKey(configKey);
+        conf.setValue("2");
+        topic1.setConfig(Collections.singletonList(conf));
+        topic1.setNumPartitions(1);
+
+        kafkaClient.createTopics(Collections.singletonList(
+                new NewTopic(topicName, 3, (short) 1)
+        ));
+        DynamicWait.waitForTopicExists(topicName, kafkaClient);
+        createHttpClient(vertx).request(HttpMethod.PATCH, publishedAdminPort, "localhost", "/rest/topics/" + topicName)
+                .compose(req -> req.putHeader("content-type", "application/json")
+                        .send(MODEL_DESERIALIZER.serializeBody(topic1)).onSuccess(response -> {
+                            if (response.statusCode() !=  ReturnCodes.FAILED_REQUEST.code) {
+                                testContext.failNow("Status code " + response.statusCode() + " is not correct");
+                            }
+                            assertStrictTransportSecurityDisabled(response, testContext);
+                        }).onFailure(testContext::failNow).compose(HttpClientResponse::body))
+                .onComplete(testContext.succeeding(buffer -> testContext.verify(() -> {
+                    assertThat(testContext.failed()).isFalse();
                     testContext.completeNow();
                 })));
         assertThat(testContext.awaitCompletion(1, TimeUnit.MINUTES)).isTrue();
