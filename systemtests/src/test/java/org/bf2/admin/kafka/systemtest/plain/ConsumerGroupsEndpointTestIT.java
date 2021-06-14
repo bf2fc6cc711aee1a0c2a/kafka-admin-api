@@ -20,7 +20,6 @@ import org.bf2.admin.kafka.systemtest.utils.SyncMessaging;
 import org.junit.jupiter.api.extension.ExtensionContext;
 
 import java.util.Collections;
-import java.util.Comparator;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
@@ -61,7 +60,8 @@ public class ConsumerGroupsEndpointTestIT extends PlainTestBase {
         int publishedAdminPort = DEPLOYMENT_MANAGER.getAdminPort(extensionContext);
 
         List<String> grpIds = SyncMessaging.createConsumerGroups(vertx, kafkaClient, 5, DEPLOYMENT_MANAGER.getKafkaContainer(extensionContext).getBootstrapServers(), testContext);
-        List<String> grpIdsS = grpIds.stream().sorted().collect(Collectors.toList());
+        grpIds.sort(String::compareToIgnoreCase);
+        Collections.reverse(grpIds);
         HttpClient client = createHttpClient(vertx);
         client.request(HttpMethod.GET, publishedAdminPort, "localhost", "/rest/consumer-groups?orderKey=name&order=desc")
                 .compose(req -> req.send().onSuccess(response -> {
@@ -72,7 +72,7 @@ public class ConsumerGroupsEndpointTestIT extends PlainTestBase {
                 .onComplete(testContext.succeeding(buffer -> testContext.verify(() -> {
                     Types.ConsumerGroupList response = MODEL_DESERIALIZER.deserializeResponse(buffer, Types.ConsumerGroupList.class);
                     List<String> responseGroupIDs = response.getItems().stream().map(Types.ConsumerGroup::getGroupId).collect(Collectors.toList());
-                    assertThat(grpIdsS).isEqualTo(responseGroupIDs);
+                    assertThat(grpIds).isEqualTo(responseGroupIDs);
                     testContext.completeNow();
                 })));
         assertThat(testContext.awaitCompletion(1, TimeUnit.MINUTES)).isTrue();
@@ -85,7 +85,8 @@ public class ConsumerGroupsEndpointTestIT extends PlainTestBase {
         int publishedAdminPort = DEPLOYMENT_MANAGER.getAdminPort(extensionContext);
 
         List<String> grpIds = SyncMessaging.createConsumerGroups(vertx, kafkaClient, 5, DEPLOYMENT_MANAGER.getKafkaContainer(extensionContext).getBootstrapServers(), testContext);
-        List<String> grpIdsS = grpIds.stream().sorted(Comparator.reverseOrder()).collect(Collectors.toList());
+
+        grpIds.sort(String::compareToIgnoreCase);
         HttpClient client = createHttpClient(vertx);
         client.request(HttpMethod.GET, publishedAdminPort, "localhost", "/rest/consumer-groups?orderKey=name&order=asc")
                 .compose(req -> req.send().onSuccess(response -> {
@@ -96,7 +97,7 @@ public class ConsumerGroupsEndpointTestIT extends PlainTestBase {
                 .onComplete(testContext.succeeding(buffer -> testContext.verify(() -> {
                     Types.ConsumerGroupList response = MODEL_DESERIALIZER.deserializeResponse(buffer, Types.ConsumerGroupList.class);
                     List<String> responseGroupIDs = response.getItems().stream().map(Types.ConsumerGroup::getGroupId).collect(Collectors.toList());
-                    assertThat(grpIdsS).isEqualTo(responseGroupIDs);
+                    assertThat(grpIds).isEqualTo(responseGroupIDs);
                     testContext.completeNow();
                 })));
         assertThat(testContext.awaitCompletion(1, TimeUnit.MINUTES)).isTrue();
