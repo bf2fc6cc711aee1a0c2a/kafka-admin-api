@@ -14,6 +14,7 @@ import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.RoutingContext;
 import io.vertx.ext.web.handler.impl.HttpStatusException;
 import io.vertx.ext.web.validation.BodyProcessorException;
+import io.vertx.ext.web.validation.ParameterProcessorException;
 import io.vertx.json.schema.ValidationException;
 import io.vertx.kafka.admin.KafkaAdminClient;
 import org.apache.kafka.common.KafkaException;
@@ -107,9 +108,6 @@ public class CommonHandler {
             if (res.failed()) {
                 Throwable failureCause = res.cause();
 
-                if (failureCause instanceof Future) {
-                    failureCause = failureCause.getCause();
-                }
                 // TODO: Refactor this...
                 if (failureCause instanceof HttpStatusException) {
                     HttpStatusException cause = (HttpStatusException) failureCause;
@@ -130,7 +128,8 @@ public class CommonHandler {
                             && failureCause.getCause().getMessage().contains("Authentication failed due to an invalid token"))) {
                     routingContext.response().setStatusCode(HttpResponseStatus.UNAUTHORIZED.code());
                 } else if (failureCause instanceof org.apache.kafka.common.errors.InvalidTopicException
-                        || failureCause instanceof InvalidReplicationFactorException) {
+                        || failureCause instanceof InvalidReplicationFactorException
+                        || failureCause instanceof ParameterProcessorException) {
                     routingContext.response().setStatusCode(HttpResponseStatus.BAD_REQUEST.code());
                 } else if (failureCause instanceof TopicExistsException) {
                     routingContext.response().setStatusCode(HttpResponseStatus.CONFLICT.code());
