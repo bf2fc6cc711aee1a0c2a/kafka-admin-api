@@ -17,8 +17,9 @@ import org.apache.kafka.common.errors.InvalidRequestException;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
-import java.text.ParseException;
-import java.text.SimpleDateFormat;
+import java.time.ZonedDateTime;
+import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -33,7 +34,7 @@ import java.util.stream.Collectors;
 @SuppressWarnings({"checkstyle:CyclomaticComplexity", "checkstyle:NPathComplexity"})
 public class ConsumerGroupOperations {
     protected static final Logger log = LogManager.getLogger(ConsumerGroupOperations.class);
-
+    private static final DateTimeFormatter DATE_TIME_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss z");
 
     public static void getGroupList(KafkaAdminClient ac, Promise prom, Pattern pattern, int offset, final int limit, final String groupIdPrefix, Types.OrderByInput orderByInput) {
         Promise<List<ConsumerGroupListing>> listConsumerGroupsFuture = Promise.promise();
@@ -197,10 +198,9 @@ public class ConsumerGroupOperations {
                     }
                 } else if ("timestamp".equals(parameters.getOffset())) {
                     try {
-                        SimpleDateFormat formatter = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
-                        offsetSpec = OffsetSpec.TIMESTAMP(formatter.parse(parameters.getValue()).getTime());
-                    } catch (ParseException e) {
-                        throw new InvalidRequestException("Timestamp must be in format 'yyyy-MM-dd HH:mm:ss'");
+                        offsetSpec = OffsetSpec.TIMESTAMP(ZonedDateTime.parse(parameters.getValue(), DATE_TIME_FORMATTER).toInstant().toEpochMilli());
+                    } catch (DateTimeParseException e) {
+                        throw new InvalidRequestException("Timestamp must be in format 'yyyy-MM-dd HH:mm:ss z'");
                     }
                 }
                 partitionsToFetchOffset.put(topicPartition, offsetSpec);

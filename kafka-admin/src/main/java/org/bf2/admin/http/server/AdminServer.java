@@ -200,9 +200,7 @@ public class AdminServer extends AbstractVerticle {
             clientCredentialsFlow.put("tokenUrl", config.getOauthTokenEndpointUri());
         } else {
             clientCredentialsFlow.remove("tokenUrl");
-
-        routerFactory.operation(Operations.RESET_CONSUMER_GROUP_OFFSET).handler(ro::resetGroupOffset).failureHandler(ro::errorHandler);
-    }
+        }
 
         return oauth2Provider.jWKSet()
                 .onSuccess(ignored -> LOGGER.info("Loaded JWKS from {}", config.getOauthJwksEndpointUri()))
@@ -219,7 +217,8 @@ public class AdminServer extends AbstractVerticle {
                                                              Operations.UPDATE_TOPIC, ro::updateTopic,
                                                              Operations.GET_CONSUMER_GROUP, ro::describeGroup,
                                                              Operations.GET_CONSUMER_GROUPS_LIST, ro::listGroups,
-                                                             Operations.DELETE_CONSUMER_GROUP, ro::deleteGroup);
+                                                             Operations.DELETE_CONSUMER_GROUP, ro::deleteGroup,
+                                                             Operations.RESET_CONSUMER_GROUP_OFFSET, ro::resetGroupOffset);
 
         routes.entrySet().forEach(route ->
             routerFactory.operation(route.getKey())

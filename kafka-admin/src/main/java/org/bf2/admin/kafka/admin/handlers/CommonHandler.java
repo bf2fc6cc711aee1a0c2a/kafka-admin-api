@@ -28,6 +28,7 @@ import org.apache.kafka.common.errors.InvalidConfigurationException;
 import org.apache.kafka.common.errors.InvalidPartitionsException;
 import org.apache.kafka.common.errors.InvalidReplicationFactorException;
 import org.apache.kafka.common.errors.InvalidRequestException;
+import org.apache.kafka.common.errors.LeaderNotAvailableException;
 import org.apache.kafka.common.errors.SaslAuthenticationException;
 import org.apache.kafka.common.errors.TimeoutException;
 import org.apache.kafka.common.errors.TopicExistsException;
@@ -149,7 +150,7 @@ public class CommonHandler {
                         || failureCause instanceof BodyProcessorException
                         || failureCause instanceof UnknownMemberIdException
                         || failureCause instanceof InvalidConsumerGroupException
-                        || res.cause() instanceof LeaderNotAvailableException) {
+                        || failureCause instanceof LeaderNotAvailableException) {
                     routingContext.response().setStatusCode(HttpResponseStatus.BAD_REQUEST.code());
                 } else if (failureCause instanceof KafkaException) {
                     // Most of the kafka related exceptions are extended from KafkaException
