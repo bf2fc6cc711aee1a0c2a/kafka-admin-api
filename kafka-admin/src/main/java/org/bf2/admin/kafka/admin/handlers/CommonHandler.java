@@ -108,9 +108,6 @@ public class CommonHandler {
             if (res.failed()) {
                 Throwable failureCause = res.cause();
 
-                if (failureCause instanceof Future) {
-                    failureCause = failureCause.getCause();
-                }
                 // TODO: Refactor this...
                 if (failureCause instanceof HttpStatusException) {
                     HttpStatusException cause = (HttpStatusException) failureCause;
