@@ -1,14 +1,5 @@
 package org.bf2.admin.kafka.admin.handlers;
 
-import io.vertx.ext.web.validation.BodyProcessorException;
-import org.apache.kafka.common.errors.GroupNotEmptyException;
-import org.apache.kafka.common.errors.InvalidPartitionsException;
-import org.apache.kafka.common.errors.UnknownMemberIdException;
-import org.bf2.admin.kafka.admin.InvalidConsumerGroupException;
-import org.bf2.admin.kafka.admin.InvalidTopicException;
-import org.bf2.admin.kafka.admin.KafkaAdminConfigRetriever;
-import org.bf2.admin.kafka.admin.HttpMetrics;
-import org.bf2.admin.kafka.admin.model.Types;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.ObjectWriter;
@@ -21,7 +12,7 @@ import io.vertx.core.Vertx;
 import io.vertx.core.json.DecodeException;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.RoutingContext;
-import io.vertx.ext.web.handler.impl.HttpStatusException;
+import io.vertx.ext.web.handler.HttpException;
 import io.vertx.ext.web.validation.BodyProcessorException;
 import io.vertx.json.schema.ValidationException;
 import io.vertx.kafka.admin.KafkaAdminClient;
@@ -33,6 +24,7 @@ import org.apache.kafka.common.errors.GroupAuthorizationException;
 import org.apache.kafka.common.errors.GroupIdNotFoundException;
 import org.apache.kafka.common.errors.GroupNotEmptyException;
 import org.apache.kafka.common.errors.InvalidConfigurationException;
+import org.apache.kafka.common.errors.InvalidPartitionsException;
 import org.apache.kafka.common.errors.InvalidReplicationFactorException;
 import org.apache.kafka.common.errors.InvalidRequestException;
 import org.apache.kafka.common.errors.SaslAuthenticationException;
@@ -117,8 +109,8 @@ public class CommonHandler {
                 Throwable failureCause = res.cause();
 
                 // TODO: Refactor this...
-                if (failureCause instanceof HttpStatusException) {
-                    HttpStatusException cause = (HttpStatusException) failureCause;
+                if (failureCause instanceof HttpException) {
+                    HttpException cause = (HttpException) failureCause;
                     routingContext.response().setStatusCode(cause.getStatusCode());
                 } else if (failureCause instanceof UnknownTopicOrPartitionException
                         || failureCause instanceof GroupIdNotFoundException) {
