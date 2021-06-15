@@ -51,7 +51,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.regex.PatternSyntaxException;
 
-@SuppressWarnings({"checkstyle:ClassFanOutComplexity", "checkstyle:CyclomaticComplexity"})
+@SuppressWarnings({"checkstyle:ClassFanOutComplexity", "checkstyle:CyclomaticComplexity", "checkstyle:ClassFanOutComplexity"})
 public class CommonHandler {
 
     protected static final Logger log = LogManager.getLogger(CommonHandler.class);
@@ -114,6 +114,9 @@ public class CommonHandler {
                 if (failureCause instanceof HttpException) {
                     HttpException cause = (HttpException) failureCause;
                     routingContext.response().setStatusCode(cause.getStatusCode());
+                } else if (failureCause instanceof ExceptionInInitializerError) {
+                    failureCause = failureCause.getCause();
+                    routingContext.response().setStatusCode(HttpResponseStatus.BAD_REQUEST.code());
                 } else if (failureCause instanceof UnknownTopicOrPartitionException
                         || failureCause instanceof GroupIdNotFoundException) {
                     routingContext.response().setStatusCode(HttpResponseStatus.NOT_FOUND.code());

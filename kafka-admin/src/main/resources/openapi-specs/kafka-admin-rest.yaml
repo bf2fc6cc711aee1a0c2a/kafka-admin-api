@@ -475,7 +475,8 @@ paths:
             application/json:
               schema:
                 type: array
-                $ref: '#/components/schemas/ConsumerGroup'
+                items:
+                  $ref: '#/components/schemas/ConsumerGroup'
           description: The consumer group offsets have been reset.
         '400':
           description: The consumer group to reset the offset does have active consumers.
@@ -868,10 +869,6 @@ components:
             - timestamp
             - absolute
             - relative
-        timestamp:
-          format: int32
-          description: ''
-          type: integer
         partitions:
           type: array
           items:

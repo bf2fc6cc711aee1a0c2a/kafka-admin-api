@@ -34,7 +34,7 @@ import java.util.stream.Collectors;
 @SuppressWarnings({"checkstyle:CyclomaticComplexity", "checkstyle:NPathComplexity"})
 public class ConsumerGroupOperations {
     protected static final Logger log = LogManager.getLogger(ConsumerGroupOperations.class);
-    private static final DateTimeFormatter DATE_TIME_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss z");
+    private static final DateTimeFormatter DATE_TIME_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ssz");
 
     public static void getGroupList(KafkaAdminClient ac, Promise prom, Pattern pattern, int offset, final int limit, final String groupIdPrefix, Types.OrderByInput orderByInput) {
         Promise<List<ConsumerGroupListing>> listConsumerGroupsFuture = Promise.promise();
@@ -200,7 +200,7 @@ public class ConsumerGroupOperations {
                     try {
                         offsetSpec = OffsetSpec.TIMESTAMP(ZonedDateTime.parse(parameters.getValue(), DATE_TIME_FORMATTER).toInstant().toEpochMilli());
                     } catch (DateTimeParseException e) {
-                        throw new InvalidRequestException("Timestamp must be in format 'yyyy-MM-dd HH:mm:ss z'");
+                        throw new InvalidRequestException("Timestamp must be in format 'yyyy-MM-dd'T'HH:mm:ssz'" + e.getMessage());
                     }
                 }
                 partitionsToFetchOffset.put(topicPartition, offsetSpec);
