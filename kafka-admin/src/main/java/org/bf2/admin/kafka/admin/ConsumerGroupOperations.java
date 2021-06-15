@@ -91,10 +91,10 @@ public class ConsumerGroupOperations {
                     return Future.failedFuture(new InvalidRequestException("Offset (" + offset + ") cannot be greater than consumer group list size (" + list.size() + ")"));
                 }
 
-                if (Types.SortDirectionEnum.ASC.equals(orderByInput.getOrder())) {
-                    list.sort(new CommonHandler.ConsumerGroupComparator(orderByInput.getField()));
-                } else {
+                if (Types.SortDirectionEnum.DESC.equals(orderByInput.getOrder())) {
                     list.sort(new CommonHandler.ConsumerGroupComparator(orderByInput.getField()).reversed());
+                } else {
+                    list.sort(new CommonHandler.ConsumerGroupComparator(orderByInput.getField()));
                 }
 
                 int tmpLimit = limit;

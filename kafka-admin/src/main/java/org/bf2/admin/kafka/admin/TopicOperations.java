@@ -144,10 +144,10 @@ public class TopicOperations {
                     fullTopicDescriptions.add(topicWithDescription);
                 });
 
-                if (Types.SortDirectionEnum.ASC.equals(orderByInput.getOrder())) {
-                    fullTopicDescriptions.sort(new CommonHandler.TopicComparator(orderByInput.getField()));
-                } else {
+                if (Types.SortDirectionEnum.DESC.equals(orderByInput.getOrder())) {
                     fullTopicDescriptions.sort(new CommonHandler.TopicComparator(orderByInput.getField()).reversed());
+                } else {
+                    fullTopicDescriptions.sort(new CommonHandler.TopicComparator(orderByInput.getField()));
                 }
 
                 if (offset > fullTopicDescriptions.size()) {
