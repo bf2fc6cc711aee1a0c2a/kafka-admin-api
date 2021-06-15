@@ -14,14 +14,13 @@ import org.bf2.admin.kafka.systemtest.json.OffsetModel;
 import org.bf2.admin.kafka.systemtest.json.PartitionsModel;
 import org.bf2.admin.kafka.systemtest.utils.AsyncMessaging;
 import org.bf2.admin.kafka.systemtest.utils.ClientsConfig;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
-import java.text.SimpleDateFormat;
 import java.time.Duration;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.Date;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
@@ -193,7 +192,7 @@ public class PartitionsOffsetOauthIT extends OauthTestBase {
         testContext.completeNow();
     }
 
-    @Disabled
+    //@Disabled
     @Test
     void testResetOffsetToTimestampAuthorized(Vertx vertx, VertxTestContext testContext) throws InterruptedException {
         NewTopic topic = new NewTopic(UUID.randomUUID().toString(), 1, (short) 1);
@@ -206,9 +205,8 @@ public class PartitionsOffsetOauthIT extends OauthTestBase {
         // Sleep between sections
         Thread.sleep(10_000);
 
-        SimpleDateFormat sdfDate = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
-        Date now = new Date();
-        String timestamp = sdfDate.format(now);
+        DateTimeFormatter sdfDate = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+        String timestamp = sdfDate.format(LocalDateTime.now());
 
         Thread.sleep(10_000);
         AsyncMessaging.produceMessages(vertx, "localhost:9092", topic.name(), 5, token, "B");
