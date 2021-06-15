@@ -135,9 +135,9 @@ public class CommonHandler {
                 } else if (failureCause instanceof InvalidRequestException
                         || failureCause instanceof InvalidConfigurationException
                         || failureCause instanceof IllegalArgumentException
-                        || res.cause() instanceof InvalidReplicationFactorException
-                        || res.cause() instanceof org.apache.kafka.common.errors.InvalidTopicException
-                        || res.cause() instanceof InvalidPartitionsException) {
+                        || failureCause instanceof InvalidReplicationFactorException
+                        || failureCause instanceof org.apache.kafka.common.errors.InvalidTopicException
+                        || failureCause instanceof InvalidPartitionsException) {
                     routingContext.response().setStatusCode(HttpResponseStatus.BAD_REQUEST.code());
                 } else if (failureCause instanceof IllegalStateException) {
                     routingContext.response().setStatusCode(HttpResponseStatus.UNAUTHORIZED.code());
