@@ -205,7 +205,7 @@ public class PartitionsOffsetOauthIT extends OauthTestBase {
         // Sleep between sections
         Thread.sleep(10_000);
 
-        DateTimeFormatter sdfDate = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+        DateTimeFormatter sdfDate = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss'UTC'");
         String timestamp = sdfDate.format(LocalDateTime.now());
 
         Thread.sleep(10_000);
