@@ -209,8 +209,11 @@ public class RestOperations extends CommonHandler implements OperationsHandler {
         String filter = routingContext.queryParams().get("filter");
         String limit = routingContext.queryParams().get("limit") == null ? "0" : routingContext.queryParams().get("limit");
         String offset = routingContext.queryParams().get("offset") == null ? "0" : routingContext.queryParams().get("offset");
-        Types.SortDirectionEnum sortReverse = routingContext.queryParams().get("order") == null ?
-            Types.SortDirectionEnum.ASC : "desc".equals(routingContext.queryParams().get("order")) ? Types.SortDirectionEnum.DESC : Types.SortDirectionEnum.ASC;
+        Types.SortDirectionEnum sortReverse = Types.SortDirectionEnum.fromString(routingContext.queryParams().get("order"));
+        String sortKey = routingContext.queryParams().get("orderKey") == null ? "name" : routingContext.queryParams().get("orderKey");
+        Types.OrderByInput orderBy = new Types.OrderByInput();
+        orderBy.setField(sortKey);
+        orderBy.setOrder(sortReverse);
         final Pattern pattern;
         Promise<Types.TopicList> prom = Promise.promise();
         if (filter != null && !filter.isEmpty()) {
@@ -227,7 +230,7 @@ public class RestOperations extends CommonHandler implements OperationsHandler {
                     if (Integer.parseInt(offset) < 0 || Integer.parseInt(limit) < 0) {
                         throw new InvalidRequestException("Offset and limit have to be positive integers.");
                     }
-                    TopicOperations.getTopicList(ac.result(), prom, pattern, Integer.parseInt(offset), Integer.parseInt(limit), sortReverse);
+                    TopicOperations.getTopicList(ac.result(), prom, pattern, Integer.parseInt(offset), Integer.parseInt(limit), orderBy);
                 } catch (NumberFormatException | InvalidRequestException e) {
                     prom.fail(e);
                     processResponse(prom, routingContext, HttpResponseStatus.BAD_REQUEST, httpMetrics, httpMetrics.getListTopicRequestTimer(), requestTimerSample);
@@ -247,6 +250,13 @@ public class RestOperations extends CommonHandler implements OperationsHandler {
         String consumerGroupIdFilter = routingContext.queryParams().get("group-id-filter") == null ? "" : routingContext.queryParams().get("group-id-filter");
         String limit = routingContext.queryParams().get("limit") == null ? "0" : routingContext.queryParams().get("limit");
         String offset = routingContext.queryParams().get("offset") == null ? "0" : routingContext.queryParams().get("offset");
+
+        Types.SortDirectionEnum sortReverse = Types.SortDirectionEnum.fromString(routingContext.queryParams().get("order"));
+        String sortKey = routingContext.queryParams().get("orderKey") == null ? "name" : routingContext.queryParams().get("orderKey");
+        Types.OrderByInput orderBy = new Types.OrderByInput();
+        orderBy.setField(sortKey);
+        orderBy.setOrder(sortReverse);
+
         final Pattern pattern;
         Promise<Types.TopicList> prom = Promise.promise();
         if (topicFilter != null && !topicFilter.isEmpty()) {
@@ -263,7 +273,7 @@ public class RestOperations extends CommonHandler implements OperationsHandler {
                     if (Integer.parseInt(offset) < 0 || Integer.parseInt(limit) < 0) {
                         throw new InvalidRequestException("Offset and limit have to be positive integers.");
                     }
-                    ConsumerGroupOperations.getGroupList(ac.result(), prom, pattern, Integer.parseInt(offset), Integer.parseInt(limit), consumerGroupIdFilter);
+                    ConsumerGroupOperations.getGroupList(ac.result(), prom, pattern, Integer.parseInt(offset), Integer.parseInt(limit), consumerGroupIdFilter, orderBy);
                 } catch (NumberFormatException | InvalidRequestException e) {
                     prom.fail(e);
                     processResponse(prom, routingContext, HttpResponseStatus.BAD_REQUEST, httpMetrics, httpMetrics.getListGroupsRequestTimer(), requestTimerSample);

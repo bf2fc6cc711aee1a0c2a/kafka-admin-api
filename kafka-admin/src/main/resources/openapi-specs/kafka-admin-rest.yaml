@@ -35,10 +35,24 @@ paths:
           in: query
         - name: order
           description: >-
-            Order of the items sorting. If "asc" is set as a value, ascending order is used,
-            descending otherwise.
+            Order of the items sorting. Ascending order is used as default.
           schema:
             type: string
+            enum:
+              - asc
+              - desc
+          in: query
+          required: false
+        - name: orderKey
+          description: >-
+            Order key to sort the topics by.
+          schema:
+            type: string
+            enum:
+              - name
+              - partitions
+              - retention.ms
+              - retention.bytes
           in: query
           required: false
       responses:
@@ -350,6 +364,25 @@ paths:
           schema:
             type: string
           in: query
+        - name: order
+          description: >-
+            Order of the consumer groups sorting. Ascending order is used as default.
+          schema:
+            type: string
+            enum:
+              - asc
+              - desc
+          in: query
+          required: false
+        - name: orderKey
+          description: >-
+            Order key to sort the items by. Only the value 'name' is currently applicable.
+          schema:
+            type: string
+            enum:
+              - name
+          in: query
+          required: false
       responses:
         '200':
           content:

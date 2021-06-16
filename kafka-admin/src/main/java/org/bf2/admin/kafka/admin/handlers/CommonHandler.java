@@ -14,6 +14,7 @@ import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.RoutingContext;
 import io.vertx.ext.web.handler.impl.HttpStatusException;
 import io.vertx.ext.web.validation.BodyProcessorException;
+import io.vertx.ext.web.validation.ParameterProcessorException;
 import io.vertx.json.schema.ValidationException;
 import io.vertx.kafka.admin.KafkaAdminClient;
 import org.apache.kafka.common.KafkaException;
@@ -127,7 +128,8 @@ public class CommonHandler {
                             && failureCause.getCause().getMessage().contains("Authentication failed due to an invalid token"))) {
                     routingContext.response().setStatusCode(HttpResponseStatus.UNAUTHORIZED.code());
                 } else if (failureCause instanceof org.apache.kafka.common.errors.InvalidTopicException
-                        || failureCause instanceof InvalidReplicationFactorException) {
+                        || failureCause instanceof InvalidReplicationFactorException
+                        || failureCause instanceof ParameterProcessorException) {
                     routingContext.response().setStatusCode(HttpResponseStatus.BAD_REQUEST.code());
                 } else if (failureCause instanceof TopicExistsException) {
                     routingContext.response().setStatusCode(HttpResponseStatus.CONFLICT.code());
@@ -205,16 +207,65 @@ public class CommonHandler {
     }
 
     public static class TopicComparator implements Comparator<Types.Topic> {
+
+        private final String key;
+        public TopicComparator(String key) {
+            this.key = key;
+        }
+
+        public TopicComparator() {
+            this.key = "name";
+        }
         @Override
         public int compare(Types.Topic firstTopic, Types.Topic secondTopic) {
-            return firstTopic.getName().compareTo(secondTopic.getName());
+
+            if ("name".equals(key)) {
+                return firstTopic.getName().compareToIgnoreCase(secondTopic.getName());
+            } else if ("partitions".equals(key)) {
+                return firstTopic.getPartitions().size() - secondTopic.getPartitions().size();
+            } else if ("retention.ms".equals(key)) {
+                Types.ConfigEntry first = firstTopic.getConfig().stream().filter(entry -> entry.getKey().equals("retention.ms")).findFirst().orElseGet(() -> null);
+                Types.ConfigEntry second = secondTopic.getConfig().stream().filter(entry -> entry.getKey().equals("retention.ms")).findFirst().orElseGet(() -> null);
+                if (first == null || second == null || first.getValue() == null || second.getValue() == null) {
+                    return 0;
+                } else {
+                    return Long.compare(first.getValue().equals("-1") ? Long.MAX_VALUE : Long.parseLong(first.getValue()), second.getValue().equals("-1") ? Long.MAX_VALUE : Long.parseLong(second.getValue()));
+                }
+            } else if ("retention.bytes".equals(key)) {
+                Types.ConfigEntry first = firstTopic.getConfig().stream().filter(entry -> entry.getKey().equals("retention.bytes")).findFirst().orElseGet(() -> null);
+                Types.ConfigEntry second = secondTopic.getConfig().stream().filter(entry -> entry.getKey().equals("retention.bytes")).findFirst().orElseGet(() -> null);
+                if (first == null || second == null || first.getValue() == null || second.getValue() == null) {
+                    return 0;
+                } else {
+                    return Long.compare(first.getValue().equals("-1") ? Long.MAX_VALUE : Long.parseLong(first.getValue()), second.getValue().equals("-1") ? Long.MAX_VALUE : Long.parseLong(second.getValue()));
+                }
+            }
+            return 0;
         }
     }
 
     public static class ConsumerGroupComparator implements Comparator<Types.ConsumerGroup> {
+
+        private final String key;
+        public ConsumerGroupComparator(String key) {
+            this.key = key;
+        }
+
+        public ConsumerGroupComparator() {
+            this.key = "name";
+        }
+
         @Override
         public int compare(Types.ConsumerGroup firstConsumerGroup, Types.ConsumerGroup secondConsumerGroup) {
-            return firstConsumerGroup.getGroupId().compareTo(secondConsumerGroup.getGroupId());
+            if ("name".equals(key)) {
+                if (firstConsumerGroup == null || firstConsumerGroup.getGroupId() == null
+                    || secondConsumerGroup == null || secondConsumerGroup.getGroupId() == null) {
+                    return 0;
+                } else {
+                    return firstConsumerGroup.getGroupId().compareToIgnoreCase(secondConsumerGroup.getGroupId());
+                }
+            }
+            return 0;
         }
     }
 

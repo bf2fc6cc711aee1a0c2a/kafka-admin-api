@@ -110,7 +110,7 @@ public class TopicOperations {
         return result;
     }
 
-    public static void getTopicList(KafkaAdminClient ac, Promise prom, Pattern pattern, int offset, final int limit, Types.SortDirectionEnum sortDirection) {
+    public static void getTopicList(KafkaAdminClient ac, Promise prom, Pattern pattern, int offset, final int limit, Types.OrderByInput orderByInput) {
         Promise<Set<String>> describeTopicsNamesPromise = Promise.promise();
         Promise<Map<String, io.vertx.kafka.admin.TopicDescription>> describeTopicsPromise = Promise.promise();
         Promise<Map<ConfigResource, Config>> describeTopicConfigPromise = Promise.promise();
@@ -144,10 +144,10 @@ public class TopicOperations {
                     fullTopicDescriptions.add(topicWithDescription);
                 });
 
-                if (sortDirection.equals(Types.SortDirectionEnum.ASC)) {
-                    fullTopicDescriptions.sort(new CommonHandler.TopicComparator());
+                if (Types.SortDirectionEnum.DESC.equals(orderByInput.getOrder())) {
+                    fullTopicDescriptions.sort(new CommonHandler.TopicComparator(orderByInput.getField()).reversed());
                 } else {
-                    fullTopicDescriptions.sort(new CommonHandler.TopicComparator().reversed());
+                    fullTopicDescriptions.sort(new CommonHandler.TopicComparator(orderByInput.getField()));
                 }
 
                 if (offset > fullTopicDescriptions.size()) {
