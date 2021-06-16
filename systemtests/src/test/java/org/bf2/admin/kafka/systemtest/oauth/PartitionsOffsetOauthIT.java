@@ -18,6 +18,7 @@ import org.junit.jupiter.api.Test;
 
 import java.time.Duration;
 import java.time.LocalDateTime;
+import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -205,7 +206,7 @@ public class PartitionsOffsetOauthIT extends OauthTestBase {
         // Sleep between sections
         Thread.sleep(10_000);
 
-        DateTimeFormatter sdfDate = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss'UTC'");
+        DateTimeFormatter sdfDate = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss'" + ZonedDateTime.now().getZone().getId() + "'");
         String timestamp = sdfDate.format(LocalDateTime.now());
 
         Thread.sleep(10_000);
