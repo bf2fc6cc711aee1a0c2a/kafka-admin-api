@@ -7,10 +7,12 @@ import io.vertx.core.Future;
 import io.vertx.core.Handler;
 import io.vertx.core.Promise;
 import io.vertx.core.buffer.Buffer;
+import io.vertx.core.http.HttpClientOptions;
 import io.vertx.core.http.HttpServer;
 import io.vertx.core.http.HttpServerOptions;
 import io.vertx.core.json.JsonObject;
 import io.vertx.core.net.PemKeyCertOptions;
+import io.vertx.core.net.PemTrustOptions;
 import io.vertx.ext.auth.JWTOptions;
 import io.vertx.ext.auth.oauth2.OAuth2Auth;
 import io.vertx.ext.auth.oauth2.OAuth2FlowType;
@@ -169,6 +171,14 @@ public class AdminServer extends AbstractVerticle {
         oauthOptions.setFlow(OAuth2FlowType.CLIENT);
         oauthOptions.setJwkPath(config.getOauthJwksEndpointUri());
         oauthOptions.setValidateIssuer(true);
+
+        String oauthTrustedCertificate = config.getOauthTrustedCertificate();
+
+        if (oauthTrustedCertificate != null) {
+            PemTrustOptions trustOptions = new PemTrustOptions();
+            setCertConfig(oauthTrustedCertificate, trustOptions::addCertPath, trustOptions::addCertValue);
+            oauthOptions.setHttpClientOptions(new HttpClientOptions().setPemTrustOptions(trustOptions));
+        }
 
         if (config.getOauthValidIssuerUri() != null) {
             LOGGER.info("JWT issuer (iss) claim valid value: {}", config.getOauthValidIssuerUri());
