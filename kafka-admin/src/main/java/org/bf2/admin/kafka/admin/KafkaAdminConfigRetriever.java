@@ -25,6 +25,7 @@ public class KafkaAdminConfigRetriever {
 
     public static final String BOOTSTRAP_SERVERS = PREFIX + "BOOTSTRAP_SERVERS";
     public static final String OAUTH_ENABLED = PREFIX + "OAUTH_ENABLED";
+    public static final String OAUTH_TRUSTED_CERT = PREFIX + "OAUTH_TRUSTED_CERT";
     public static final String OAUTH_JWKS_ENDPOINT_URI = PREFIX + "OAUTH_JWKS_ENDPOINT_URI";
     public static final String OAUTH_VALID_ISSUER_URI = PREFIX + "OAUTH_VALID_ISSUER_URI";
     public static final String OAUTH_TOKEN_ENDPOINT_URI = PREFIX + "OAUTH_TOKEN_ENDPOINT_URI";
@@ -82,6 +83,10 @@ public class KafkaAdminConfigRetriever {
 
     public Map<String, Object> getAcConfig() {
         return new HashMap<>(acConfig);
+    }
+
+    public String getOauthTrustedCertificate() {
+        return System.getenv(OAUTH_TRUSTED_CERT);
     }
 
     public String getOauthJwksEndpointUri() {

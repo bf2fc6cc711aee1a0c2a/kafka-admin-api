@@ -72,6 +72,7 @@ Once all steps above have been completed, you can run the Kafka Admin API. The s
 | CORS_ALLOW_LIST_REGEX | Regular expression to match origins for CORS. An origin follows rfc6454#section-7 and is expected to have the format: `<scheme> "://" <hostname> [ ":" <port> ]` |
 | KAFKA_ADMIN_BOOTSTRAP_SERVERS | A comma-separated list of host and port pairs that are the addresses of the Kafka brokers in a "bootstrap" Kafka cluster.   |
 | KAFKA_ADMIN_OAUTH_ENABLED | Enables a third party application to obtain limited access to the Admin API. |
+| KAFKA_ADMIN_OAUTH_TRUSTED_CERT | Certificate in PEM format used by the JWKS and token endpoints. Optional when the endpoints use self-signed or otherwise untrusted certificates. Only valid if OAuth and JWKS endpoint are enabled. |
 | KAFKA_ADMIN_OAUTH_JWKS_ENDPOINT_URI | Endpoint serving JWKS to be use to verify JWT access tokens. *required when `KAFKA_ADMIN_OAUTH_ENABLED` is used* |
 | KAFKA_ADMIN_OAUTH_VALID_ISSUER_URI | Optional issuer that, when provided, must match the issuer (`iss` claim) present in JWTs. Only valid if OAuth and JWKS endpoint are enabled. |
 | KAFKA_ADMIN_OAUTH_TOKEN_ENDPOINT_URI | Optional token endpoint that will be published in the OpenAPI document describing the REST service. Only valid if OAuth and JWKS endpoint are enabled. |
