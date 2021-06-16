@@ -186,22 +186,23 @@ public class ConsumerGroupOperations {
         }).compose(i -> {
             Map<TopicPartition, OffsetSpec> partitionsToFetchOffset = new HashMap<>();
             topicPartitionsToReset.forEach(topicPartition -> {
-                OffsetSpec offsetSpec = OffsetSpec.LATEST;
+                OffsetSpec offsetSpec;
                 // absolute - just for the warning that set offset could be higher than latest
-                if ("relative".equalsIgnoreCase(parameters.getOffset())) {
-                    if ("latest".equals(parameters.getValue())) {
-                        offsetSpec = OffsetSpec.LATEST;
-                    } else if ("earliest".equals(parameters.getValue())) {
-                        offsetSpec = OffsetSpec.EARLIEST;
-                    } else {
-                        throw new InvalidRequestException("Offset 'relative' can have values 'latest' or 'earliest' only");
-                    }
+                if ("latest".equals(parameters.getOffset())) {
+                    offsetSpec = OffsetSpec.LATEST;
+                } else if ("earliest".equals(parameters.getOffset())) {
+                    offsetSpec = OffsetSpec.EARLIEST;
                 } else if ("timestamp".equals(parameters.getOffset())) {
                     try {
                         offsetSpec = OffsetSpec.TIMESTAMP(ZonedDateTime.parse(parameters.getValue(), DATE_TIME_FORMATTER).toInstant().toEpochMilli());
                     } catch (DateTimeParseException e) {
                         throw new InvalidRequestException("Timestamp must be in format 'yyyy-MM-dd'T'HH:mm:ssz'" + e.getMessage());
                     }
+                } else if ("absolute".equals(parameters.getOffset())) {
+                    // we are checking whether offset is not negative (set behind latest)
+                    offsetSpec = OffsetSpec.LATEST;
+                } else {
+                    throw new InvalidRequestException("Offset can be 'absolute', 'latest', 'earliest' or 'timestamp' only");
                 }
                 partitionsToFetchOffset.put(topicPartition, offsetSpec);
             });
@@ -245,7 +246,7 @@ public class ConsumerGroupOperations {
                 }
                 promise.complete(newOffsets.entrySet().stream().collect(Collectors.toMap(
                     entry -> entry.getKey(),
-                    entry -> new OffsetAndMetadata(newOffsets.get(entry.getKey()).getOffset(), list.result().get(entry.getKey()).getMetadata()))));
+                    entry -> new OffsetAndMetadata(newOffsets.get(entry.getKey()).getOffset(), list.result().get(entry.getKey()) == null ? null : list.result().get(entry.getKey()).getMetadata()))));
             });
             return promise.future();
         }).compose(newOffsets -> {
