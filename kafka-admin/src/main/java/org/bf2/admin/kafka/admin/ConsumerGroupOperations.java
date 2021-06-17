@@ -17,6 +17,9 @@ import org.apache.kafka.common.errors.InvalidRequestException;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
+import java.time.ZonedDateTime;
+import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -28,9 +31,10 @@ import java.util.function.BinaryOperator;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
+@SuppressWarnings({"checkstyle:CyclomaticComplexity", "checkstyle:NPathComplexity"})
 public class ConsumerGroupOperations {
     protected static final Logger log = LogManager.getLogger(ConsumerGroupOperations.class);
-
+    private static final DateTimeFormatter DATE_TIME_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ssz");
 
     public static void getGroupList(KafkaAdminClient ac, Promise prom, Pattern pattern, int offset, final int limit, final String groupIdPrefix, Types.OrderByInput orderByInput) {
         Promise<List<ConsumerGroupListing>> listConsumerGroupsFuture = Promise.promise();
@@ -133,40 +137,154 @@ public class ConsumerGroupOperations {
         });
     }
 
-    public static void resetGroupOffset(KafkaAdminClient ac, String groupToReset, Promise prom) {
-        ac.listConsumerGroupOffsets(groupToReset, list -> {
-            Map<TopicPartition, OffsetAndMetadata> newOffsets = new HashMap<>();
-            list.result().entrySet().forEach(entry -> {
-                // TODO figure out what offset we should reset to
-                newOffsets.put(entry.getKey(), new OffsetAndMetadata(0, entry.getValue().getMetadata()));
+    @SuppressWarnings({"checkstyle:JavaNCSS"})
+    public static void resetGroupOffset(KafkaAdminClient ac, Types.ConsumerGroupOffsetResetParameters parameters, Promise prom) {
+        Set<TopicPartition> topicPartitionsToReset = new HashSet<>();
+        List<Future> promises = new ArrayList<>();
+        if (parameters.getTopics() == null || parameters.getTopics().isEmpty()) {
+            // reset everything
+            Promise promise = Promise.promise();
+            promises.add(promise.future());
+            ac.listConsumerGroupOffsets(parameters.getGroupId())
+                    .compose(consumerGroupOffsets -> {
+                        consumerGroupOffsets.entrySet().forEach(offset -> {
+                            topicPartitionsToReset.add(offset.getKey());
+                        });
+                        return Future.succeededFuture(topicPartitionsToReset);
+                    }).onComplete(topicPartitions -> {
+                        promise.complete();
+                    });
+        } else {
+            parameters.getTopics().forEach(paramPartition -> {
+                Promise promise = Promise.promise();
+                promises.add(promise.future());
+                if (paramPartition.getPartitions() == null || paramPartition.getPartitions().isEmpty()) {
+                    ac.describeTopics(Collections.singletonList(paramPartition.getTopic())).compose(topicsDesc -> {
+                        topicsDesc.entrySet().forEach(topicEntry -> {
+                            topicsDesc.get(topicEntry.getKey()).getPartitions().forEach(partition -> {
+                                topicPartitionsToReset.add(new TopicPartition(topicEntry.getKey(), partition.getPartition()));
+                            });
+                        });
+                        promise.complete();
+                        return Future.succeededFuture(topicPartitionsToReset);
+                    });
+                } else {
+                    paramPartition.getPartitions().forEach(numPartition -> {
+                        topicPartitionsToReset.add(new TopicPartition(paramPartition.getTopic(), numPartition));
+                    });
+                    promise.complete();
+                }
             });
-            ac.alterConsumerGroupOffsets(groupToReset, newOffsets, i -> {
-                if (i.failed()) {
-                    prom.fail(i.cause());
-                    ac.close();
+        }
+        // get the set of partitions we want to reset
+        CompositeFuture.join(promises).compose(i -> {
+            if (i.failed()) {
+                return Future.failedFuture(i.cause());
+            } else {
+                return Future.succeededFuture();
+            }
+        }).compose(i -> {
+            Map<TopicPartition, OffsetSpec> partitionsToFetchOffset = new HashMap<>();
+            topicPartitionsToReset.forEach(topicPartition -> {
+                OffsetSpec offsetSpec;
+                // absolute - just for the warning that set offset could be higher than latest
+                if ("latest".equals(parameters.getOffset())) {
+                    offsetSpec = OffsetSpec.LATEST;
+                } else if ("earliest".equals(parameters.getOffset())) {
+                    offsetSpec = OffsetSpec.EARLIEST;
+                } else if ("timestamp".equals(parameters.getOffset())) {
+                    try {
+                        offsetSpec = OffsetSpec.TIMESTAMP(ZonedDateTime.parse(parameters.getValue(), DATE_TIME_FORMATTER).toInstant().toEpochMilli());
+                    } catch (DateTimeParseException e) {
+                        throw new InvalidRequestException("Timestamp must be in format 'yyyy-MM-dd'T'HH:mm:ssz'" + e.getMessage());
+                    }
+                } else if ("absolute".equals(parameters.getOffset())) {
+                    // we are checking whether offset is not negative (set behind latest)
+                    offsetSpec = OffsetSpec.LATEST;
+                } else {
+                    throw new InvalidRequestException("Offset can be 'absolute', 'latest', 'earliest' or 'timestamp' only");
+                }
+                partitionsToFetchOffset.put(topicPartition, offsetSpec);
+            });
+            return Future.succeededFuture(partitionsToFetchOffset);
+        }).compose(partitionsToFetchOffset -> {
+            Promise<Map<TopicPartition, ListOffsetsResultInfo>> promise = Promise.promise();
+            ac.listOffsets(partitionsToFetchOffset, partitionsOffsets -> {
+                if (partitionsOffsets.failed()) {
+                    promise.fail(partitionsOffsets.cause());
                     return;
                 }
-                Promise describeGroupPromise = Promise.promise();
-                Promise listOffsetsPromise = Promise.promise();
-                ac.describeConsumerGroups(Collections.singletonList(groupToReset), describeGroupPromise);
-                ac.listConsumerGroupOffsets(groupToReset, listOffsetsPromise);
-
-                CompositeFuture.join(describeGroupPromise.future(), listOffsetsPromise.future())
-                    .onComplete(res -> {
-                        if (res.failed()) {
-                            prom.fail(res.cause());
-                        } else {
-                            Types.ConsumerGroupDescription groupDescription = getConsumerGroupsDescription(Pattern.compile(".*"), res.result().resultAt(0), res.result().resultAt(1), null).get(0);
-                            if ("dead".equalsIgnoreCase(groupDescription.getState())) {
-                                prom.fail(new GroupIdNotFoundException("Group " + groupDescription.getGroupId() + " does not exist"));
-                                ac.close();
-                                return;
+                if ("absolute".equals(parameters.getOffset())) {
+                    // numeric offset provided; check whether x > latest
+                    promise.complete(partitionsOffsets.result().entrySet().stream().collect(Collectors.toMap(
+                        entry -> entry.getKey(),
+                        entry -> {
+                            if (entry.getValue().getOffset() < Long.parseLong(parameters.getValue())) {
+                                log.warn("Selected offset {} is larger than latest {}", parameters.getValue(), entry.getValue().getOffset());
                             }
-                            prom.complete(groupDescription);
-                        }
-                        ac.close();
-                    });
+                            return new ListOffsetsResultInfo(Long.parseLong(parameters.getValue()), entry.getValue().getTimestamp(), entry.getValue().getLeaderEpoch());
+                        })));
+                } else {
+                    Map<TopicPartition, ListOffsetsResultInfo> kokot = partitionsOffsets.result().entrySet().stream().collect(Collectors.toMap(
+                        entry -> entry.getKey(),
+                        entry -> new ListOffsetsResultInfo(partitionsOffsets.result().get(entry.getKey()).getOffset(), entry.getValue().getTimestamp(), entry.getValue().getLeaderEpoch())));
+                    promise.complete(kokot);
+                }
             });
+            return promise.future();
+        }).compose(newOffsets -> {
+            // assemble new offsets object
+            Promise<Map<TopicPartition, OffsetAndMetadata>> promise = Promise.promise();
+            ac.listConsumerGroupOffsets(parameters.getGroupId(), list -> {
+                if (list.failed()) {
+                    promise.fail(list.cause());
+                    return;
+                }
+                if (list.result().isEmpty()) {
+                    promise.fail(new InvalidRequestException("Consumer Group " + parameters.getGroupId() + " does not consume any topics/partitions"));
+                    return;
+                }
+                promise.complete(newOffsets.entrySet().stream().collect(Collectors.toMap(
+                    entry -> entry.getKey(),
+                    entry -> new OffsetAndMetadata(newOffsets.get(entry.getKey()).getOffset(), list.result().get(entry.getKey()) == null ? null : list.result().get(entry.getKey()).getMetadata()))));
+            });
+            return promise.future();
+        }).compose(newOffsets -> {
+            Promise<Void> promise = Promise.promise();
+            ac.alterConsumerGroupOffsets(parameters.getGroupId(), newOffsets, res -> {
+                if (res.failed()) {
+                    promise.fail(res.cause());
+                    return;
+                }
+                promise.complete();
+                log.info("resetting offsets");
+            });
+            return promise.future();
+        }).compose(i -> {
+            Promise<List<Types.TopicPartitionResetResult>> promise = Promise.promise();
+            List<Types.TopicPartitionResetResult> result = new ArrayList<>();
+            ac.listConsumerGroupOffsets(parameters.getGroupId(), res -> {
+                if (res.failed()) {
+                    promise.fail(res.cause());
+                    return;
+                }
+                res.result().forEach((tp, offsetAndMetadata) -> {
+                    Types.TopicPartitionResetResult reset = new Types.TopicPartitionResetResult();
+                    reset.setTopic(tp.getTopic());
+                    reset.setPartition(tp.getPartition());
+                    reset.setOffset(offsetAndMetadata.getOffset());
+                    result.add(reset);
+                });
+                promise.complete(result);
+            });
+            return promise.future();
+        }).onComplete(res -> {
+            if (res.succeeded()) {
+                prom.complete(res.result());
+            } else {
+                prom.fail(res.cause());
+            }
+            ac.close();
         });
     }
 

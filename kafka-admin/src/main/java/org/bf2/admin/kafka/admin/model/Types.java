@@ -226,6 +226,99 @@ public class Types {
         }
     }
 
+    public static class TopicsToResetOffset {
+
+        private String topic;
+        private List<Integer> partitions;
+
+        public String getTopic() {
+            return topic;
+        }
+
+        public void setTopic(String topic) {
+            this.topic = topic;
+        }
+
+        public List<Integer> getPartitions() {
+            return partitions;
+        }
+
+        public void setPartitions(List<Integer> partitions) {
+            this.partitions = partitions;
+        }
+    }
+
+    public static class TopicPartitionResetResult {
+
+        private String topic;
+        private Integer partition;
+        private Long offset;
+
+        public String getTopic() {
+            return topic;
+        }
+
+        public void setTopic(String topic) {
+            this.topic = topic;
+        }
+
+        public Integer getPartition() {
+            return partition;
+        }
+
+        public void setPartition(Integer partition) {
+            this.partition = partition;
+        }
+
+        public Long getOffset() {
+            return offset;
+        }
+
+        public void setOffset(Long offset) {
+            this.offset = offset;
+        }
+    }
+
+    public static class ConsumerGroupOffsetResetParameters {
+
+        private String groupId;
+        private List<TopicsToResetOffset> topics;
+        private String offset;
+        private String value;
+
+        public String getGroupId() {
+            return groupId;
+        }
+
+        public void setGroupId(String groupId) {
+            this.groupId = groupId;
+        }
+
+        public List<TopicsToResetOffset> getTopics() {
+            return topics;
+        }
+
+        public void setTopics(List<TopicsToResetOffset> topics) {
+            this.topics = topics;
+        }
+
+        public String getOffset() {
+            return offset;
+        }
+
+        public void setOffset(String offset) {
+            this.offset = offset;
+        }
+
+        public String getValue() {
+            return value;
+        }
+
+        public void setValue(String value) {
+            this.value = value;
+        }
+    }
+
     public static class UpdatedTopic {
         private String name;
         private List<NewTopicConfigEntry> config;

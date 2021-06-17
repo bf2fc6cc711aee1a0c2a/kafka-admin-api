@@ -351,7 +351,7 @@ public class RestOperations extends CommonHandler implements OperationsHandler {
     @Override
     public void resetGroupOffset(RoutingContext routingContext) {
         Map<String, Object> acConfig = routingContext.get(ADMIN_CLIENT_CONFIG);
-        httpMetrics.getRequestsCounter().increment();
+        httpMetrics.getResetGroupOffsetCounter().increment();
         httpMetrics.getRequestsCounter().increment();
         Timer.Sample requestTimerSample = Timer.start(httpMetrics.getRegistry());
         String groupToReset = routingContext.pathParam("consumerGroupId");
@@ -359,7 +359,7 @@ public class RestOperations extends CommonHandler implements OperationsHandler {
         Promise<List<String>> prom = Promise.promise();
         if (!internalGroupsAllowed() && groupToReset.startsWith("strimzi")) {
             prom.fail(new InvalidConsumerGroupException("ConsumerGroup " + groupToReset + " cannot be reset."));
-            processResponse(prom, routingContext, HttpResponseStatus.BAD_REQUEST, httpMetrics, httpMetrics.getDeleteTopicRequestTimer(), requestTimerSample);
+            processResponse(prom, routingContext, HttpResponseStatus.BAD_REQUEST, httpMetrics, httpMetrics.getResetGroupOffsetRequestTimer(), requestTimerSample);
             return;
         }
         if (groupToReset == null || groupToReset.isEmpty()) {
@@ -372,7 +372,24 @@ public class RestOperations extends CommonHandler implements OperationsHandler {
             if (ac.failed()) {
                 prom.fail(ac.cause());
             } else {
-                ConsumerGroupOperations.resetGroupOffset(ac.result(), groupToReset, prom);
+                ObjectMapper mapper = new ObjectMapper();
+                Types.ConsumerGroupOffsetResetParameters parameters;
+                try {
+                    parameters = mapper.readValue(routingContext.getBody().getBytes(), Types.ConsumerGroupOffsetResetParameters.class);
+                    parameters.setGroupId(groupToReset);
+                } catch (IOException | InvalidRequestException e) {
+                    routingContext.response().setStatusCode(HttpResponseStatus.BAD_REQUEST.code());
+                    JsonObject jsonObject = new JsonObject();
+                    jsonObject.put("code", routingContext.response().getStatusCode());
+                    jsonObject.put("error", e.getMessage());
+                    routingContext.response().end(jsonObject.toBuffer());
+                    requestTimerSample.stop(httpMetrics.getResetGroupOffsetRequestTimer());
+                    httpMetrics.getFailedRequestsCounter(HttpResponseStatus.BAD_REQUEST.code()).increment();
+                    prom.fail(e);
+                    log.error(e);
+                    return;
+                }
+                ConsumerGroupOperations.resetGroupOffset(ac.result(), parameters, prom);
             }
             processResponse(prom, routingContext, HttpResponseStatus.OK, httpMetrics, httpMetrics.getResetGroupOffsetRequestTimer(), requestTimerSample);
         });

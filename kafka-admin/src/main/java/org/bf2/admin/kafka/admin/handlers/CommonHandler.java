@@ -28,6 +28,7 @@ import org.apache.kafka.common.errors.InvalidConfigurationException;
 import org.apache.kafka.common.errors.InvalidPartitionsException;
 import org.apache.kafka.common.errors.InvalidReplicationFactorException;
 import org.apache.kafka.common.errors.InvalidRequestException;
+import org.apache.kafka.common.errors.LeaderNotAvailableException;
 import org.apache.kafka.common.errors.SaslAuthenticationException;
 import org.apache.kafka.common.errors.TimeoutException;
 import org.apache.kafka.common.errors.TopicExistsException;
@@ -50,7 +51,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.regex.PatternSyntaxException;
 
-@SuppressWarnings({"checkstyle:ClassFanOutComplexity", "checkstyle:CyclomaticComplexity"})
+@SuppressWarnings({"checkstyle:ClassFanOutComplexity", "checkstyle:CyclomaticComplexity", "checkstyle:ClassFanOutComplexity"})
 public class CommonHandler {
 
     protected static final Logger log = LogManager.getLogger(CommonHandler.class);
@@ -113,6 +114,9 @@ public class CommonHandler {
                 if (failureCause instanceof HttpException) {
                     HttpException cause = (HttpException) failureCause;
                     routingContext.response().setStatusCode(cause.getStatusCode());
+                } else if (failureCause instanceof ExceptionInInitializerError) {
+                    failureCause = failureCause.getCause();
+                    routingContext.response().setStatusCode(HttpResponseStatus.BAD_REQUEST.code());
                 } else if (failureCause instanceof UnknownTopicOrPartitionException
                         || failureCause instanceof GroupIdNotFoundException) {
                     routingContext.response().setStatusCode(HttpResponseStatus.NOT_FOUND.code());
@@ -148,7 +152,8 @@ public class CommonHandler {
                         || failureCause instanceof InvalidTopicException
                         || failureCause instanceof BodyProcessorException
                         || failureCause instanceof UnknownMemberIdException
-                        || failureCause instanceof InvalidConsumerGroupException) {
+                        || failureCause instanceof InvalidConsumerGroupException
+                        || failureCause instanceof LeaderNotAvailableException) {
                     routingContext.response().setStatusCode(HttpResponseStatus.BAD_REQUEST.code());
                 } else if (failureCause instanceof KafkaException) {
                     // Most of the kafka related exceptions are extended from KafkaException

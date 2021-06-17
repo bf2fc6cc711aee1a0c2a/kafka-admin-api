@@ -7,7 +7,7 @@
       <env name="KAFKA_ADMIN_REPLICATION_FACTOR" value="1" />
     </envs>
     <option name="MAIN_CLASS_NAME" value="org.bf2.admin.Main" />
-    <module name="http-server" />
+    <module name="kafka-admin" />
     <option name="PROGRAM_PARAMETERS" value="org.bf2.admin.Main" />
     <option name="VM_PARAMETERS" value="-cp kafka-admin/target/kafka-admin.jar org.bf2.admin.Main" />
     <extension name="net.ashald.envfile">
