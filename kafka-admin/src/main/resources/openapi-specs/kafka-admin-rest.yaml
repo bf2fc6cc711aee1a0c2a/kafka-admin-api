@@ -15,8 +15,8 @@ paths:
   /topics:
     get:
       parameters:
-        - name: limit
-          description: Maximum number of topics to return
+        - name: size
+          description: Maximum number of topics to return on single page
           schema:
             format: int32
             type: integer
@@ -27,8 +27,8 @@ paths:
           schema:
             type: string
           in: query
-        - name: offset
-          description: The page offset when returning the limit of requested topics.
+        - name: page
+          description: The page when returning the limit of requested topics.
           schema:
             format: int32
             type: integer
@@ -344,13 +344,13 @@ paths:
     summary: API endpoints for consumer groups under a Kafka topic
     get:
       parameters:
-        - name: limit
-          description: Maximum number of consumer groups to returnd
+        - name: sizr
+          description: Maximum number of consumer groups to returned on single page
           schema:
             type: integer
           in: query
-        - name: offset
-          description: The page offset when returning the list of consumer groups
+        - name: page
+          description: The page when returning the list of consumer groups
           schema:
             type: integer
           in: query
@@ -543,18 +543,18 @@ components:
       description: A list of topics.
       required:
         - items
-        - offset
-        - limit
-        - count
+        - page
+        - size
+        - total
       type: object
       properties:
         offset:
-          description: The page offset
+          description: The page
           type: integer
-        limit:
+        size:
           description: number of entries per page
           type: integer
-        count:
+        total:
           description: Total number of topics
           type: integer
         items:
@@ -729,8 +729,8 @@ components:
       description: A list of consumer groups
       required:
         - items
-        - count
-        - limit
+        - total
+        - size
         - offset
       type: object
       properties:
@@ -739,14 +739,14 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/ConsumerGroup'
-        count:
+        total:
           description: The total number of consumer groups.
           type: number
-        limit:
+        size:
           description: The number of consumer groups per page.
           type: number
-        offset:
-          description: The page offset
+        page:
+          description: The page
           type: integer
       example:
         count: 1

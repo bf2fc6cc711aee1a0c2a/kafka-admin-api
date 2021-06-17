@@ -125,9 +125,9 @@ public class Types {
 
     public static class TopicList {
         private List<Topic> items;
-        private Integer offset;
-        private Integer limit;
-        private Integer count;
+        private Integer page;
+        private Integer size;
+        private Integer total;
 
         public List<Topic> getItems() {
             return items;
@@ -137,28 +137,28 @@ public class Types {
             this.items = items;
         }
 
-        public Integer getOffset() {
-            return offset;
+        public Integer getPage() {
+            return page;
         }
 
-        public void setOffset(Integer offset) {
-            this.offset = offset;
+        public void setPage(Integer page) {
+            this.page = page;
         }
 
-        public Integer getLimit() {
-            return limit;
+        public Integer getSize() {
+            return size;
         }
 
-        public void setLimit(Integer limit) {
-            this.limit = limit;
+        public void setSize(Integer size) {
+            this.size = size;
         }
 
-        public Integer getCount() {
-            return count;
+        public Integer getTotal() {
+            return total;
         }
 
-        public void setCount(Integer count) {
-            this.count = count;
+        public void setTotal(Integer total) {
+            this.total = total;
         }
     }
 
@@ -258,23 +258,23 @@ public class Types {
     }
 
     public static class PageRequest {
-        private Integer limit;
-        private Integer offset;
+        private Integer page;
+        private Integer size;
 
-        public Integer getLimit() {
-            return limit;
+        public Integer getPage() {
+            return page;
         }
 
-        public void setLimit(Integer limit) {
-            this.limit = limit;
+        public void setPage(Integer page) {
+            this.page = page;
         }
 
-        public Integer getOffset() {
-            return offset;
+        public Integer getSize() {
+            return size;
         }
 
-        public void setOffset(Integer offset) {
-            this.offset = offset;
+        public void setSize(Integer size) {
+            this.size = size;
         }
     }
     public enum SortDirectionEnum {
@@ -348,9 +348,9 @@ public class Types {
 
     public static class ConsumerGroupList {
         private List<ConsumerGroupDescription> items;
-        private Integer offset;
-        private Integer limit;
-        private Integer count;
+        private Integer size;
+        private Integer page;
+        private Integer total;
 
         public List<ConsumerGroupDescription> getItems() {
             return items;
@@ -358,23 +358,29 @@ public class Types {
         public void setItems(List<ConsumerGroupDescription> items) {
             this.items = items;
         }
-        public Integer getOffset() {
-            return offset;
+
+        public Integer getSize() {
+            return size;
         }
-        public void setOffset(Integer offset) {
-            this.offset = offset;
+
+        public void setSize(Integer size) {
+            this.size = size;
         }
-        public Integer getLimit() {
-            return limit;
+
+        public Integer getPage() {
+            return page;
         }
-        public void setLimit(Integer limit) {
-            this.limit = limit;
+
+        public void setPage(Integer page) {
+            this.page = page;
         }
-        public Integer getCount() {
-            return count;
+
+        public Integer getTotal() {
+            return total;
         }
-        public void setCount(Integer count) {
-            this.count = count;
+
+        public void setTotal(Integer total) {
+            this.total = total;
         }
     }
 

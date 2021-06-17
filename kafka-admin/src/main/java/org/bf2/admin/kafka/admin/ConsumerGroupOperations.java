@@ -32,7 +32,7 @@ public class ConsumerGroupOperations {
     protected static final Logger log = LogManager.getLogger(ConsumerGroupOperations.class);
 
 
-    public static void getGroupList(KafkaAdminClient ac, Promise prom, Pattern pattern, int offset, final int limit, final String groupIdPrefix, Types.OrderByInput orderByInput) {
+    public static void getGroupList(KafkaAdminClient ac, Promise prom, Pattern pattern, Types.PageRequest pageRequest, final String groupIdPrefix, Types.OrderByInput orderByInput) {
         Promise<List<ConsumerGroupListing>> listConsumerGroupsFuture = Promise.promise();
 
         ac.listConsumerGroups(listConsumerGroupsFuture);
@@ -87,8 +87,8 @@ public class ConsumerGroupOperations {
                     .filter(i -> i != null)
                     .collect(Collectors.toList());
 
-                if (offset > list.size()) {
-                    return Future.failedFuture(new InvalidRequestException("Offset (" + offset + ") cannot be greater than consumer group list size (" + list.size() + ")"));
+                if (pageRequest.getSize() * (pageRequest.getPage() - 1) > list.size()) {
+                    return Future.failedFuture(new InvalidRequestException("Requested pagination incorrect. Beginning of list greater than full list size (" + list.size() + ")"));
                 }
 
                 if (Types.SortDirectionEnum.DESC.equals(orderByInput.getOrder())) {
@@ -97,18 +97,13 @@ public class ConsumerGroupOperations {
                     list.sort(new CommonHandler.ConsumerGroupComparator(orderByInput.getField()));
                 }
 
-                int tmpLimit = limit;
-                if (tmpLimit == 0) {
-                    tmpLimit = list.size();
-                }
-
-                List<Types.ConsumerGroupDescription> croppedList = list.subList(offset, Math.min(offset + tmpLimit, list.size()));
+                List<Types.ConsumerGroupDescription> croppedList = list.subList((pageRequest.getPage() - 1) * pageRequest.getSize(), Math.min(pageRequest.getSize() * pageRequest.getPage(), list.size()));
 
                 Types.ConsumerGroupList response = new Types.ConsumerGroupList();
                 response.setItems(croppedList);
-                response.setCount(croppedList.size());
-                response.setLimit(tmpLimit);
-                response.setOffset(offset);
+                response.setTotal(list.size());
+                response.setSize(pageRequest.getSize());
+                response.setPage(pageRequest.getPage());
 
                 return Future.succeededFuture(response);
             })

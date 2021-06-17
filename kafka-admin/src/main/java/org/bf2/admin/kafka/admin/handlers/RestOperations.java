@@ -215,8 +215,8 @@ public class RestOperations extends CommonHandler implements OperationsHandler {
         httpMetrics.getListTopicsCounter().increment();
         httpMetrics.getRequestsCounter().increment();
         String filter = routingContext.queryParams().get("filter");
-        String limit = routingContext.queryParams().get("limit") == null ? "0" : routingContext.queryParams().get("limit");
-        String offset = routingContext.queryParams().get("offset") == null ? "0" : routingContext.queryParams().get("offset");
+        String size = routingContext.queryParams().get("size") == null ? "10" : routingContext.queryParams().get("size");
+        String page = routingContext.queryParams().get("page") == null ? "1" : routingContext.queryParams().get("page");
         Types.SortDirectionEnum sortReverse = Types.SortDirectionEnum.fromString(routingContext.queryParams().get("order"));
         String sortKey = routingContext.queryParams().get("orderKey") == null ? "name" : routingContext.queryParams().get("orderKey");
         Types.OrderByInput orderBy = new Types.OrderByInput();
@@ -235,13 +235,20 @@ public class RestOperations extends CommonHandler implements OperationsHandler {
                 prom.fail(ac.cause());
             } else {
                 try {
-                    if (Integer.parseInt(offset) < 0 || Integer.parseInt(limit) < 0) {
-                        throw new InvalidRequestException("Offset and limit have to be positive integers.");
+                    int pageInt = Integer.parseInt(page);
+                    int sizeInt = Integer.parseInt(size);
+                    if (sizeInt < 1 || pageInt < 1) {
+                        throw new InvalidRequestException("Size and page have to be positive integers.");
                     }
-                    TopicOperations.getTopicList(ac.result(), prom, pattern, Integer.parseInt(offset), Integer.parseInt(limit), orderBy);
+                    Types.PageRequest pageRequest = new Types.PageRequest();
+                    pageRequest.setPage(pageInt);
+                    pageRequest.setSize(sizeInt);
+
+                    TopicOperations.getTopicList(ac.result(), prom, pattern, pageRequest, orderBy);
                 } catch (NumberFormatException | InvalidRequestException e) {
                     prom.fail(e);
                     processResponse(prom, routingContext, HttpResponseStatus.BAD_REQUEST, httpMetrics, httpMetrics.getListTopicRequestTimer(), requestTimerSample);
+                    return;
                 }
             }
             processResponse(prom, routingContext, HttpResponseStatus.OK, httpMetrics, httpMetrics.getListTopicRequestTimer(), requestTimerSample);
@@ -256,8 +263,8 @@ public class RestOperations extends CommonHandler implements OperationsHandler {
         httpMetrics.getRequestsCounter().increment();
         String topicFilter = routingContext.queryParams().get("topic");
         String consumerGroupIdFilter = routingContext.queryParams().get("group-id-filter") == null ? "" : routingContext.queryParams().get("group-id-filter");
-        String limit = routingContext.queryParams().get("limit") == null ? "0" : routingContext.queryParams().get("limit");
-        String offset = routingContext.queryParams().get("offset") == null ? "0" : routingContext.queryParams().get("offset");
+        String size = routingContext.queryParams().get("size") == null ? "10" : routingContext.queryParams().get("size");
+        String page = routingContext.queryParams().get("page") == null ? "1" : routingContext.queryParams().get("page");
 
         Types.SortDirectionEnum sortReverse = Types.SortDirectionEnum.fromString(routingContext.queryParams().get("order"));
         String sortKey = routingContext.queryParams().get("orderKey") == null ? "name" : routingContext.queryParams().get("orderKey");
@@ -278,13 +285,19 @@ public class RestOperations extends CommonHandler implements OperationsHandler {
                 prom.fail(ac.cause());
             } else {
                 try {
-                    if (Integer.parseInt(offset) < 0 || Integer.parseInt(limit) < 0) {
-                        throw new InvalidRequestException("Offset and limit have to be positive integers.");
+                    int pageInt = Integer.parseInt(page);
+                    int sizeInt = Integer.parseInt(size);
+                    if (sizeInt < 1 || pageInt < 1) {
+                        throw new InvalidRequestException("Size and page have to be positive integers.");
                     }
-                    ConsumerGroupOperations.getGroupList(ac.result(), prom, pattern, Integer.parseInt(offset), Integer.parseInt(limit), consumerGroupIdFilter, orderBy);
+                    Types.PageRequest pageRequest = new Types.PageRequest();
+                    pageRequest.setPage(pageInt);
+                    pageRequest.setSize(sizeInt);
+                    ConsumerGroupOperations.getGroupList(ac.result(), prom, pattern, pageRequest, consumerGroupIdFilter, orderBy);
                 } catch (NumberFormatException | InvalidRequestException e) {
                     prom.fail(e);
                     processResponse(prom, routingContext, HttpResponseStatus.BAD_REQUEST, httpMetrics, httpMetrics.getListGroupsRequestTimer(), requestTimerSample);
+                    return;
                 }
             }
             processResponse(prom, routingContext, HttpResponseStatus.OK, httpMetrics, httpMetrics.getListGroupsRequestTimer(), requestTimerSample);
