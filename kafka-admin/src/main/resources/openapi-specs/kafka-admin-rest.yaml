@@ -782,10 +782,13 @@ components:
       type: object
       properties:
         config:
-          description: Topic configuration entry.
+          description: Topic configuration entries.
           type: array
           items:
             $ref: '#/components/schemas/ConfigEntry'
+        partitions:
+          description: Number of partitions (only increasing supported)
+          type: integer
       example:
         config:
           -

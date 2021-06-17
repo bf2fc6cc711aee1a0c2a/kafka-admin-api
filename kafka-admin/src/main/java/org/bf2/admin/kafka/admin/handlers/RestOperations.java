@@ -163,6 +163,14 @@ public class RestOperations extends CommonHandler implements OperationsHandler {
                     log.error(e);
                     return;
                 }
+                int maxPartitions = getNumPartitionsMax();
+
+                if (!numPartitionsLessThanMax(updatedTopic, maxPartitions)) {
+                    prom.fail(new InvalidTopicException(String.format("Number of partitions for topic %s must between 1 and %d (inclusive)",
+                            updatedTopic.getName(), maxPartitions)));
+                    processResponse(prom, routingContext, HttpResponseStatus.BAD_REQUEST, httpMetrics, httpMetrics.getCreateTopicRequestTimer(), requestTimerSample);
+                    return;
+                }
                 TopicOperations.updateTopic(ac.result(), updatedTopic, prom);
             }
             processResponse(prom, routingContext, HttpResponseStatus.OK, httpMetrics, httpMetrics.getUpdateTopicRequestTimer(), requestTimerSample);
@@ -385,6 +393,15 @@ public class RestOperations extends CommonHandler implements OperationsHandler {
                     TopicOperations.DEFAULT_PARTITIONS;
 
         return partitions > 0 && partitions <= maxPartitions;
+    }
+
+    private boolean numPartitionsLessThanMax(Types.UpdatedTopic settings, int maxPartitions) {
+        if (settings.getNumPartitions() != null) {
+            return settings.getNumPartitions() < maxPartitions;
+        } else {
+            // user did not change the partitions
+            return true;
+        }
     }
 
     private int getNumPartitionsMax() {

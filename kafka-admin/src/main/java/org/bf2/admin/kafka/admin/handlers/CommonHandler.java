@@ -12,7 +12,7 @@ import io.vertx.core.Vertx;
 import io.vertx.core.json.DecodeException;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.RoutingContext;
-import io.vertx.ext.web.handler.impl.HttpStatusException;
+import io.vertx.ext.web.handler.HttpException;
 import io.vertx.ext.web.validation.BodyProcessorException;
 import io.vertx.ext.web.validation.ParameterProcessorException;
 import io.vertx.json.schema.ValidationException;
@@ -25,6 +25,7 @@ import org.apache.kafka.common.errors.GroupAuthorizationException;
 import org.apache.kafka.common.errors.GroupIdNotFoundException;
 import org.apache.kafka.common.errors.GroupNotEmptyException;
 import org.apache.kafka.common.errors.InvalidConfigurationException;
+import org.apache.kafka.common.errors.InvalidPartitionsException;
 import org.apache.kafka.common.errors.InvalidReplicationFactorException;
 import org.apache.kafka.common.errors.InvalidRequestException;
 import org.apache.kafka.common.errors.SaslAuthenticationException;
@@ -109,8 +110,8 @@ public class CommonHandler {
                 Throwable failureCause = res.cause();
 
                 // TODO: Refactor this...
-                if (failureCause instanceof HttpStatusException) {
-                    HttpStatusException cause = (HttpStatusException) failureCause;
+                if (failureCause instanceof HttpException) {
+                    HttpException cause = (HttpException) failureCause;
                     routingContext.response().setStatusCode(cause.getStatusCode());
                 } else if (failureCause instanceof UnknownTopicOrPartitionException
                         || failureCause instanceof GroupIdNotFoundException) {
@@ -135,7 +136,10 @@ public class CommonHandler {
                     routingContext.response().setStatusCode(HttpResponseStatus.CONFLICT.code());
                 } else if (failureCause instanceof InvalidRequestException
                         || failureCause instanceof InvalidConfigurationException
-                        || failureCause instanceof IllegalArgumentException) {
+                        || failureCause instanceof IllegalArgumentException
+                        || failureCause instanceof InvalidReplicationFactorException
+                        || failureCause instanceof org.apache.kafka.common.errors.InvalidTopicException
+                        || failureCause instanceof InvalidPartitionsException) {
                     routingContext.response().setStatusCode(HttpResponseStatus.BAD_REQUEST.code());
                 } else if (failureCause instanceof IllegalStateException) {
                     routingContext.response().setStatusCode(HttpResponseStatus.UNAUTHORIZED.code());

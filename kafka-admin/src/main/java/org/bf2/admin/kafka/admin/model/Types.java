@@ -183,9 +183,11 @@ public class Types {
         }
     }
 
+
     public static class NewTopicInput {
-        private Integer numPartitions;
         private List<NewTopicConfigEntry> config;
+
+        private Integer numPartitions;
 
         public Integer getNumPartitions() {
             return numPartitions;
@@ -227,6 +229,16 @@ public class Types {
     public static class UpdatedTopic {
         private String name;
         private List<NewTopicConfigEntry> config;
+
+        private Integer numPartitions;
+
+        public Integer getNumPartitions() {
+            return numPartitions;
+        }
+
+        public void setNumPartitions(Integer numPartitions) {
+            this.numPartitions = numPartitions;
+        }
 
         public String getName() {
             return name;
