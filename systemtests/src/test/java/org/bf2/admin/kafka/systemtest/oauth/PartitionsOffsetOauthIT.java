@@ -46,7 +46,7 @@ public class PartitionsOffsetOauthIT extends OauthTestBase {
         consumer.close();
         List<PartitionsModel> partList = Collections.singletonList(new PartitionsModel(topic.name(), new ArrayList<>()));
 
-        OffsetModel model = new OffsetModel("relative", "earliest", partList);
+        OffsetModel model = new OffsetModel("earliest", "", partList);
         CountDownLatch cd2 = new CountDownLatch(1);
         createHttpClient(vertx).request(HttpMethod.POST, publishedAdminPort, "localhost", "/rest/consumer-groups/" + groupID + "/reset-offset")
                 .compose(req -> req.putHeader("content-type", "application/json")
@@ -95,7 +95,7 @@ public class PartitionsOffsetOauthIT extends OauthTestBase {
                 .compose(req -> req.putHeader("content-type", "application/json")
                         .putHeader("Authorization", "Bearer " + token.getAccessToken())
                         .send(MODEL_DESERIALIZER.serializeBody(model)).onSuccess(response -> testContext.verify(() -> {
-                            assertThat(response.statusCode()).isEqualTo(ReturnCodes.UNAUTHORIZED.code);
+                            assertThat(response.statusCode()).isEqualTo(ReturnCodes.FAILED_REQUEST.code);
                             assertStrictTransportSecurityEnabled(response, testContext);
                             testContext.completeNow();
                         })).onFailure(testContext::failNow));
@@ -117,7 +117,7 @@ public class PartitionsOffsetOauthIT extends OauthTestBase {
         consumer.close();
         List<PartitionsModel> partList = Collections.singletonList(new PartitionsModel(topic.name(), new ArrayList<>()));
 
-        OffsetModel model = new OffsetModel("relative", "latest", partList);
+        OffsetModel model = new OffsetModel("latest", "", partList);
         CountDownLatch cd2 = new CountDownLatch(1);
         createHttpClient(vertx).request(HttpMethod.POST, publishedAdminPort, "localhost", "/rest/consumer-groups/" + groupID + "/reset-offset")
                 .compose(req -> req.putHeader("content-type", "application/json")
