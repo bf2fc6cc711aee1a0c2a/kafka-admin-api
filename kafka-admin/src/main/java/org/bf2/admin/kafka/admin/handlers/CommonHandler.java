@@ -50,7 +50,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.regex.PatternSyntaxException;
 
-@SuppressWarnings({"checkstyle:CyclomaticComplexity"})
+@SuppressWarnings({"checkstyle:ClassFanOutComplexity", "checkstyle:CyclomaticComplexity"})
 public class CommonHandler {
 
     protected static final Logger log = LogManager.getLogger(CommonHandler.class);
