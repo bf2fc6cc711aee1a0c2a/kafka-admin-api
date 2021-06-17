@@ -139,7 +139,6 @@ public class RestEndpointTestIT extends PlainTestBase {
     void testTopicListWithPagination(int page, Vertx vertx, VertxTestContext testContext, ExtensionContext extensionContext) throws Exception {
         AdminClient kafkaClient = AdminClient.create(RequestUtils.getKafkaAdminConfig(DEPLOYMENT_MANAGER
                 .getKafkaContainer(extensionContext).getBootstrapServers()));
-        LOGGER.info("Display name: " + extensionContext.getDisplayName());
         int publishedAdminPort = DEPLOYMENT_MANAGER.getAdminPort(extensionContext);
         List<NewTopic> topics = new ArrayList<>();
         for (int i = 0; i < 5; i++) topics.add(new NewTopic(UUID.randomUUID().toString(), 1, (short) 1));
@@ -150,7 +149,11 @@ public class RestEndpointTestIT extends PlainTestBase {
         client.request(HttpMethod.GET, publishedAdminPort, "localhost", "/rest/topics?size=3&page=" + page)
                 .compose(req -> req.send().onSuccess(response -> {
                     // we want to get page 3 of 5 topics. The page size is 3, so we have just 2 pages
-                    if (page == 3 && response.statusCode() != ReturnCodes.FAILED_REQUEST.code) {
+                    if (page == 3) {
+                        if (response.statusCode() != ReturnCodes.FAILED_REQUEST.code) {
+                            testContext.failNow("Status code not correct");
+                        }
+                    } else if (response.statusCode() != ReturnCodes.SUCCESS.code) {
                         testContext.failNow("Status code not correct");
                     }
                     assertStrictTransportSecurityDisabled(response, testContext);
@@ -230,7 +233,6 @@ public class RestEndpointTestIT extends PlainTestBase {
     void testTopicListWithPage(int page, Vertx vertx, VertxTestContext testContext, ExtensionContext extensionContext) throws Exception {
         AdminClient kafkaClient = AdminClient.create(RequestUtils.getKafkaAdminConfig(DEPLOYMENT_MANAGER
                 .getKafkaContainer(extensionContext).getBootstrapServers()));
-        LOGGER.info("Display name: " + extensionContext.getDisplayName());
         int publishedAdminPort = DEPLOYMENT_MANAGER.getAdminPort(extensionContext);
         List<NewTopic> topics = new ArrayList<>();
         for (int i = 0; i < 3; i++) topics.add(new NewTopic(UUID.randomUUID().toString(), 1, (short) 1));

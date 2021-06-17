@@ -151,7 +151,7 @@ public class TopicOperations {
                     fullTopicDescriptions.sort(new CommonHandler.TopicComparator(orderByInput.getField()));
                 }
 
-                if ((pageRequest.getPage() - 1) * pageRequest.getSize() >= fullTopicDescriptions.size()) {
+                if (fullTopicDescriptions.size() > 0 && (pageRequest.getPage() - 1) * pageRequest.getSize() >= fullTopicDescriptions.size()) {
                     return Future.failedFuture(new InvalidRequestException("Requested pagination incorrect. Beginning of list greater than full list size (" + fullTopicDescriptions.size() + ")"));
                 }
 
