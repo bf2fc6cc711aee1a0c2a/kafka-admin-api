@@ -226,7 +226,7 @@ public class Types {
         }
     }
 
-    public static class TopicPartitionsToReset {
+    public static class TopicsToResetOffset {
 
         private String topic;
         private List<Integer> partitions;
@@ -282,7 +282,7 @@ public class Types {
     public static class ConsumerGroupOffsetResetParameters {
 
         private String groupId;
-        private List<TopicPartitionsToReset> topics;
+        private List<TopicsToResetOffset> topics;
         private String offset;
         private String value;
 
@@ -294,11 +294,11 @@ public class Types {
             this.groupId = groupId;
         }
 
-        public List<TopicPartitionsToReset> getTopics() {
+        public List<TopicsToResetOffset> getTopics() {
             return topics;
         }
 
-        public void setTopics(List<TopicPartitionsToReset> topics) {
+        public void setTopics(List<TopicsToResetOffset> topics) {
             this.topics = topics;
         }
 
