@@ -215,8 +215,6 @@ public class RestOperations extends CommonHandler implements OperationsHandler {
         httpMetrics.getListTopicsCounter().increment();
         httpMetrics.getRequestsCounter().increment();
         String filter = routingContext.queryParams().get("filter");
-        String size = routingContext.queryParams().get("size") == null ? "10" : routingContext.queryParams().get("size");
-        String page = routingContext.queryParams().get("page") == null ? "1" : routingContext.queryParams().get("page");
         Types.SortDirectionEnum sortReverse = Types.SortDirectionEnum.fromString(routingContext.queryParams().get("order"));
         String sortKey = routingContext.queryParams().get("orderKey") == null ? "name" : routingContext.queryParams().get("orderKey");
         Types.OrderByInput orderBy = new Types.OrderByInput();
@@ -235,16 +233,7 @@ public class RestOperations extends CommonHandler implements OperationsHandler {
                 prom.fail(ac.cause());
             } else {
                 try {
-                    int pageInt = Integer.parseInt(page);
-                    int sizeInt = Integer.parseInt(size);
-                    if (sizeInt < 1 || pageInt < 1) {
-                        throw new InvalidRequestException("Size and page have to be positive integers.");
-                    }
-                    Types.PageRequest pageRequest = new Types.PageRequest();
-                    pageRequest.setPage(pageInt);
-                    pageRequest.setSize(sizeInt);
-
-                    TopicOperations.getTopicList(ac.result(), prom, pattern, pageRequest, orderBy);
+                    TopicOperations.getTopicList(ac.result(), prom, pattern, parsePageRequest(routingContext), orderBy);
                 } catch (NumberFormatException | InvalidRequestException e) {
                     prom.fail(e);
                     processResponse(prom, routingContext, HttpResponseStatus.BAD_REQUEST, httpMetrics, httpMetrics.getListTopicRequestTimer(), requestTimerSample);
@@ -263,8 +252,6 @@ public class RestOperations extends CommonHandler implements OperationsHandler {
         httpMetrics.getRequestsCounter().increment();
         String topicFilter = routingContext.queryParams().get("topic");
         String consumerGroupIdFilter = routingContext.queryParams().get("group-id-filter") == null ? "" : routingContext.queryParams().get("group-id-filter");
-        String size = routingContext.queryParams().get("size") == null ? "10" : routingContext.queryParams().get("size");
-        String page = routingContext.queryParams().get("page") == null ? "1" : routingContext.queryParams().get("page");
 
         Types.SortDirectionEnum sortReverse = Types.SortDirectionEnum.fromString(routingContext.queryParams().get("order"));
         String sortKey = routingContext.queryParams().get("orderKey") == null ? "name" : routingContext.queryParams().get("orderKey");
@@ -285,15 +272,7 @@ public class RestOperations extends CommonHandler implements OperationsHandler {
                 prom.fail(ac.cause());
             } else {
                 try {
-                    int pageInt = Integer.parseInt(page);
-                    int sizeInt = Integer.parseInt(size);
-                    if (sizeInt < 1 || pageInt < 1) {
-                        throw new InvalidRequestException("Size and page have to be positive integers.");
-                    }
-                    Types.PageRequest pageRequest = new Types.PageRequest();
-                    pageRequest.setPage(pageInt);
-                    pageRequest.setSize(sizeInt);
-                    ConsumerGroupOperations.getGroupList(ac.result(), prom, pattern, pageRequest, consumerGroupIdFilter, orderBy);
+                    ConsumerGroupOperations.getGroupList(ac.result(), prom, pattern, parsePageRequest(routingContext), consumerGroupIdFilter, orderBy);
                 } catch (NumberFormatException | InvalidRequestException e) {
                     prom.fail(e);
                     processResponse(prom, routingContext, HttpResponseStatus.BAD_REQUEST, httpMetrics, httpMetrics.getListGroupsRequestTimer(), requestTimerSample);
@@ -426,5 +405,21 @@ public class RestOperations extends CommonHandler implements OperationsHandler {
         Promise<List<String>> prom = Promise.promise();
         prom.fail(routingContext.failure());
         processResponse(prom, routingContext, HttpResponseStatus.OK, httpMetrics, httpMetrics.getOpenApiRequestTimer(), requestTimerSample);
+    }
+
+    private Types.PageRequest parsePageRequest(RoutingContext routingContext) {
+        String size = routingContext.queryParams().get("size") == null ? "10" : routingContext.queryParams().get("size");
+        String page = routingContext.queryParams().get("page") == null ? "1" : routingContext.queryParams().get("page");
+
+        int pageInt = Integer.parseInt(page);
+        int sizeInt = Integer.parseInt(size);
+        if (sizeInt < 1 || pageInt < 1) {
+            throw new InvalidRequestException("Size and page have to be positive integers.");
+        }
+        Types.PageRequest pageRequest = new Types.PageRequest();
+        pageRequest.setPage(pageInt);
+        pageRequest.setSize(sizeInt);
+
+        return pageRequest;
     }
 }

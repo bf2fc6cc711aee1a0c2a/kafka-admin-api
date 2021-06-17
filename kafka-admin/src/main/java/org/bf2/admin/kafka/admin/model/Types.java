@@ -123,45 +123,6 @@ public class Types {
         }
     }
 
-    public static class TopicList {
-        private List<Topic> items;
-        private Integer page;
-        private Integer size;
-        private Integer total;
-
-        public List<Topic> getItems() {
-            return items;
-        }
-
-        public void setItems(List<Topic> items) {
-            this.items = items;
-        }
-
-        public Integer getPage() {
-            return page;
-        }
-
-        public void setPage(Integer page) {
-            this.page = page;
-        }
-
-        public Integer getSize() {
-            return size;
-        }
-
-        public void setSize(Integer size) {
-            this.size = size;
-        }
-
-        public Integer getTotal() {
-            return total;
-        }
-
-        public void setTotal(Integer total) {
-            this.total = total;
-        }
-    }
-
     public static class NewTopicConfigEntry {
         private String key;
         private String value;
@@ -346,16 +307,16 @@ public class Types {
         }
     }
 
-    public static class ConsumerGroupList {
-        private List<ConsumerGroupDescription> items;
+    public static class PagedResponse<T> {
+        private List<T> items;
         private Integer size;
         private Integer page;
         private Integer total;
 
-        public List<ConsumerGroupDescription> getItems() {
+        public List<T> getItems() {
             return items;
         }
-        public void setItems(List<ConsumerGroupDescription> items) {
+        public void setItems(List<T> items) {
             this.items = items;
         }
 
@@ -382,6 +343,12 @@ public class Types {
         public void setTotal(Integer total) {
             this.total = total;
         }
+    }
+
+    public static class ConsumerGroupList extends PagedResponse<ConsumerGroupDescription> {
+    }
+
+    public static class TopicList extends PagedResponse<Topic> {
     }
 
     public static class Consumer {

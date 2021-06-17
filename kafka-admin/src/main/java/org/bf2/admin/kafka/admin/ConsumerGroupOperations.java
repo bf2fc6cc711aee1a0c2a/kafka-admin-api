@@ -87,7 +87,7 @@ public class ConsumerGroupOperations {
                     .filter(i -> i != null)
                     .collect(Collectors.toList());
 
-                if (pageRequest.getSize() * (pageRequest.getPage() - 1) > list.size()) {
+                if (pageRequest.getSize() * (pageRequest.getPage() - 1) >= list.size()) {
                     return Future.failedFuture(new InvalidRequestException("Requested pagination incorrect. Beginning of list greater than full list size (" + list.size() + ")"));
                 }
 
