@@ -39,7 +39,6 @@ public class ModelDeserializer {
         return null;
     }
 
-
     public Set<String> getNames(Buffer responseBuffer) {
         Set<String> names = null;
         try {
