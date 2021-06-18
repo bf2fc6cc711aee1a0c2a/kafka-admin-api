@@ -345,6 +345,7 @@ public class Types {
         // deprecated
         private Integer offset;
         private Integer limit;
+        private Integer count;
 
         public List<T> getItems() {
             return items;
@@ -393,6 +394,14 @@ public class Types {
 
         public void setLimit(Integer limit) {
             this.limit = limit;
+        }
+
+        public Integer getCount() {
+            return count;
+        }
+
+        public void setCount(Integer count) {
+            this.count = count;
         }
     }
 

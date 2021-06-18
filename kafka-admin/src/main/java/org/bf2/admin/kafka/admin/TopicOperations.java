@@ -166,6 +166,7 @@ public class TopicOperations {
                     croppedList = fullTopicDescriptions.subList(pageRequest.getOffset(), Math.min(pageRequest.getOffset() + tmpLimit, fullTopicDescriptions.size()));
                     topicList.setOffset(pageRequest.getOffset());
                     topicList.setLimit(pageRequest.getLimit());
+                    topicList.setCount(croppedList.size());
                 } else {
                     if (fullTopicDescriptions.size() > 0 && (pageRequest.getPage() - 1) * pageRequest.getSize() >= fullTopicDescriptions.size()) {
                         return Future.failedFuture(new InvalidRequestException("Requested pagination incorrect. Beginning of list greater than full list size (" + fullTopicDescriptions.size() + ")"));
@@ -173,11 +174,10 @@ public class TopicOperations {
                     croppedList = fullTopicDescriptions.subList((pageRequest.getPage() - 1) * pageRequest.getSize(), Math.min(pageRequest.getPage() * pageRequest.getSize(), fullTopicDescriptions.size()));
                     topicList.setPage(pageRequest.getPage());
                     topicList.setSize(pageRequest.getSize());
+                    topicList.setTotal(fullTopicDescriptions.size());
                 }
 
-
                 topicList.setItems(croppedList);
-                topicList.setTotal(fullTopicDescriptions.size());
 
                 return Future.succeededFuture(topicList);
             }).onComplete(finalRes -> {

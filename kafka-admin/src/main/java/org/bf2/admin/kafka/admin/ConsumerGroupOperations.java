@@ -106,6 +106,7 @@ public class ConsumerGroupOperations {
                     croppedList = list.subList(pageRequest.getOffset(), Math.min(pageRequest.getOffset() + tmpLimit, list.size()));
                     response.setLimit(pageRequest.getLimit());
                     response.setOffset(pageRequest.getOffset());
+                    response.setCount(croppedList.size());
                 } else {
                     if (list.size() > 0 && pageRequest.getSize() * (pageRequest.getPage() - 1) >= list.size()) {
                         return Future.failedFuture(new InvalidRequestException("Requested pagination incorrect. Beginning of list greater than full list size (" + list.size() + ")"));
@@ -113,11 +114,10 @@ public class ConsumerGroupOperations {
                     croppedList = list.subList((pageRequest.getPage() - 1) * pageRequest.getSize(), Math.min(pageRequest.getSize() * pageRequest.getPage(), list.size()));
                     response.setSize(pageRequest.getSize());
                     response.setPage(pageRequest.getPage());
+                    response.setTotal(list.size());
                 }
 
                 response.setItems(croppedList);
-                response.setTotal(list.size());
-
 
                 return Future.succeededFuture(response);
             })
