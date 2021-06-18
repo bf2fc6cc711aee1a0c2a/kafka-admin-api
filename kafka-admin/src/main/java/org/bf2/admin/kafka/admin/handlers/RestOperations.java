@@ -408,17 +408,34 @@ public class RestOperations extends CommonHandler implements OperationsHandler {
     }
 
     private Types.PageRequest parsePageRequest(RoutingContext routingContext) {
-        String size = routingContext.queryParams().get("size") == null ? "10" : routingContext.queryParams().get("size");
-        String page = routingContext.queryParams().get("page") == null ? "1" : routingContext.queryParams().get("page");
-
-        int pageInt = Integer.parseInt(page);
-        int sizeInt = Integer.parseInt(size);
-        if (sizeInt < 1 || pageInt < 1) {
-            throw new InvalidRequestException("Size and page have to be positive integers.");
-        }
         Types.PageRequest pageRequest = new Types.PageRequest();
-        pageRequest.setPage(pageInt);
-        pageRequest.setSize(sizeInt);
+
+        boolean deprecatedPaginationUsed = false;
+        if (routingContext.queryParams().get("offset") != null || routingContext.queryParams().get("limit") != null) {
+            deprecatedPaginationUsed = true;
+        }
+        pageRequest.setDeprecatedFormat(deprecatedPaginationUsed);
+
+        if (deprecatedPaginationUsed) {
+            String offset = routingContext.queryParams().get("offset") == null ? "0" : routingContext.queryParams().get("offset");
+            String limit = routingContext.queryParams().get("limit") == null ? "10" : routingContext.queryParams().get("limit");
+            int offsetInt = Integer.parseInt(offset);
+            int limitInt = Integer.parseInt(limit);
+            pageRequest.setOffset(offsetInt);
+            pageRequest.setLimit(limitInt);
+        } else {
+            String size = routingContext.queryParams().get("size") == null ? "10" : routingContext.queryParams().get("size");
+            String page = routingContext.queryParams().get("page") == null ? "1" : routingContext.queryParams().get("page");
+
+            int pageInt = Integer.parseInt(page);
+            int sizeInt = Integer.parseInt(size);
+            pageRequest.setPage(pageInt);
+            pageRequest.setSize(sizeInt);
+
+            if (sizeInt < 1 || pageInt < 1) {
+                throw new InvalidRequestException("Size and page have to be positive integers.");
+            }
+        }
 
         return pageRequest;
     }

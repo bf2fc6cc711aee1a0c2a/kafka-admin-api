@@ -15,6 +15,16 @@ paths:
   /topics:
     get:
       parameters:
+        - name: offset
+          description: The page offset
+          schema:
+            type: integer
+          in: query
+        - name: limit
+          description: Maximum number of topics to return
+          schema:
+            type: integer
+          in: query
         - name: size
           description: Maximum number of topics to return on single page
           schema:
@@ -344,6 +354,16 @@ paths:
     summary: API endpoints for consumer groups under a Kafka topic
     get:
       parameters:
+        - name: offset
+          description: The page offset
+          schema:
+            type: integer
+          in: query
+        - name: limit
+          description: Maximum number of consumer groups to return
+          schema:
+            type: integer
+          in: query
         - name: size
           description: Maximum number of consumer groups to return on single page
           schema:
@@ -541,18 +561,19 @@ components:
         value: '1'
     TopicsList:
       description: A list of topics.
-      required:
-        - items
-        - page
-        - size
-        - total
       type: object
       properties:
-        offset:
+        page:
           description: The page
           type: integer
         size:
           description: number of entries per page
+          type: integer
+        offset:
+          description: Deprecated offset of the topic list
+          type: integer
+        limit:
+          description: Deprecated maximum of returned topics
           type: integer
         total:
           description: Total number of topics
@@ -727,11 +748,6 @@ components:
         logEndOffset: 5
     ConsumerGroupList:
       description: A list of consumer groups
-      required:
-        - items
-        - total
-        - size
-        - offset
       type: object
       properties:
         items:
@@ -747,6 +763,12 @@ components:
           type: number
         page:
           description: The page
+          type: integer
+        offset:
+          description: Deprecated offset of the topic list
+          type: integer
+        limit:
+          description: Deprecated maximum of returned topics
           type: integer
       example:
         count: 1

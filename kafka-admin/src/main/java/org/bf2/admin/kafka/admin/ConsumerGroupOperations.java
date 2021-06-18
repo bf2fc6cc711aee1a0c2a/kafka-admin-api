@@ -87,23 +87,37 @@ public class ConsumerGroupOperations {
                     .filter(i -> i != null)
                     .collect(Collectors.toList());
 
-                if (list.size() > 0 && pageRequest.getSize() * (pageRequest.getPage() - 1) >= list.size()) {
-                    return Future.failedFuture(new InvalidRequestException("Requested pagination incorrect. Beginning of list greater than full list size (" + list.size() + ")"));
-                }
-
                 if (Types.SortDirectionEnum.DESC.equals(orderByInput.getOrder())) {
                     list.sort(new CommonHandler.ConsumerGroupComparator(orderByInput.getField()).reversed());
                 } else {
                     list.sort(new CommonHandler.ConsumerGroupComparator(orderByInput.getField()));
                 }
 
-                List<Types.ConsumerGroupDescription> croppedList = list.subList((pageRequest.getPage() - 1) * pageRequest.getSize(), Math.min(pageRequest.getSize() * pageRequest.getPage(), list.size()));
-
                 Types.ConsumerGroupList response = new Types.ConsumerGroupList();
+                List<Types.ConsumerGroupDescription> croppedList;
+                if (pageRequest.isDeprecatedFormat()) {
+                    if (pageRequest.getOffset() > list.size()) {
+                        return Future.failedFuture(new InvalidRequestException("Offset (" + pageRequest.getOffset() + ") cannot be greater than consumer group list size (" + list.size() + ")"));
+                    }
+                    int tmpLimit = pageRequest.getLimit();
+                    if (tmpLimit == 0) {
+                        tmpLimit = list.size();
+                    }
+                    croppedList = list.subList(pageRequest.getOffset(), Math.min(pageRequest.getOffset() + tmpLimit, list.size()));
+                    response.setLimit(pageRequest.getLimit());
+                    response.setOffset(pageRequest.getOffset());
+                } else {
+                    if (list.size() > 0 && pageRequest.getSize() * (pageRequest.getPage() - 1) >= list.size()) {
+                        return Future.failedFuture(new InvalidRequestException("Requested pagination incorrect. Beginning of list greater than full list size (" + list.size() + ")"));
+                    }
+                    croppedList = list.subList((pageRequest.getPage() - 1) * pageRequest.getSize(), Math.min(pageRequest.getSize() * pageRequest.getPage(), list.size()));
+                    response.setSize(pageRequest.getSize());
+                    response.setPage(pageRequest.getPage());
+                }
+
                 response.setItems(croppedList);
                 response.setTotal(list.size());
-                response.setSize(pageRequest.getSize());
-                response.setPage(pageRequest.getPage());
+
 
                 return Future.succeededFuture(response);
             })

@@ -151,17 +151,34 @@ public class TopicOperations {
                     fullTopicDescriptions.sort(new CommonHandler.TopicComparator(orderByInput.getField()));
                 }
 
-                if (fullTopicDescriptions.size() > 0 && (pageRequest.getPage() - 1) * pageRequest.getSize() >= fullTopicDescriptions.size()) {
-                    return Future.failedFuture(new InvalidRequestException("Requested pagination incorrect. Beginning of list greater than full list size (" + fullTopicDescriptions.size() + ")"));
-                }
-
-                List<Types.Topic> croppedList = fullTopicDescriptions.subList((pageRequest.getPage() - 1) * pageRequest.getSize(), Math.min(pageRequest.getPage() * pageRequest.getSize(), fullTopicDescriptions.size()));
 
                 Types.TopicList topicList = new Types.TopicList();
+                List<Types.Topic> croppedList;
+                if (pageRequest.isDeprecatedFormat()) {
+                    // deprecated
+                    if (pageRequest.getOffset() > fullTopicDescriptions.size()) {
+                        return Future.failedFuture(new InvalidRequestException("Offset (" + pageRequest.getOffset() + ") cannot be greater than topic list size (" + fullTopicDescriptions.size() + ")"));
+                    }
+                    int tmpLimit = pageRequest.getLimit();
+                    if (tmpLimit == 0) {
+                        tmpLimit = fullTopicDescriptions.size();
+                    }
+                    croppedList = fullTopicDescriptions.subList(pageRequest.getOffset(), Math.min(pageRequest.getOffset() + tmpLimit, fullTopicDescriptions.size()));
+                    topicList.setOffset(pageRequest.getOffset());
+                    topicList.setLimit(pageRequest.getLimit());
+                } else {
+                    if (fullTopicDescriptions.size() > 0 && (pageRequest.getPage() - 1) * pageRequest.getSize() >= fullTopicDescriptions.size()) {
+                        return Future.failedFuture(new InvalidRequestException("Requested pagination incorrect. Beginning of list greater than full list size (" + fullTopicDescriptions.size() + ")"));
+                    }
+                    croppedList = fullTopicDescriptions.subList((pageRequest.getPage() - 1) * pageRequest.getSize(), Math.min(pageRequest.getPage() * pageRequest.getSize(), fullTopicDescriptions.size()));
+                    topicList.setPage(pageRequest.getPage());
+                    topicList.setSize(pageRequest.getSize());
+                }
+
+
                 topicList.setItems(croppedList);
                 topicList.setTotal(fullTopicDescriptions.size());
-                topicList.setPage(pageRequest.getPage());
-                topicList.setSize(pageRequest.getSize());
+
                 return Future.succeededFuture(topicList);
             }).onComplete(finalRes -> {
                 if (finalRes.failed()) {

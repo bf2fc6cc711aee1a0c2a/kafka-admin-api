@@ -219,8 +219,22 @@ public class Types {
     }
 
     public static class PageRequest {
+        private boolean deprecatedFormat;
         private Integer page;
         private Integer size;
+
+        @Deprecated
+        private Integer offset;
+        @Deprecated
+        private Integer limit;
+
+        public boolean isDeprecatedFormat() {
+            return deprecatedFormat;
+        }
+
+        public void setDeprecatedFormat(boolean deprecatedFormat) {
+            this.deprecatedFormat = deprecatedFormat;
+        }
 
         public Integer getPage() {
             return page;
@@ -236,6 +250,22 @@ public class Types {
 
         public void setSize(Integer size) {
             this.size = size;
+        }
+
+        public Integer getOffset() {
+            return offset;
+        }
+
+        public void setOffset(Integer offset) {
+            this.offset = offset;
+        }
+
+        public Integer getLimit() {
+            return limit;
+        }
+
+        public void setLimit(Integer limit) {
+            this.limit = limit;
         }
     }
     public enum SortDirectionEnum {
@@ -312,6 +342,9 @@ public class Types {
         private Integer size;
         private Integer page;
         private Integer total;
+        // deprecated
+        private Integer offset;
+        private Integer limit;
 
         public List<T> getItems() {
             return items;
@@ -342,6 +375,24 @@ public class Types {
 
         public void setTotal(Integer total) {
             this.total = total;
+        }
+
+        //deprecated
+
+        public Integer getOffset() {
+            return offset;
+        }
+
+        public void setOffset(Integer offset) {
+            this.offset = offset;
+        }
+
+        public Integer getLimit() {
+            return limit;
+        }
+
+        public void setLimit(Integer limit) {
+            this.limit = limit;
         }
     }
 
