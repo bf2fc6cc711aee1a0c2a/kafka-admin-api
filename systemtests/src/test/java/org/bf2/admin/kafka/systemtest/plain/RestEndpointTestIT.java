@@ -172,6 +172,67 @@ public class RestEndpointTestIT extends PlainTestBase {
         assertThat(testContext.awaitCompletion(1, TimeUnit.MINUTES)).isTrue();
     }
 
+    @ParameterizedTest(name = "testTopicListWithLimit-{0}")
+    @Execution(ExecutionMode.CONCURRENT)
+    @ValueSource(ints = {1, 2, 3, 5})
+    void testTopicListWithLimit(int limit, Vertx vertx, VertxTestContext testContext, ExtensionContext extensionContext) throws Exception {
+        AdminClient kafkaClient = AdminClient.create(RequestUtils.getKafkaAdminConfig(DEPLOYMENT_MANAGER
+                .getKafkaContainer(extensionContext).getBootstrapServers()));
+        int publishedAdminPort = DEPLOYMENT_MANAGER.getAdminPort(extensionContext);
+
+        List<NewTopic> topics = new ArrayList<>();
+        for (int i = 0; i < 3; i++) topics.add(new NewTopic(UUID.randomUUID().toString(), 1, (short) 1));
+        kafkaClient.createTopics(topics);
+        DynamicWait.waitForTopicsExists(topics.stream().map(NewTopic::name).collect(Collectors.toList()), kafkaClient);
+
+        HttpClient client = createHttpClient(vertx);
+        client.request(HttpMethod.GET, publishedAdminPort, "localhost", "/rest/topics?limit=" + limit)
+                .compose(req -> req.send().onSuccess(response -> {
+                    if (response.statusCode() !=  ReturnCodes.SUCCESS.code) {
+                        testContext.failNow("Status code not correct");
+                    }
+                    assertStrictTransportSecurityDisabled(response, testContext);
+                }).onFailure(testContext::failNow).compose(HttpClientResponse::body))
+                .onComplete(testContext.succeeding(buffer -> testContext.verify(() -> {
+                    assertThat(testContext.failed()).isFalse();
+                    assertThat(MODEL_DESERIALIZER.getNames(buffer).size()).isEqualTo(Math.min(limit, 3));
+                    testContext.completeNow();
+                })));
+        assertThat(testContext.awaitCompletion(1, TimeUnit.MINUTES)).isTrue();
+    }
+
+    @ParameterizedTest(name = "testTopicListWithOffset-{0}")
+    @Execution(ExecutionMode.CONCURRENT)
+    @ValueSource(ints = {0, 1, 3, 4})
+    void testTopicListWithOffset(int offset, Vertx vertx, VertxTestContext testContext, ExtensionContext extensionContext) throws Exception {
+        AdminClient kafkaClient = AdminClient.create(RequestUtils.getKafkaAdminConfig(DEPLOYMENT_MANAGER
+                .getKafkaContainer(extensionContext).getBootstrapServers()));
+        LOGGER.info("Display name: " + extensionContext.getDisplayName());
+        int publishedAdminPort = DEPLOYMENT_MANAGER.getAdminPort(extensionContext);
+        List<NewTopic> topics = new ArrayList<>();
+        for (int i = 0; i < 3; i++) topics.add(new NewTopic(UUID.randomUUID().toString(), 1, (short) 1));
+        kafkaClient.createTopics(topics);
+        DynamicWait.waitForTopicsExists(topics.stream().map(NewTopic::name).collect(Collectors.toList()), kafkaClient);
+
+        HttpClient client = createHttpClient(vertx);
+        client.request(HttpMethod.GET, publishedAdminPort, "localhost", "/rest/topics?offset=" + offset)
+                .compose(req -> req.send().onSuccess(response -> {
+                    if ((response.statusCode() !=  ReturnCodes.SUCCESS.code && offset != 4)
+                            || (response.statusCode() !=  ReturnCodes.FAILED_REQUEST.code && offset == 4)) {
+                        testContext.failNow("Status code not correct");
+                    }
+                    assertStrictTransportSecurityDisabled(response, testContext);
+                }).onFailure(testContext::failNow).compose(HttpClientResponse::body))
+                .onComplete(testContext.succeeding(buffer -> testContext.verify(() -> {
+                    assertThat(testContext.failed()).isFalse();
+                    if (offset != 4) {
+                        assertThat(MODEL_DESERIALIZER.getNames(buffer).size()).isEqualTo(3 - offset);
+                    }
+                    testContext.completeNow();
+                })));
+        assertThat(testContext.awaitCompletion(1, TimeUnit.MINUTES)).isTrue();
+    }
+
     @ParallelTest
     void testTopicListWithFilterNone(Vertx vertx, VertxTestContext testContext, ExtensionContext extensionContext) throws Exception {
         AdminClient kafkaClient = AdminClient.create(RequestUtils.getKafkaAdminConfig(DEPLOYMENT_MANAGER
