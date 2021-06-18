@@ -28,6 +28,8 @@ public class ModelDeserializer {
         }
         return deserialized;
     }
+
+
     public <T> String serializeBody(T object) {
         try {
             return MAPPER.writeValueAsString(object);
@@ -36,7 +38,6 @@ public class ModelDeserializer {
         }
         return null;
     }
-
 
     public Set<String> getNames(Buffer responseBuffer) {
         Set<String> names = null;
@@ -62,6 +63,16 @@ public class ModelDeserializer {
             e.printStackTrace();
         }
         return groupsID;
+    }
+
+    public Types.TopicPartitionResetResult getResetResult(Buffer responseBuffer) {
+        Types.TopicPartitionResetResult res = null;
+        try {
+            res = MAPPER.readValue(responseBuffer.toString(), new TypeReference<List<Types.TopicPartitionResetResult>>() { }).get(0);
+        } catch (JsonProcessingException e) {
+            e.printStackTrace();
+        }
+        return res;
     }
 
     public Types.ConsumerGroupDescription getGroupDesc(Buffer responseBuffer) {

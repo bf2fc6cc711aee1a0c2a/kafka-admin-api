@@ -377,7 +377,7 @@ public class RestOAuthTestIT extends OauthTestBase {
                     assertThat(MODEL_DESERIALIZER.getNames(buffer)).hasSameElementsAs(actualRestNames);
                     latch.countDown();
                 })));
-        latch.await(1, TimeUnit.MINUTES);
+        assertThat(latch.await(1, TimeUnit.MINUTES)).isTrue();
 
         client.request(HttpMethod.GET, publishedAdminPort, "localhost", "/rest/topics")
                 .compose(req -> req.send().onSuccess(response -> testContext.verify(() -> {
