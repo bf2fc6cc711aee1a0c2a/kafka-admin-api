@@ -123,45 +123,6 @@ public class Types {
         }
     }
 
-    public static class TopicList {
-        private List<Topic> items;
-        private Integer offset;
-        private Integer limit;
-        private Integer count;
-
-        public List<Topic> getItems() {
-            return items;
-        }
-
-        public void setItems(List<Topic> items) {
-            this.items = items;
-        }
-
-        public Integer getOffset() {
-            return offset;
-        }
-
-        public void setOffset(Integer offset) {
-            this.offset = offset;
-        }
-
-        public Integer getLimit() {
-            return limit;
-        }
-
-        public void setLimit(Integer limit) {
-            this.limit = limit;
-        }
-
-        public Integer getCount() {
-            return count;
-        }
-
-        public void setCount(Integer count) {
-            this.count = count;
-        }
-    }
-
     public static class NewTopicConfigEntry {
         private String key;
         private String value;
@@ -351,15 +312,37 @@ public class Types {
     }
 
     public static class PageRequest {
-        private Integer limit;
-        private Integer offset;
+        private boolean deprecatedFormat;
+        private Integer page;
+        private Integer size;
 
-        public Integer getLimit() {
-            return limit;
+        @Deprecated
+        private Integer offset;
+        @Deprecated
+        private Integer limit;
+
+        public boolean isDeprecatedFormat() {
+            return deprecatedFormat;
         }
 
-        public void setLimit(Integer limit) {
-            this.limit = limit;
+        public void setDeprecatedFormat(boolean deprecatedFormat) {
+            this.deprecatedFormat = deprecatedFormat;
+        }
+
+        public Integer getPage() {
+            return page;
+        }
+
+        public void setPage(Integer page) {
+            this.page = page;
+        }
+
+        public Integer getSize() {
+            return size;
+        }
+
+        public void setSize(Integer size) {
+            this.size = size;
         }
 
         public Integer getOffset() {
@@ -368,6 +351,14 @@ public class Types {
 
         public void setOffset(Integer offset) {
             this.offset = offset;
+        }
+
+        public Integer getLimit() {
+            return limit;
+        }
+
+        public void setLimit(Integer limit) {
+            this.limit = limit;
         }
     }
     public enum SortDirectionEnum {
@@ -439,36 +430,78 @@ public class Types {
         }
     }
 
-    public static class ConsumerGroupList {
-        private List<ConsumerGroupDescription> items;
+    public static class PagedResponse<T> {
+        private List<T> items;
+        private Integer size;
+        private Integer page;
+        private Integer total;
+        // deprecated
         private Integer offset;
         private Integer limit;
         private Integer count;
 
-        public List<ConsumerGroupDescription> getItems() {
+        public List<T> getItems() {
             return items;
         }
-        public void setItems(List<ConsumerGroupDescription> items) {
+        public void setItems(List<T> items) {
             this.items = items;
         }
+
+        public Integer getSize() {
+            return size;
+        }
+
+        public void setSize(Integer size) {
+            this.size = size;
+        }
+
+        public Integer getPage() {
+            return page;
+        }
+
+        public void setPage(Integer page) {
+            this.page = page;
+        }
+
+        public Integer getTotal() {
+            return total;
+        }
+
+        public void setTotal(Integer total) {
+            this.total = total;
+        }
+
+        //deprecated
+
         public Integer getOffset() {
             return offset;
         }
+
         public void setOffset(Integer offset) {
             this.offset = offset;
         }
+
         public Integer getLimit() {
             return limit;
         }
+
         public void setLimit(Integer limit) {
             this.limit = limit;
         }
+
         public Integer getCount() {
             return count;
         }
+
         public void setCount(Integer count) {
             this.count = count;
         }
+    }
+
+    public static class ConsumerGroupList extends PagedResponse<ConsumerGroupDescription> {
+    }
+
+    public static class TopicList extends PagedResponse<Topic> {
     }
 
     public static class Consumer {

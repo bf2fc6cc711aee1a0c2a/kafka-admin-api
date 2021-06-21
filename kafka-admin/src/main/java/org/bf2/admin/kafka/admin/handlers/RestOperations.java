@@ -215,8 +215,6 @@ public class RestOperations extends CommonHandler implements OperationsHandler {
         httpMetrics.getListTopicsCounter().increment();
         httpMetrics.getRequestsCounter().increment();
         String filter = routingContext.queryParams().get("filter");
-        String limit = routingContext.queryParams().get("limit") == null ? "0" : routingContext.queryParams().get("limit");
-        String offset = routingContext.queryParams().get("offset") == null ? "0" : routingContext.queryParams().get("offset");
         Types.SortDirectionEnum sortReverse = Types.SortDirectionEnum.fromString(routingContext.queryParams().get("order"));
         String sortKey = routingContext.queryParams().get("orderKey") == null ? "name" : routingContext.queryParams().get("orderKey");
         Types.OrderByInput orderBy = new Types.OrderByInput();
@@ -235,13 +233,11 @@ public class RestOperations extends CommonHandler implements OperationsHandler {
                 prom.fail(ac.cause());
             } else {
                 try {
-                    if (Integer.parseInt(offset) < 0 || Integer.parseInt(limit) < 0) {
-                        throw new InvalidRequestException("Offset and limit have to be positive integers.");
-                    }
-                    TopicOperations.getTopicList(ac.result(), prom, pattern, Integer.parseInt(offset), Integer.parseInt(limit), orderBy);
+                    TopicOperations.getTopicList(ac.result(), prom, pattern, parsePageRequest(routingContext), orderBy);
                 } catch (NumberFormatException | InvalidRequestException e) {
                     prom.fail(e);
                     processResponse(prom, routingContext, HttpResponseStatus.BAD_REQUEST, httpMetrics, httpMetrics.getListTopicRequestTimer(), requestTimerSample);
+                    return;
                 }
             }
             processResponse(prom, routingContext, HttpResponseStatus.OK, httpMetrics, httpMetrics.getListTopicRequestTimer(), requestTimerSample);
@@ -256,8 +252,6 @@ public class RestOperations extends CommonHandler implements OperationsHandler {
         httpMetrics.getRequestsCounter().increment();
         String topicFilter = routingContext.queryParams().get("topic");
         String consumerGroupIdFilter = routingContext.queryParams().get("group-id-filter") == null ? "" : routingContext.queryParams().get("group-id-filter");
-        String limit = routingContext.queryParams().get("limit") == null ? "0" : routingContext.queryParams().get("limit");
-        String offset = routingContext.queryParams().get("offset") == null ? "0" : routingContext.queryParams().get("offset");
 
         Types.SortDirectionEnum sortReverse = Types.SortDirectionEnum.fromString(routingContext.queryParams().get("order"));
         String sortKey = routingContext.queryParams().get("orderKey") == null ? "name" : routingContext.queryParams().get("orderKey");
@@ -278,13 +272,11 @@ public class RestOperations extends CommonHandler implements OperationsHandler {
                 prom.fail(ac.cause());
             } else {
                 try {
-                    if (Integer.parseInt(offset) < 0 || Integer.parseInt(limit) < 0) {
-                        throw new InvalidRequestException("Offset and limit have to be positive integers.");
-                    }
-                    ConsumerGroupOperations.getGroupList(ac.result(), prom, pattern, Integer.parseInt(offset), Integer.parseInt(limit), consumerGroupIdFilter, orderBy);
+                    ConsumerGroupOperations.getGroupList(ac.result(), prom, pattern, parsePageRequest(routingContext), consumerGroupIdFilter, orderBy);
                 } catch (NumberFormatException | InvalidRequestException e) {
                     prom.fail(e);
                     processResponse(prom, routingContext, HttpResponseStatus.BAD_REQUEST, httpMetrics, httpMetrics.getListGroupsRequestTimer(), requestTimerSample);
+                    return;
                 }
             }
             processResponse(prom, routingContext, HttpResponseStatus.OK, httpMetrics, httpMetrics.getListGroupsRequestTimer(), requestTimerSample);
@@ -430,5 +422,38 @@ public class RestOperations extends CommonHandler implements OperationsHandler {
         Promise<List<String>> prom = Promise.promise();
         prom.fail(routingContext.failure());
         processResponse(prom, routingContext, HttpResponseStatus.OK, httpMetrics, httpMetrics.getOpenApiRequestTimer(), requestTimerSample);
+    }
+
+    private Types.PageRequest parsePageRequest(RoutingContext routingContext) {
+        Types.PageRequest pageRequest = new Types.PageRequest();
+
+        boolean deprecatedPaginationUsed = false;
+        if (routingContext.queryParams().get("offset") != null || routingContext.queryParams().get("limit") != null) {
+            deprecatedPaginationUsed = true;
+        }
+        pageRequest.setDeprecatedFormat(deprecatedPaginationUsed);
+
+        if (deprecatedPaginationUsed) {
+            String offset = routingContext.queryParams().get("offset") == null ? "0" : routingContext.queryParams().get("offset");
+            String limit = routingContext.queryParams().get("limit") == null ? "10" : routingContext.queryParams().get("limit");
+            int offsetInt = Integer.parseInt(offset);
+            int limitInt = Integer.parseInt(limit);
+            pageRequest.setOffset(offsetInt);
+            pageRequest.setLimit(limitInt);
+        } else {
+            String size = routingContext.queryParams().get("size") == null ? "10" : routingContext.queryParams().get("size");
+            String page = routingContext.queryParams().get("page") == null ? "1" : routingContext.queryParams().get("page");
+
+            int pageInt = Integer.parseInt(page);
+            int sizeInt = Integer.parseInt(size);
+            pageRequest.setPage(pageInt);
+            pageRequest.setSize(sizeInt);
+
+            if (sizeInt < 1 || pageInt < 1) {
+                throw new InvalidRequestException("Size and page have to be positive integers.");
+            }
+        }
+
+        return pageRequest;
     }
 }

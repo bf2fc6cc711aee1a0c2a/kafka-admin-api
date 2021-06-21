@@ -133,27 +133,40 @@ public class RestEndpointTestIT extends PlainTestBase {
         assertThat(testContext.awaitCompletion(1, TimeUnit.MINUTES)).isTrue();
     }
 
-    @ParallelTest
-    void testTopicListWithFilterNone(Vertx vertx, VertxTestContext testContext, ExtensionContext extensionContext) throws Exception {
+    @ParameterizedTest(name = "testTopicListWithPagination-{0}")
+    @Execution(ExecutionMode.CONCURRENT)
+    @ValueSource(ints = {1, 2, 3})
+    void testTopicListWithPagination(int page, Vertx vertx, VertxTestContext testContext, ExtensionContext extensionContext) throws Exception {
         AdminClient kafkaClient = AdminClient.create(RequestUtils.getKafkaAdminConfig(DEPLOYMENT_MANAGER
                 .getKafkaContainer(extensionContext).getBootstrapServers()));
         int publishedAdminPort = DEPLOYMENT_MANAGER.getAdminPort(extensionContext);
         List<NewTopic> topics = new ArrayList<>();
-        for (int i = 0; i < 2; i++) topics.add(new NewTopic(UUID.randomUUID().toString(), 1, (short) 1));
+        for (int i = 0; i < 5; i++) topics.add(new NewTopic(UUID.randomUUID().toString(), 1, (short) 1));
         kafkaClient.createTopics(topics);
         DynamicWait.waitForTopicsExists(topics.stream().map(NewTopic::name).collect(Collectors.toList()), kafkaClient);
 
         HttpClient client = createHttpClient(vertx);
-        client.request(HttpMethod.GET, publishedAdminPort, "localhost", "/rest/topics?filter=zcfsada.*")
+        client.request(HttpMethod.GET, publishedAdminPort, "localhost", "/rest/topics?size=3&page=" + page)
                 .compose(req -> req.send().onSuccess(response -> {
-                    if (response.statusCode() !=  ReturnCodes.SUCCESS.code) {
+                    // we want to get page 3 of 5 topics. The page size is 3, so we have just 2 pages
+                    if (page == 3) {
+                        if (response.statusCode() != ReturnCodes.FAILED_REQUEST.code) {
+                            testContext.failNow("Status code not correct");
+                        }
+                    } else if (response.statusCode() != ReturnCodes.SUCCESS.code) {
                         testContext.failNow("Status code not correct");
                     }
                     assertStrictTransportSecurityDisabled(response, testContext);
                 }).onFailure(testContext::failNow).compose(HttpClientResponse::body))
                 .onComplete(testContext.succeeding(buffer -> testContext.verify(() -> {
                     assertThat(testContext.failed()).isFalse();
-                    assertThat(MODEL_DESERIALIZER.getNames(buffer).size()).isEqualTo(0);
+                    // 5 topic, size of page is 3. First page should have 3 topic, second page just 2
+                    if (page == 1) {
+                        assertThat(MODEL_DESERIALIZER.getNames(buffer).size()).isEqualTo(3);
+                    }
+                    if (page == 2) {
+                        assertThat(MODEL_DESERIALIZER.getNames(buffer).size()).isEqualTo(2);
+                    }
                     testContext.completeNow();
                 })));
         assertThat(testContext.awaitCompletion(1, TimeUnit.MINUTES)).isTrue();
@@ -214,6 +227,92 @@ public class RestEndpointTestIT extends PlainTestBase {
                     assertThat(testContext.failed()).isFalse();
                     if (offset != 4) {
                         assertThat(MODEL_DESERIALIZER.getNames(buffer).size()).isEqualTo(3 - offset);
+                    }
+                    testContext.completeNow();
+                })));
+        assertThat(testContext.awaitCompletion(1, TimeUnit.MINUTES)).isTrue();
+    }
+
+    @ParallelTest
+    void testTopicListWithFilterNone(Vertx vertx, VertxTestContext testContext, ExtensionContext extensionContext) throws Exception {
+        AdminClient kafkaClient = AdminClient.create(RequestUtils.getKafkaAdminConfig(DEPLOYMENT_MANAGER
+                .getKafkaContainer(extensionContext).getBootstrapServers()));
+        int publishedAdminPort = DEPLOYMENT_MANAGER.getAdminPort(extensionContext);
+        List<NewTopic> topics = new ArrayList<>();
+        for (int i = 0; i < 2; i++) topics.add(new NewTopic(UUID.randomUUID().toString(), 1, (short) 1));
+        kafkaClient.createTopics(topics);
+        DynamicWait.waitForTopicsExists(topics.stream().map(NewTopic::name).collect(Collectors.toList()), kafkaClient);
+
+        HttpClient client = createHttpClient(vertx);
+        client.request(HttpMethod.GET, publishedAdminPort, "localhost", "/rest/topics?filter=zcfsada.*")
+                .compose(req -> req.send().onSuccess(response -> {
+                    if (response.statusCode() !=  ReturnCodes.SUCCESS.code) {
+                        testContext.failNow("Status code not correct");
+                    }
+                    assertStrictTransportSecurityDisabled(response, testContext);
+                }).onFailure(testContext::failNow).compose(HttpClientResponse::body))
+                .onComplete(testContext.succeeding(buffer -> testContext.verify(() -> {
+                    assertThat(testContext.failed()).isFalse();
+                    assertThat(MODEL_DESERIALIZER.getNames(buffer).size()).isEqualTo(0);
+                    testContext.completeNow();
+                })));
+        assertThat(testContext.awaitCompletion(1, TimeUnit.MINUTES)).isTrue();
+    }
+
+    @ParameterizedTest(name = "testTopicListWithSize-{0}")
+    @Execution(ExecutionMode.CONCURRENT)
+    @ValueSource(ints = {1, 2, 3, 5})
+    void testTopicListWithSize(int size, Vertx vertx, VertxTestContext testContext, ExtensionContext extensionContext) throws Exception {
+        AdminClient kafkaClient = AdminClient.create(RequestUtils.getKafkaAdminConfig(DEPLOYMENT_MANAGER
+                .getKafkaContainer(extensionContext).getBootstrapServers()));
+        int publishedAdminPort = DEPLOYMENT_MANAGER.getAdminPort(extensionContext);
+
+        List<NewTopic> topics = new ArrayList<>();
+        for (int i = 0; i < 3; i++) topics.add(new NewTopic(UUID.randomUUID().toString(), 1, (short) 1));
+        kafkaClient.createTopics(topics);
+        DynamicWait.waitForTopicsExists(topics.stream().map(NewTopic::name).collect(Collectors.toList()), kafkaClient);
+
+        HttpClient client = createHttpClient(vertx);
+        client.request(HttpMethod.GET, publishedAdminPort, "localhost", "/rest/topics?size=" + size)
+                .compose(req -> req.send().onSuccess(response -> {
+                    if (response.statusCode() !=  ReturnCodes.SUCCESS.code) {
+                        testContext.failNow("Status code not correct");
+                    }
+                    assertStrictTransportSecurityDisabled(response, testContext);
+                }).onFailure(testContext::failNow).compose(HttpClientResponse::body))
+                .onComplete(testContext.succeeding(buffer -> testContext.verify(() -> {
+                    assertThat(testContext.failed()).isFalse();
+                    assertThat(MODEL_DESERIALIZER.getNames(buffer).size()).isEqualTo(Math.min(size, 3));
+                    testContext.completeNow();
+                })));
+        assertThat(testContext.awaitCompletion(1, TimeUnit.MINUTES)).isTrue();
+    }
+
+    @ParameterizedTest(name = "testTopicListWithPage-{0}")
+    @Execution(ExecutionMode.CONCURRENT)
+    @ValueSource(ints = {1, 3, 4})
+    void testTopicListWithPage(int page, Vertx vertx, VertxTestContext testContext, ExtensionContext extensionContext) throws Exception {
+        AdminClient kafkaClient = AdminClient.create(RequestUtils.getKafkaAdminConfig(DEPLOYMENT_MANAGER
+                .getKafkaContainer(extensionContext).getBootstrapServers()));
+        int publishedAdminPort = DEPLOYMENT_MANAGER.getAdminPort(extensionContext);
+        List<NewTopic> topics = new ArrayList<>();
+        for (int i = 0; i < 3; i++) topics.add(new NewTopic(UUID.randomUUID().toString(), 1, (short) 1));
+        kafkaClient.createTopics(topics);
+        DynamicWait.waitForTopicsExists(topics.stream().map(NewTopic::name).collect(Collectors.toList()), kafkaClient);
+
+        HttpClient client = createHttpClient(vertx);
+        client.request(HttpMethod.GET, publishedAdminPort, "localhost", "/rest/topics?page=" + page)
+                .compose(req -> req.send().onSuccess(response -> {
+                    if ((response.statusCode() !=  ReturnCodes.SUCCESS.code && page == 1)
+                            || (response.statusCode() !=  ReturnCodes.FAILED_REQUEST.code && page != 1)) {
+                        testContext.failNow("Status code not correct");
+                    }
+                    assertStrictTransportSecurityDisabled(response, testContext);
+                }).onFailure(testContext::failNow).compose(HttpClientResponse::body))
+                .onComplete(testContext.succeeding(buffer -> testContext.verify(() -> {
+                    assertThat(testContext.failed()).isFalse();
+                    if (page == 1) {
+                        assertThat(MODEL_DESERIALIZER.getNames(buffer).size()).isEqualTo(3);
                     }
                     testContext.completeNow();
                 })));

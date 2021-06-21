@@ -111,7 +111,7 @@ public class TopicOperations {
         return result;
     }
 
-    public static void getTopicList(KafkaAdminClient ac, Promise prom, Pattern pattern, int offset, final int limit, Types.OrderByInput orderByInput) {
+    public static void getTopicList(KafkaAdminClient ac, Promise prom, Pattern pattern, Types.PageRequest pageRequest, Types.OrderByInput orderByInput) {
         Promise<Set<String>> describeTopicsNamesPromise = Promise.promise();
         Promise<Map<String, io.vertx.kafka.admin.TopicDescription>> describeTopicsPromise = Promise.promise();
         Promise<Map<ConfigResource, Config>> describeTopicConfigPromise = Promise.promise();
@@ -151,21 +151,34 @@ public class TopicOperations {
                     fullTopicDescriptions.sort(new CommonHandler.TopicComparator(orderByInput.getField()));
                 }
 
-                if (offset > fullTopicDescriptions.size()) {
-                    return Future.failedFuture(new InvalidRequestException("Offset (" + offset + ") cannot be greater than topic list size (" + fullTopicDescriptions.size() + ")"));
-                }
-                int tmpLimit = limit;
-                if (tmpLimit == 0) {
-                    tmpLimit = fullTopicDescriptions.size();
-                }
-
-                List<Types.Topic> croppedList = fullTopicDescriptions.subList(offset, Math.min(offset + tmpLimit, fullTopicDescriptions.size()));
 
                 Types.TopicList topicList = new Types.TopicList();
+                List<Types.Topic> croppedList;
+                if (pageRequest.isDeprecatedFormat()) {
+                    // deprecated
+                    if (pageRequest.getOffset() > fullTopicDescriptions.size()) {
+                        return Future.failedFuture(new InvalidRequestException("Offset (" + pageRequest.getOffset() + ") cannot be greater than topic list size (" + fullTopicDescriptions.size() + ")"));
+                    }
+                    int tmpLimit = pageRequest.getLimit();
+                    if (tmpLimit == 0) {
+                        tmpLimit = fullTopicDescriptions.size();
+                    }
+                    croppedList = fullTopicDescriptions.subList(pageRequest.getOffset(), Math.min(pageRequest.getOffset() + tmpLimit, fullTopicDescriptions.size()));
+                    topicList.setOffset(pageRequest.getOffset());
+                    topicList.setLimit(pageRequest.getLimit());
+                    topicList.setCount(croppedList.size());
+                } else {
+                    if (fullTopicDescriptions.size() > 0 && (pageRequest.getPage() - 1) * pageRequest.getSize() >= fullTopicDescriptions.size()) {
+                        return Future.failedFuture(new InvalidRequestException("Requested pagination incorrect. Beginning of list greater than full list size (" + fullTopicDescriptions.size() + ")"));
+                    }
+                    croppedList = fullTopicDescriptions.subList((pageRequest.getPage() - 1) * pageRequest.getSize(), Math.min(pageRequest.getPage() * pageRequest.getSize(), fullTopicDescriptions.size()));
+                    topicList.setPage(pageRequest.getPage());
+                    topicList.setSize(pageRequest.getSize());
+                    topicList.setTotal(fullTopicDescriptions.size());
+                }
+
                 topicList.setItems(croppedList);
-                topicList.setCount(croppedList.size());
-                topicList.setLimit(tmpLimit);
-                topicList.setOffset(offset);
+
                 return Future.succeededFuture(topicList);
             }).onComplete(finalRes -> {
                 if (finalRes.failed()) {
