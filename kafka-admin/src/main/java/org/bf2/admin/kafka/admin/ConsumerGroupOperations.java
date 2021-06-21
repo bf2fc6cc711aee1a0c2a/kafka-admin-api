@@ -327,6 +327,8 @@ public class ConsumerGroupOperations {
     private static List<Types.ConsumerGroupDescription> getConsumerGroupsDescription(Pattern pattern, Map<String, io.vertx.kafka.admin.ConsumerGroupDescription> consumerGroupDescriptionMap,
                                                                                      Map<TopicPartition, OffsetAndMetadata> topicPartitionOffsetAndMetadataMap,
                                                                                      Map<TopicPartition, ListOffsetsResultInfo> topicPartitionListOffsetsResultInfoMap) {
+
+        List<TopicPartition> assignedTopicPartitions = topicPartitionOffsetAndMetadataMap.entrySet().stream().map(e -> e.getKey()).collect(Collectors.toList());
         return consumerGroupDescriptionMap.entrySet().stream().map(group -> {
             Types.ConsumerGroupDescription grp = new Types.ConsumerGroupDescription();
 
@@ -334,48 +336,82 @@ public class ConsumerGroupOperations {
                 // there are no topics to filter by so the consumer group is not listed
                 return null;
             }
-            grp.setGroupId(group.getValue().getGroupId());
-            grp.setState(group.getValue().getState().name());
+            Set<Types.Consumer> members = new HashSet<>();
 
-            List<Types.Consumer> members = new ArrayList<>();
-            group.getValue().getMembers().stream().forEach(mem -> {
-                if (mem.getAssignment().getTopicPartitions().size() > 0) {
-                    mem.getAssignment().getTopicPartitions().forEach(pa -> {
-                        Types.Consumer member = new Types.Consumer();
-                        member.setMemberId(mem.getConsumerId());
-                        member.setTopic(pa.getTopic());
-                        member.setPartition(pa.getPartition());
-                        member.setGroupId(group.getValue().getGroupId());
-                        long currentOffset = topicPartitionOffsetAndMetadataMap.get(pa) == null ? 0 : topicPartitionOffsetAndMetadataMap.get(pa).getOffset();
-                        long endOffset = topicPartitionListOffsetsResultInfoMap.get(pa) == null ? 0 : topicPartitionListOffsetsResultInfoMap.get(pa).getOffset();
-                        long lag = endOffset - currentOffset;
-                        member.setLag(lag);
-                        member.setLogEndOffset(endOffset);
-                        member.setOffset(currentOffset);
-                        if (pattern.matcher(pa.getTopic()).matches()) {
-                            log.debug("Topic matches desired pattern");
+            if (group.getValue().getMembers().size() == 0) {
+                assignedTopicPartitions.forEach(pa -> {
+                    Types.Consumer member = getConsumer(topicPartitionOffsetAndMetadataMap, topicPartitionListOffsetsResultInfoMap, group, pa);
+                    if (pattern.matcher(pa.getTopic()).matches()) {
+                        log.debug("Topic matches desired pattern");
+                        members.add(member);
+                    }
+                });
+
+            } else {
+                assignedTopicPartitions.forEach(pa -> {
+                    group.getValue().getMembers().stream().forEach(mem -> {
+                        if (mem.getAssignment().getTopicPartitions().size() > 0) {
+                            Types.Consumer member = getConsumer(topicPartitionOffsetAndMetadataMap, topicPartitionListOffsetsResultInfoMap, group, pa);
+
+                            if (mem.getAssignment().getTopicPartitions().contains(pa)) {
+                                member.setMemberId(mem.getConsumerId());
+                            } else {
+                                // unassigned partition
+                                member.setMemberId(null);
+                            }
+
+                            if (pattern.matcher(pa.getTopic()).matches()) {
+                                log.debug("Topic matches desired pattern");
+                                if (members.contains(member)) {
+                                    // some member does not consume the partition, so it was flagged as unconsumed
+                                    // another member does consume the partition, so we override the member in result
+                                    if (member.getMemberId() != null) {
+                                        members.remove(member);
+                                        members.add(member);
+                                    }
+                                } else {
+                                    members.add(member);
+                                }
+                            }
+                        } else {
+                            Types.Consumer member = new Types.Consumer();
+                            member.setMemberId(mem.getConsumerId());
+                            member.setTopic(null);
+                            member.setPartition(-1);
+                            member.setGroupId(group.getValue().getGroupId());
+                            member.setLogEndOffset(0);
+                            member.setLag(0);
+                            member.setOffset(0);
                             members.add(member);
                         }
                     });
-                } else {
-                    Types.Consumer member = new Types.Consumer();
-                    member.setMemberId(mem.getConsumerId());
-                    member.setTopic(null);
-                    member.setPartition(-1);
-                    member.setGroupId(group.getValue().getGroupId());
-                    member.setLogEndOffset(0);
-                    member.setLag(0);
-                    member.setOffset(0);
-                    members.add(member);
-                }
-            });
+                });
+            }
 
             if (!pattern.pattern().equals(".*") && members.size() == 0) {
                 return null;
             }
+            grp.setGroupId(group.getValue().getGroupId());
+            grp.setState(group.getValue().getState().name());
             grp.setConsumers(members);
             return grp;
+
         }).collect(Collectors.toList());
+
+    }
+
+    private static Types.Consumer getConsumer(Map<TopicPartition, OffsetAndMetadata> topicPartitionOffsetAndMetadataMap, Map<TopicPartition, ListOffsetsResultInfo> topicPartitionListOffsetsResultInfoMap, Map.Entry<String, ConsumerGroupDescription> group, TopicPartition pa) {
+        Types.Consumer member = new Types.Consumer();
+        member.setTopic(pa.getTopic());
+        member.setPartition(pa.getPartition());
+        member.setGroupId(group.getValue().getGroupId());
+        long currentOffset = topicPartitionOffsetAndMetadataMap.get(pa) == null ? 0 : topicPartitionOffsetAndMetadataMap.get(pa).getOffset();
+        long endOffset = topicPartitionListOffsetsResultInfoMap.get(pa) == null ? 0 : topicPartitionListOffsetsResultInfoMap.get(pa).getOffset();
+        long lag = endOffset - currentOffset;
+        member.setLag(lag);
+        member.setLogEndOffset(endOffset);
+        member.setOffset(currentOffset);
+        return member;
     }
 
     private static List<TopicPartition> getTopicPartitions(Map<String, io.vertx.kafka.admin.ConsumerGroupDescription> consumerGroupDescriptionMap) {

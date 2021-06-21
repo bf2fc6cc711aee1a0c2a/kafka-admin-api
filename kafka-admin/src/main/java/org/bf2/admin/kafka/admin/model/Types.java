@@ -1,6 +1,8 @@
 package org.bf2.admin.kafka.admin.model;
 
 import java.util.List;
+import java.util.Objects;
+import java.util.Set;
 
 public class Types {
 
@@ -419,14 +421,14 @@ public class Types {
     }
 
     public static class ConsumerGroupDescription extends ConsumerGroup {
-        private List<Consumer> consumers;
+        private Set<Consumer> consumers;
         private String state;
 
-        public List<Consumer> getConsumers() {
+        public Set<Consumer> getConsumers() {
             return consumers;
         }
 
-        public void setConsumers(List<Consumer> consumers) {
+        public void setConsumers(Set<Consumer> consumers) {
             this.consumers = consumers;
         }
 
@@ -534,6 +536,25 @@ public class Types {
 
         public void setLogEndOffset(long logEndOffset) {
             this.logEndOffset = logEndOffset;
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) return true;
+            if (o == null || getClass() != o.getClass()) return false;
+            Consumer consumer = (Consumer) o;
+            return getOffset() == consumer.getOffset() &&
+                    getLag() == consumer.getLag() &&
+                    getLogEndOffset() == consumer.getLogEndOffset() &&
+                    getGroupId().equals(consumer.getGroupId()) &&
+                    // topic can be null in the case if number of consumers is greater than number of partitions
+                    Objects.equals(getTopic(), consumer.getTopic()) &&
+                    getPartition().equals(consumer.getPartition());
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(getGroupId(), getTopic(), getPartition(), getOffset(), getLag(), getLogEndOffset());
         }
     }
 }
