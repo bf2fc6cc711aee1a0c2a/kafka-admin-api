@@ -9,6 +9,7 @@ import io.vertx.kafka.client.consumer.KafkaConsumer;
 import org.apache.kafka.clients.admin.AdminClient;
 import org.apache.kafka.clients.admin.ConsumerGroupDescription;
 import org.apache.kafka.clients.admin.ConsumerGroupListing;
+import org.apache.kafka.clients.admin.NewTopic;
 import org.apache.kafka.clients.consumer.OffsetAndMetadata;
 import org.apache.kafka.common.TopicPartition;
 import org.bf2.admin.kafka.admin.model.Types;
@@ -16,6 +17,7 @@ import org.bf2.admin.kafka.systemtest.annotations.ParallelTest;
 import org.bf2.admin.kafka.systemtest.bases.PlainTestBase;
 import org.bf2.admin.kafka.systemtest.enums.ReturnCodes;
 import org.bf2.admin.kafka.systemtest.utils.AsyncMessaging;
+import org.bf2.admin.kafka.systemtest.utils.ClientsConfig;
 import org.bf2.admin.kafka.systemtest.utils.DynamicWait;
 import org.bf2.admin.kafka.systemtest.utils.RequestUtils;
 import org.bf2.admin.kafka.systemtest.utils.SyncMessaging;
@@ -58,7 +60,48 @@ public class ConsumerGroupsEndpointTestIT extends PlainTestBase {
     }
 
     @ParallelTest
-    void testEmptyTopicsOnList(Vertx vertx, VertxTestContext testContext, )
+    void testEmptyTopicsOnList(Vertx vertx, VertxTestContext testContext, ExtensionContext extensionContext) throws Exception {
+        AdminClient kafkaClient = AdminClient.create(RequestUtils.getKafkaAdminConfig(DEPLOYMENT_MANAGER
+                .getKafkaContainer(extensionContext).getBootstrapServers()));
+        int publishedAdminPort = DEPLOYMENT_MANAGER.getAdminPort(extensionContext);
+
+        SyncMessaging.createConsumerGroups(vertx, kafkaClient, 4, DEPLOYMENT_MANAGER.getKafkaContainer(extensionContext).getBootstrapServers(), testContext);
+        String topic = UUID.randomUUID().toString();
+        kafkaClient.createTopics(Collections.singletonList(new NewTopic(topic, 1, (short) 1)));
+        DynamicWait.waitForTopicsExists(Collections.singletonList(topic), kafkaClient);
+
+        KafkaConsumer<String, String> consumer = KafkaConsumer.create(vertx, ClientsConfig.getConsumerConfig(DEPLOYMENT_MANAGER.getKafkaContainer(extensionContext).getBootstrapServers(), "test-grp"));
+        AsyncMessaging.consumeMessages(vertx, consumer, topic, 11).onFailure(y -> testContext.failNow("Could not receive messages"));
+
+        AsyncMessaging.produceMessages(vertx, DEPLOYMENT_MANAGER.getKafkaContainer(extensionContext).getBootstrapServers(), topic, 10, null);
+
+
+        HttpClient client = createHttpClient(vertx);
+        client.request(HttpMethod.GET, publishedAdminPort, "localhost", "/rest/consumer-groups")
+                .compose(req -> req.send().onSuccess(response -> {
+                    if (response.statusCode() !=  ReturnCodes.SUCCESS.code) {
+                        testContext.failNow("Status code not correct");
+                    }
+                }).onFailure(testContext::failNow).compose(HttpClientResponse::body))
+                .onComplete(testContext.succeeding(buffer -> testContext.verify(() -> {
+                    List<String> consumerGroups = kafkaClient.listConsumerGroups().all().get().stream().map(ConsumerGroupListing::groupId).collect(Collectors.toList());
+                    Types.ConsumerGroupList response = MODEL_DESERIALIZER.deserializeResponse(buffer, Types.ConsumerGroupList.class);
+                    response.getItems().forEach(item -> {
+                        if (item.getGroupId().equals("test-grp")) {
+                            Types.Consumer c = item.getConsumers().iterator().next();
+                            assertThat(c).isNotNull();
+                            assertThat(c.getLag()).isEqualTo(10);
+                        } else {
+                            item.getConsumers().forEach(c -> assertThat(c.getMemberId()).isNull());
+                        }
+                    });
+                    List<String> responseGroupIDs = response.getItems().stream().map(Types.ConsumerGroup::getGroupId).collect(Collectors.toList());
+                    assertThat(consumerGroups).hasSameElementsAs(responseGroupIDs);
+                    testContext.completeNow();
+                })));
+        assertThat(testContext.awaitCompletion(1, TimeUnit.MINUTES)).isTrue();
+        consumer.close();
+    }
 
     @ParallelTest
     void testListConsumerGroupsWithSortDesc(Vertx vertx, VertxTestContext testContext, ExtensionContext extensionContext) throws Exception {
