@@ -49,12 +49,16 @@ public class ConsumerGroupsEndpointTestIT extends PlainTestBase {
                 .onComplete(testContext.succeeding(buffer -> testContext.verify(() -> {
                     List<String> consumerGroups = kafkaClient.listConsumerGroups().all().get().stream().map(ConsumerGroupListing::groupId).collect(Collectors.toList());
                     Types.ConsumerGroupList response = MODEL_DESERIALIZER.deserializeResponse(buffer, Types.ConsumerGroupList.class);
+                    response.getItems().forEach(item -> item.getConsumers().forEach(consumer -> assertThat(consumer.getMemberId()).isNull()));
                     List<String> responseGroupIDs = response.getItems().stream().map(cg -> cg.getGroupId()).collect(Collectors.toList());
                     assertThat(consumerGroups).hasSameElementsAs(responseGroupIDs);
                     testContext.completeNow();
                 })));
         assertThat(testContext.awaitCompletion(1, TimeUnit.MINUTES)).isTrue();
     }
+
+    @ParallelTest
+    void testEmptyTopicsOnList(Vertx vertx, VertxTestContext testContext, )
 
     @ParallelTest
     void testListConsumerGroupsWithSortDesc(Vertx vertx, VertxTestContext testContext, ExtensionContext extensionContext) throws Exception {

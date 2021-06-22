@@ -14,6 +14,7 @@ import org.bf2.admin.kafka.systemtest.json.OffsetModel;
 import org.bf2.admin.kafka.systemtest.json.PartitionsModel;
 import org.bf2.admin.kafka.systemtest.utils.AsyncMessaging;
 import org.bf2.admin.kafka.systemtest.utils.ClientsConfig;
+import org.bf2.admin.kafka.systemtest.utils.DynamicWait;
 import org.junit.jupiter.api.Test;
 
 import java.time.Duration;
@@ -254,10 +255,11 @@ public class PartitionsOffsetOauthIT extends OauthTestBase {
     }
 
     @Test
-    void testResetOffsetOnMultiplePartitionsAuthorized(Vertx vertx, VertxTestContext testContext) throws InterruptedException {
+    void testResetOffsetOnMultiplePartitionsAuthorized(Vertx vertx, VertxTestContext testContext) throws Exception {
         NewTopic topic = new NewTopic(UUID.randomUUID().toString(), 3, (short) 1);
         String groupID = UUID.randomUUID().toString();
         kafkaClient.createTopics(Collections.singletonList(topic));
+        DynamicWait.waitForTopicsExists(Collections.singletonList(topic.name()), kafkaClient);
         CountDownLatch cd = new CountDownLatch(1);
         KafkaConsumer<String, String> consumer = KafkaConsumer.create(vertx, ClientsConfig.getConsumerConfigOauth("localhost:9092", groupID, token));
 
