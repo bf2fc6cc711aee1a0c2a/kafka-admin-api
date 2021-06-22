@@ -328,7 +328,7 @@ public class ConsumerGroupOperations {
                                                                                      Map<TopicPartition, OffsetAndMetadata> topicPartitionOffsetAndMetadataMap,
                                                                                      Map<TopicPartition, ListOffsetsResultInfo> topicPartitionListOffsetsResultInfoMap) {
 
-        List<TopicPartition> assignedTopicPartitions = topicPartitionOffsetAndMetadataMap.entrySet().stream().map(e -> e.getKey()).collect(Collectors.toList());
+        List<TopicPartition> assignedTopicPartitions = topicPartitionOffsetAndMetadataMap.entrySet().stream().map(e -> e.getKey()).filter(topicPartition -> pattern.matcher(topicPartition.getTopic()).matches()).collect(Collectors.toList());
         return consumerGroupDescriptionMap.entrySet().stream().map(group -> {
             Types.ConsumerGroupDescription grp = new Types.ConsumerGroupDescription();
 
@@ -341,10 +341,7 @@ public class ConsumerGroupOperations {
             if (group.getValue().getMembers().size() == 0) {
                 assignedTopicPartitions.forEach(pa -> {
                     Types.Consumer member = getConsumer(topicPartitionOffsetAndMetadataMap, topicPartitionListOffsetsResultInfoMap, group, pa);
-                    if (pattern.matcher(pa.getTopic()).matches()) {
-                        log.debug("Topic matches desired pattern");
-                        members.add(member);
-                    }
+                    members.add(member);
                 });
 
             } else {
@@ -360,18 +357,15 @@ public class ConsumerGroupOperations {
                                 member.setMemberId(null);
                             }
 
-                            if (pattern.matcher(pa.getTopic()).matches()) {
-                                log.debug("Topic matches desired pattern");
-                                if (members.contains(member)) {
-                                    // some member does not consume the partition, so it was flagged as unconsumed
-                                    // another member does consume the partition, so we override the member in result
-                                    if (member.getMemberId() != null) {
-                                        members.remove(member);
-                                        members.add(member);
-                                    }
-                                } else {
+                            if (members.contains(member)) {
+                                // some member does not consume the partition, so it was flagged as unconsumed
+                                // another member does consume the partition, so we override the member in result
+                                if (member.getMemberId() != null) {
+                                    members.remove(member);
                                     members.add(member);
                                 }
+                            } else {
+                                members.add(member);
                             }
                         } else {
                             Types.Consumer member = new Types.Consumer();
