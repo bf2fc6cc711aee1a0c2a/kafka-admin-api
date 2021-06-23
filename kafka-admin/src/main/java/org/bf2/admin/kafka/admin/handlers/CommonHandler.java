@@ -15,6 +15,7 @@ import io.vertx.ext.web.RoutingContext;
 import io.vertx.ext.web.handler.HttpException;
 import io.vertx.ext.web.validation.BodyProcessorException;
 import io.vertx.ext.web.validation.ParameterProcessorException;
+import io.vertx.ext.web.validation.RequestPredicateException;
 import io.vertx.json.schema.ValidationException;
 import io.vertx.kafka.admin.KafkaAdminClient;
 import org.apache.kafka.common.KafkaException;
@@ -134,7 +135,8 @@ public class CommonHandler {
                     routingContext.response().setStatusCode(HttpResponseStatus.UNAUTHORIZED.code());
                 } else if (failureCause instanceof org.apache.kafka.common.errors.InvalidTopicException
                         || failureCause instanceof InvalidReplicationFactorException
-                        || failureCause instanceof ParameterProcessorException) {
+                        || failureCause instanceof ParameterProcessorException
+                        || failureCause instanceof RequestPredicateException) {
                     routingContext.response().setStatusCode(HttpResponseStatus.BAD_REQUEST.code());
                 } else if (failureCause instanceof TopicExistsException) {
                     routingContext.response().setStatusCode(HttpResponseStatus.CONFLICT.code());
