@@ -146,10 +146,14 @@ public class ConsumerGroupOperations {
         });
     }
 
-    @SuppressWarnings({"checkstyle:JavaNCSS"})
+    @SuppressWarnings({"checkstyle:JavaNCSS", "checkstyle:MethodLength"})
     public static void resetGroupOffset(KafkaAdminClient ac, Types.ConsumerGroupOffsetResetParameters parameters, Promise prom) {
         Set<TopicPartition> topicPartitionsToReset = new HashSet<>();
         List<Future> promises = new ArrayList<>();
+        if (!"latest".equals(parameters.getOffset()) && !"earliest".equals(parameters.getOffset()) && parameters.getValue() == null) {
+            throw new InvalidRequestException("Value has to be set when " + parameters.getOffset() + " offset is used.");
+        }
+
         if (parameters.getTopics() == null || parameters.getTopics().isEmpty()) {
             // reset everything
             Promise promise = Promise.promise();
