@@ -7,6 +7,8 @@ import io.vertx.core.http.HttpMethod;
 import io.vertx.junit5.VertxTestContext;
 import org.apache.kafka.clients.admin.ConsumerGroupDescription;
 import org.apache.kafka.clients.admin.ConsumerGroupListing;
+import org.apache.kafka.clients.consumer.OffsetAndMetadata;
+import org.apache.kafka.common.TopicPartition;
 import org.bf2.admin.kafka.admin.model.Types;
 import org.bf2.admin.kafka.systemtest.bases.OauthTestBase;
 import org.bf2.admin.kafka.systemtest.enums.ReturnCodes;
@@ -15,6 +17,7 @@ import org.junit.jupiter.api.Test;
 
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.Random;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
@@ -90,8 +93,9 @@ public class ConsumerGroupsOAuthTestIT extends OauthTestBase {
                 .onComplete(testContext.succeeding(buffer -> testContext.verify(() -> {
                     assertThat(testContext.failed()).isFalse();
                     ConsumerGroupDescription description = kafkaClient.describeConsumerGroups(Collections.singletonList(groupIDS.get(0))).describedGroups().get(groupIDS.get(0)).get();
+                    Map<TopicPartition, OffsetAndMetadata> assignedPartitions = kafkaClient.listConsumerGroupOffsets(groupIDS.get(0)).partitionsToOffsetAndMetadata().get();
                     Types.ConsumerGroupDescription cG = MODEL_DESERIALIZER.deserializeResponse(buffer, Types.ConsumerGroupDescription.class);
-                    assertThat(cG.getConsumers().size()).isEqualTo(description.members().size());
+                    assertThat(cG.getConsumers().size()).isEqualTo(assignedPartitions.size());
                     assertThat(cG.getState()).isEqualTo(description.state().name());
                     testContext.completeNow();
                 })));

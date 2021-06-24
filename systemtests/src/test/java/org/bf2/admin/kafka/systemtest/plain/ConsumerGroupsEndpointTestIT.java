@@ -9,6 +9,8 @@ import io.vertx.kafka.client.consumer.KafkaConsumer;
 import org.apache.kafka.clients.admin.AdminClient;
 import org.apache.kafka.clients.admin.ConsumerGroupDescription;
 import org.apache.kafka.clients.admin.ConsumerGroupListing;
+import org.apache.kafka.clients.consumer.OffsetAndMetadata;
+import org.apache.kafka.common.TopicPartition;
 import org.bf2.admin.kafka.admin.model.Types;
 import org.bf2.admin.kafka.systemtest.annotations.ParallelTest;
 import org.bf2.admin.kafka.systemtest.bases.PlainTestBase;
@@ -21,6 +23,7 @@ import org.junit.jupiter.api.extension.ExtensionContext;
 
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
@@ -211,7 +214,8 @@ public class ConsumerGroupsEndpointTestIT extends PlainTestBase {
                 .onComplete(testContext.succeeding(buffer -> testContext.verify(() -> {
                     ConsumerGroupDescription description = kafkaClient.describeConsumerGroups(Collections.singletonList(groupdIds.get(0))).describedGroups().get(groupdIds.get(0)).get();
                     Types.ConsumerGroupDescription cG = MODEL_DESERIALIZER.deserializeResponse(buffer, Types.ConsumerGroupDescription.class);
-                    assertThat(cG.getConsumers().size()).isEqualTo(description.members().size());
+                    Map<TopicPartition, OffsetAndMetadata> assignedPartitions = kafkaClient.listConsumerGroupOffsets(groupdIds.get(0)).partitionsToOffsetAndMetadata().get();
+                    assertThat(cG.getConsumers().size()).isEqualTo(assignedPartitions.size());
                     assertThat(cG.getState()).isEqualTo(description.state().name());
                     testContext.completeNow();
                 })));
