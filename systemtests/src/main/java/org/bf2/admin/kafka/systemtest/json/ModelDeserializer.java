@@ -1,11 +1,11 @@
 package org.bf2.admin.kafka.systemtest.json;
 
-import org.bf2.admin.kafka.admin.model.Types;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.vertx.core.buffer.Buffer;
+import org.bf2.admin.kafka.admin.model.Types;
 
 import java.util.HashSet;
 import java.util.List;

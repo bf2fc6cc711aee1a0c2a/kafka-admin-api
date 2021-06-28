@@ -1,10 +1,5 @@
 package org.bf2.admin.kafka.systemtest.utils;
 
-import org.bf2.admin.kafka.admin.model.Types;
-import org.bf2.admin.kafka.systemtest.deployment.AdminDeploymentManager;
-import org.bf2.admin.kafka.systemtest.enums.ReturnCodes;
-import org.bf2.admin.kafka.systemtest.json.ModelDeserializer;
-import org.junit.jupiter.api.extension.ExtensionContext;
 import io.vertx.core.Future;
 import io.vertx.core.Vertx;
 import io.vertx.core.buffer.Buffer;
@@ -22,6 +17,11 @@ import org.apache.kafka.common.serialization.LongDeserializer;
 import org.apache.kafka.common.serialization.StringDeserializer;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.bf2.admin.kafka.admin.model.Types;
+import org.bf2.admin.kafka.systemtest.deployment.AdminDeploymentManager;
+import org.bf2.admin.kafka.systemtest.enums.ReturnCodes;
+import org.bf2.admin.kafka.systemtest.json.ModelDeserializer;
+import org.junit.jupiter.api.extension.ExtensionContext;
 
 import java.time.Duration;
 import java.util.ArrayList;

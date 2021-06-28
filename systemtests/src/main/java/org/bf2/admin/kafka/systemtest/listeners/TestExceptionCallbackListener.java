@@ -1,8 +1,8 @@
 package org.bf2.admin.kafka.systemtest.listeners;
 
-import org.bf2.admin.kafka.systemtest.logs.LogCollector;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.bf2.admin.kafka.systemtest.logs.LogCollector;
 import org.junit.jupiter.api.extension.ExtensionContext;
 import org.junit.jupiter.api.extension.LifecycleMethodExecutionExceptionHandler;
 import org.junit.jupiter.api.extension.TestExecutionExceptionHandler;

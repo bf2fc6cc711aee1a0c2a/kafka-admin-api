@@ -1,10 +1,5 @@
 package org.bf2.admin.kafka.systemtest.oauth;
 
-import org.bf2.admin.kafka.admin.model.Types;
-import org.bf2.admin.kafka.systemtest.enums.ReturnCodes;
-import org.bf2.admin.kafka.systemtest.utils.DynamicWait;
-import org.bf2.admin.kafka.systemtest.utils.RequestUtils;
-import org.bf2.admin.kafka.systemtest.bases.OauthTestBase;
 import io.vertx.core.Vertx;
 import io.vertx.core.http.HttpClient;
 import io.vertx.core.http.HttpClientResponse;
@@ -13,6 +8,11 @@ import io.vertx.junit5.VertxTestContext;
 import org.apache.kafka.clients.admin.NewTopic;
 import org.apache.kafka.clients.admin.TopicDescription;
 import org.apache.kafka.common.config.ConfigResource;
+import org.bf2.admin.kafka.admin.model.Types;
+import org.bf2.admin.kafka.systemtest.bases.OauthTestBase;
+import org.bf2.admin.kafka.systemtest.enums.ReturnCodes;
+import org.bf2.admin.kafka.systemtest.utils.DynamicWait;
+import org.bf2.admin.kafka.systemtest.utils.RequestUtils;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtensionContext;
 
