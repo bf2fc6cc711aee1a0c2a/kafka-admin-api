@@ -7,14 +7,15 @@ import io.vertx.core.http.HttpClient;
 import io.vertx.core.http.HttpClientResponse;
 import io.vertx.core.http.HttpMethod;
 import io.vertx.junit5.VertxTestContext;
-import io.vertx.kafka.client.common.TopicPartition;
 import io.vertx.kafka.client.consumer.KafkaConsumer;
 import io.vertx.kafka.client.consumer.KafkaConsumerRecords;
 import org.apache.kafka.clients.admin.AdminClient;
 import org.apache.kafka.clients.admin.ConsumerGroupDescription;
 import org.apache.kafka.clients.admin.ConsumerGroupListing;
 import org.apache.kafka.clients.admin.NewTopic;
+import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.consumer.OffsetAndMetadata;
+import org.apache.kafka.common.TopicPartition;
 import org.bf2.admin.kafka.admin.model.Types;
 import org.bf2.admin.kafka.systemtest.annotations.ParallelTest;
 import org.bf2.admin.kafka.systemtest.bases.PlainTestBase;
@@ -30,6 +31,7 @@ import java.time.Duration;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Properties;
 import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
@@ -80,17 +82,17 @@ public class ConsumerGroupsEndpointTestIT extends PlainTestBase {
         kafkaClient.createTopics(Collections.singletonList(new NewTopic(topic, 3, (short) 1)));
         DynamicWait.waitForTopicsExists(Collections.singletonList(topic), kafkaClient);
 
-        KafkaConsumer<String, String> consumer = KafkaConsumer.create(vertx, ClientsConfig.getConsumerConfig(DEPLOYMENT_MANAGER.getKafkaContainer(extensionContext).getBootstrapServers(), "test-grp"));
+        Properties props = ClientsConfig.getConsumerConfig(DEPLOYMENT_MANAGER.getKafkaContainer(extensionContext).getBootstrapServers(), "test-group");
+        props.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
+        KafkaConsumer<String, String> consumer = KafkaConsumer.create(vertx, props);
 
-        AtomicInteger part = AsyncMessaging.produceMessages(vertx, DEPLOYMENT_MANAGER.getKafkaContainer(extensionContext).getBootstrapServers(), topic, 10, null);
+        AtomicInteger part = AsyncMessaging.produceMessages(vertx, DEPLOYMENT_MANAGER.getKafkaContainer(extensionContext).getBootstrapServers(), topic, 30, null);
         try {
             await().atMost(1, TimeUnit.MINUTES).until(() -> part.get() != -1);
         } catch (Exception e) {
             testContext.failNow("Test wait for results");
         }
-        TopicPartition topicPartition = new TopicPartition(topic, part.get());
-        consumer.assign(topicPartition);
-        consumer.seekToBeginning(topicPartition);
+        consumer.subscribe(topic);
         AtomicReference<KafkaConsumerRecords<String, String>> records = new AtomicReference<>();
         CountDownLatch cd = new CountDownLatch(1);
         consumer.poll(Duration.ofSeconds(60), result -> {
@@ -111,7 +113,7 @@ public class ConsumerGroupsEndpointTestIT extends PlainTestBase {
                     .compose(req -> req.send().compose(HttpClientResponse::body))
                     .onComplete(testContext.succeeding(buffer -> testContext.verify(() -> {
                         Types.ConsumerGroupList response = MODEL_DESERIALIZER.deserializeResponse(buffer, Types.ConsumerGroupList.class);
-                        Types.ConsumerGroupDescription g = response.getItems().stream().filter(i -> i.getGroupId().equals("test-grp")).collect(Collectors.toList()).get(0);
+                        Types.ConsumerGroupDescription g = response.getItems().stream().filter(i -> i.getGroupId().equals("test-group")).collect(Collectors.toList()).get(0);
                         if (g.getConsumers().size() != 0) {
                             lastResp.set(response);
                             promise.complete();
@@ -124,20 +126,22 @@ public class ConsumerGroupsEndpointTestIT extends PlainTestBase {
         } catch (Exception e) {
             testContext.failNow("Test wait for rebalance");
         }
-        List<String> consumerGroups = kafkaClient.listConsumerGroups().all().get().stream().map(ConsumerGroupListing::groupId).collect(Collectors.toList());
+        AtomicInteger parts = new AtomicInteger(0);
         lastResp.get().getItems().forEach(item -> {
-            if (item.getGroupId().equals("test-grp")) {
+            if (item.getGroupId().equals("test-group")) {
                 for (Types.Consumer c : item.getConsumers()) {
+                    parts.getAndIncrement();
                     assertThat(c.getMemberId()).isNull();
-                    if (c.getPartition() == records.get().records().partitions().iterator().next().partition()) {
-                        assertThat(c.getOffset()).isEqualTo(records.get().size());
-                    }
+                    int actOffset = records.get().records().records(new TopicPartition(topic, c.getPartition())).size();
+                    assertThat(c.getOffset()).isEqualTo(actOffset);
                 }
             } else {
                 item.getConsumers().forEach(c -> assertThat(c.getMemberId()).isNull());
             }
         });
+        assertThat(parts.get()).isEqualTo(3);
         List<String> responseGroupIDs = lastResp.get().getItems().stream().map(Types.ConsumerGroup::getGroupId).collect(Collectors.toList());
+        List<String> consumerGroups = kafkaClient.listConsumerGroups().all().get().stream().map(ConsumerGroupListing::groupId).collect(Collectors.toList());
         assertThat(consumerGroups).hasSameElementsAs(responseGroupIDs);
         testContext.completeNow();
 

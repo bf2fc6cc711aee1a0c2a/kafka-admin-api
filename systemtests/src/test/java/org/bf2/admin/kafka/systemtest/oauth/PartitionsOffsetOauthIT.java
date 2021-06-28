@@ -14,7 +14,6 @@ import org.bf2.admin.kafka.systemtest.json.OffsetModel;
 import org.bf2.admin.kafka.systemtest.json.PartitionsModel;
 import org.bf2.admin.kafka.systemtest.utils.AsyncMessaging;
 import org.bf2.admin.kafka.systemtest.utils.ClientsConfig;
-import org.bf2.admin.kafka.systemtest.utils.DynamicWait;
 import org.junit.jupiter.api.Test;
 
 import java.time.Duration;
@@ -194,7 +193,6 @@ public class PartitionsOffsetOauthIT extends OauthTestBase {
         testContext.completeNow();
     }
 
-    //@Disabled
     @Test
     void testResetOffsetToTimestampAuthorized(Vertx vertx, VertxTestContext testContext) throws InterruptedException {
         NewTopic topic = new NewTopic(UUID.randomUUID().toString(), 1, (short) 1);

@@ -46,7 +46,7 @@ public class SyncMessaging {
                 String topicName = UUID.randomUUID().toString();
                 groupIds.add(UUID.randomUUID().toString());
                 kafkaClient.createTopics(Collections.singletonList(
-                        new NewTopic(topicName, 3, (short) 1)
+                        new NewTopic(topicName, 1, (short) 1)
                 ));
                 DynamicWait.waitForTopicExists(topicName, kafkaClient);
                 KafkaConsumer<String, String> c = new KafkaConsumer<>(ClientsConfig.getConsumerConfig(bootstrap, groupIds.get(i)));

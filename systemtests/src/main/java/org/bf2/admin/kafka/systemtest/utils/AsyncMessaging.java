@@ -162,7 +162,7 @@ public class AsyncMessaging {
                             .filteredBy(CharacterPredicates.LETTERS, CharacterPredicates.DIGITS)
                             .build();
             KafkaProducerRecord<String, String> record =
-                    KafkaProducerRecord.create(topicName, messagePrefix + "_message_" + randomStringGenerator.generate(25));
+                    KafkaProducerRecord.create(topicName, messagePrefix + "_message_" + randomStringGenerator.generate(100));
 
             producer.send(record).onSuccess(recordMetadata -> {
                     LOGGER.info(
