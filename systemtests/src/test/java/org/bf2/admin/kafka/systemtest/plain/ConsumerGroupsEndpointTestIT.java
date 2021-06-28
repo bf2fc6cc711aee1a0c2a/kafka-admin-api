@@ -244,7 +244,7 @@ public class ConsumerGroupsEndpointTestIT extends PlainTestBase {
 
         String groupID = UUID.randomUUID().toString();
         String topicName = UUID.randomUUID().toString();
-        io.vertx.kafka.client.consumer.KafkaConsumer<String, String> consumer = AsyncMessaging.createActiveConsumerGroup(vertx, kafkaClient,
+        KafkaConsumer<String, String> consumer = AsyncMessaging.createActiveConsumerGroup(vertx, kafkaClient,
                 DEPLOYMENT_MANAGER.getKafkaContainer(extensionContext).getBootstrapServers(), groupID, topicName);
         AsyncMessaging.consumeMessages(vertx, consumer, topicName, 200);
         DynamicWait.waitForGroupExists(groupID, kafkaClient);
