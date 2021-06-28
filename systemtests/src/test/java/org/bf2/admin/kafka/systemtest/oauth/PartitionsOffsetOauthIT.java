@@ -259,13 +259,12 @@ public class PartitionsOffsetOauthIT extends OauthTestBase {
         NewTopic topic = new NewTopic(UUID.randomUUID().toString(), 3, (short) 1);
         String groupID = UUID.randomUUID().toString();
         kafkaClient.createTopics(Collections.singletonList(topic));
-        DynamicWait.waitForTopicsExists(Collections.singletonList(topic.name()), kafkaClient);
         CountDownLatch cd = new CountDownLatch(1);
         KafkaConsumer<String, String> consumer = KafkaConsumer.create(vertx, ClientsConfig.getConsumerConfigOauth("localhost:9092", groupID, token));
 
-        AsyncMessaging.consumeMessages(vertx, consumer, topic.name(), 10).onComplete(x -> cd.countDown()).onFailure(y -> testContext.failNow("Could not receive messages"));
-        AsyncMessaging.produceMessages(vertx, "localhost:9092", topic.name(), 10, token);
+        AsyncMessaging.produceMessages(vertx, "localhost:9092", topic.name(), 10, token, "Y");
 
+        AsyncMessaging.consumeMessages(vertx, consumer, topic.name(), 10).onComplete(x -> cd.countDown()).onFailure(y -> testContext.failNow("Could not receive messages"));
         assertThat(cd.await(2, TimeUnit.MINUTES)).isTrue();
         consumer.close();
 
