@@ -100,9 +100,8 @@ public class ConsumerGroupsEndpointTestIT extends PlainTestBase {
             }
         });
         assertThat(cd.await(80, TimeUnit.SECONDS)).isTrue();
-
-
         consumer.close();
+
         HttpClient client = createHttpClient(vertx);
         CircuitBreaker breaker = CircuitBreaker.create("rebalance-waiter", vertx, new CircuitBreakerOptions()
                 .setTimeout(2000).setResetTimeout(3000).setMaxRetries(60)).retryPolicy(retryCount -> retryCount * 1000L);
