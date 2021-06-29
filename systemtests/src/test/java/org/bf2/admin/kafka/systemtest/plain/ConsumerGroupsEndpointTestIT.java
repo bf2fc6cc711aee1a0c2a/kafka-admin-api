@@ -108,7 +108,7 @@ public class ConsumerGroupsEndpointTestIT extends PlainTestBase {
                     .compose(req -> req.send().compose(HttpClientResponse::body))
                     .onComplete(testContext.succeeding(buffer -> testContext.verify(() -> {
                         Types.ConsumerGroupList response = MODEL_DESERIALIZER.deserializeResponse(buffer, Types.ConsumerGroupList.class);
-                        Types.ConsumerGroupDescription g = response.getItems().stream().filter(i -> i.getGroupId().equals("test-group")).collect(Collectors.toList()).get(0);
+                        Types.ConsumerGroupDescription g = response.getItems().stream().filter(i -> i.getGroupId().equals("test-group")).collect(Collectors.toList()).stream().findFirst().get();
                         if (g.getConsumers().size() != 0) {
                             lastResp.set(response);
                             promise.complete();
