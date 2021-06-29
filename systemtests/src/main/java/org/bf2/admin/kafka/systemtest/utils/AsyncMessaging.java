@@ -21,7 +21,6 @@ import java.util.Collections;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Properties;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
 public class AsyncMessaging {
@@ -142,11 +141,11 @@ public class AsyncMessaging {
         return consumer;
     }
 
-    public static AtomicInteger produceMessages(Vertx vertx, String bootstrap, String topicName, int numberOfMessages, TokenModel token) {
-        return produceMessages(vertx, bootstrap, topicName, numberOfMessages, token, "X");
+    public static void produceMessages(Vertx vertx, String bootstrap, String topicName, int numberOfMessages, TokenModel token) {
+        produceMessages(vertx, bootstrap, topicName, numberOfMessages, token, "X");
     }
 
-    public static AtomicInteger produceMessages(Vertx vertx, String bootstrap, String topicName, int numberOfMessages, TokenModel token, String messagePrefix) {
+    public static void produceMessages(Vertx vertx, String bootstrap, String topicName, int numberOfMessages, TokenModel token, String messagePrefix) {
         final Properties props;
         if (token == null) {
             props = ClientsConfig.getProducerConfig(bootstrap);
@@ -154,7 +153,6 @@ public class AsyncMessaging {
             props = ClientsConfig.getProducerConfigOauth(bootstrap, token);
         }
         KafkaProducer<String, String> producer = KafkaProducer.create(vertx, props);
-        AtomicInteger partition = new AtomicInteger(-1);
         for (int i = 0; i < numberOfMessages; i++) {
             RandomStringGenerator randomStringGenerator =
                     new RandomStringGenerator.Builder()
@@ -170,11 +168,9 @@ public class AsyncMessaging {
                                     ", partition=" + recordMetadata.getPartition() +
                                     ", offset=" + recordMetadata.getOffset()
                     );
-                    partition.set(recordMetadata.getPartition());
                 }
             );
 
         }
-        return partition;
     }
 }

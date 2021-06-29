@@ -86,12 +86,7 @@ public class ConsumerGroupsEndpointTestIT extends PlainTestBase {
         props.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
         KafkaConsumer<String, String> consumer = KafkaConsumer.create(vertx, props);
 
-        AtomicInteger part = AsyncMessaging.produceMessages(vertx, DEPLOYMENT_MANAGER.getKafkaContainer(extensionContext).getBootstrapServers(), topic, 30, null);
-        try {
-            await().atMost(1, TimeUnit.MINUTES).until(() -> part.get() != -1);
-        } catch (Exception e) {
-            testContext.failNow("Test wait for results");
-        }
+        AsyncMessaging.produceMessages(vertx, DEPLOYMENT_MANAGER.getKafkaContainer(extensionContext).getBootstrapServers(), topic, 30, null);
         consumer.subscribe(topic);
         AtomicReference<KafkaConsumerRecords<String, String>> records = new AtomicReference<>();
         CountDownLatch cd = new CountDownLatch(1);
