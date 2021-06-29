@@ -1,12 +1,12 @@
 package org.bf2.admin.kafka.systemtest.plain;
 
-import org.bf2.admin.kafka.systemtest.utils.RequestUtils;
-import org.bf2.admin.kafka.systemtest.annotations.ParallelTest;
-import org.bf2.admin.kafka.systemtest.bases.PlainTestBase;
 import io.vertx.core.Vertx;
 import io.vertx.core.http.HttpClient;
 import io.vertx.junit5.VertxTestContext;
 import org.apache.kafka.clients.admin.AdminClient;
+import org.bf2.admin.kafka.systemtest.annotations.ParallelTest;
+import org.bf2.admin.kafka.systemtest.bases.PlainTestBase;
+import org.bf2.admin.kafka.systemtest.utils.RequestUtils;
 import org.junit.jupiter.api.extension.ExtensionContext;
 
 import java.util.HashMap;

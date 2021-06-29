@@ -9,6 +9,8 @@ import io.vertx.kafka.client.consumer.KafkaConsumer;
 import io.vertx.kafka.client.consumer.KafkaConsumerRecord;
 import io.vertx.kafka.client.producer.KafkaProducer;
 import io.vertx.kafka.client.producer.KafkaProducerRecord;
+import org.apache.commons.text.CharacterPredicates;
+import org.apache.commons.text.RandomStringGenerator;
 import org.apache.kafka.clients.admin.AdminClient;
 import org.apache.kafka.clients.admin.NewTopic;
 import org.apache.logging.log4j.LogManager;
@@ -151,18 +153,24 @@ public class AsyncMessaging {
             props = ClientsConfig.getProducerConfigOauth(bootstrap, token);
         }
         KafkaProducer<String, String> producer = KafkaProducer.create(vertx, props);
-
         for (int i = 0; i < numberOfMessages; i++) {
+            RandomStringGenerator randomStringGenerator =
+                    new RandomStringGenerator.Builder()
+                            .withinRange('0', 'z')
+                            .filteredBy(CharacterPredicates.LETTERS, CharacterPredicates.DIGITS)
+                            .build();
             KafkaProducerRecord<String, String> record =
-                    KafkaProducerRecord.create(topicName, messagePrefix + "_message_" + i);
+                    KafkaProducerRecord.create(topicName, messagePrefix + "_message_" + randomStringGenerator.generate(100));
 
-            producer.send(record).onSuccess(recordMetadata ->
+            producer.send(record).onSuccess(recordMetadata -> {
                     LOGGER.info(
                             "Message " + record.value() + " written on topic=" + recordMetadata.getTopic() +
                                     ", partition=" + recordMetadata.getPartition() +
                                     ", offset=" + recordMetadata.getOffset()
-                    )
+                    );
+                }
             );
+
         }
     }
 }

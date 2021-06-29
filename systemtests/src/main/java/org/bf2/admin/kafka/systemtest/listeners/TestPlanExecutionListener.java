@@ -1,8 +1,8 @@
 package org.bf2.admin.kafka.systemtest.listeners;
 
-import org.bf2.admin.kafka.systemtest.Environment;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.bf2.admin.kafka.systemtest.Environment;
 import org.junit.platform.launcher.TestExecutionListener;
 import org.junit.platform.launcher.TestIdentifier;
 import org.junit.platform.launcher.TestPlan;

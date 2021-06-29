@@ -118,7 +118,7 @@ public class AdminDeploymentManager {
             LOGGER.info("Deploying strimzi kafka test container.");
             Network network = Network.newNetwork();
             @SuppressWarnings("resource")
-            StrimziKafkaContainer kafka = new StrimziKafkaContainer().withLabels(Collections.singletonMap("test-ident", testContext.getUniqueId()))
+            StrimziKafkaContainer kafka = new StrimziKafkaContainer("latest-kafka-2.7.0").withLabels(Collections.singletonMap("test-ident", testContext.getUniqueId()))
                     .withNetwork(network);
             kafka.start();
             String networkName = client.inspectNetworkCmd().withNetworkId(network.getId()).exec().getName();

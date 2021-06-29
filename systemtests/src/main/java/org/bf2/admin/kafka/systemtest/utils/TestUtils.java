@@ -1,8 +1,8 @@
 package org.bf2.admin.kafka.systemtest.utils;
 
-import org.bf2.admin.kafka.systemtest.Environment;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.bf2.admin.kafka.systemtest.Environment;
 import org.junit.jupiter.api.extension.ExtensionContext;
 
 import java.nio.file.Path;

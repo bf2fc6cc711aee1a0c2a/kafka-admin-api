@@ -1,11 +1,5 @@
 package org.bf2.admin.kafka.systemtest.plain;
 
-import org.bf2.admin.kafka.admin.model.Types;
-import org.bf2.admin.kafka.systemtest.annotations.ParallelTest;
-import org.bf2.admin.kafka.systemtest.bases.PlainTestBase;
-import org.bf2.admin.kafka.systemtest.enums.ReturnCodes;
-import org.bf2.admin.kafka.systemtest.utils.DynamicWait;
-import org.bf2.admin.kafka.systemtest.utils.RequestUtils;
 import io.vertx.core.Vertx;
 import io.vertx.core.http.HttpClient;
 import io.vertx.core.http.HttpClientResponse;
@@ -14,6 +8,12 @@ import io.vertx.junit5.VertxTestContext;
 import org.apache.kafka.clients.admin.AdminClient;
 import org.apache.kafka.clients.admin.NewTopic;
 import org.apache.kafka.common.config.ConfigResource;
+import org.bf2.admin.kafka.admin.model.Types;
+import org.bf2.admin.kafka.systemtest.annotations.ParallelTest;
+import org.bf2.admin.kafka.systemtest.bases.PlainTestBase;
+import org.bf2.admin.kafka.systemtest.enums.ReturnCodes;
+import org.bf2.admin.kafka.systemtest.utils.DynamicWait;
+import org.bf2.admin.kafka.systemtest.utils.RequestUtils;
 import org.junit.jupiter.api.extension.ExtensionContext;
 
 import java.util.ArrayList;

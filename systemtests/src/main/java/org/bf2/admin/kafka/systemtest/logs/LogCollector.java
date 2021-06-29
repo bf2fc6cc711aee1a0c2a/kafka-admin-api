@@ -1,13 +1,13 @@
 package org.bf2.admin.kafka.systemtest.logs;
 
-import org.bf2.admin.kafka.systemtest.utils.TestUtils;
 import com.github.dockerjava.api.DockerClient;
 import com.github.dockerjava.api.model.Container;
 import com.github.dockerjava.core.DefaultDockerClientConfig;
 import com.github.dockerjava.core.DockerClientBuilder;
-import org.bf2.admin.kafka.systemtest.Environment;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.bf2.admin.kafka.systemtest.Environment;
+import org.bf2.admin.kafka.systemtest.utils.TestUtils;
 import org.junit.jupiter.api.extension.ExtensionContext;
 
 import java.io.IOException;
