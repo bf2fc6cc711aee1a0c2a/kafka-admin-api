@@ -10,4 +10,9 @@ public class Operations {
     public static final String GET_CONSUMER_GROUPS_LIST = "getConsumerGroups";
     public static final String DELETE_CONSUMER_GROUP = "deleteConsumerGroupById";
     public static final String RESET_CONSUMER_GROUP_OFFSET = "resetConsumerGroupOffset";
+
+    public static final String GET_ACL_RESOURCE_OPERATIONS = "getAclResourceOperations";
+    public static final String GET_ACLS = "getAcls";
+    public static final String CREATE_ACL = "createAcl";
+    public static final String DELETE_ACLS = "deleteAcls";
 }

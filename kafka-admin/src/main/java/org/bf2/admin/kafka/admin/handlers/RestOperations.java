@@ -4,11 +4,13 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import io.micrometer.core.instrument.Timer;
 import io.netty.handler.codec.http.HttpResponseStatus;
 import io.vertx.core.Promise;
-import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.RoutingContext;
+import io.vertx.kafka.admin.KafkaAdminClient;
+import org.apache.kafka.clients.admin.AdminClient;
 import org.apache.kafka.common.errors.InvalidRequestException;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.bf2.admin.kafka.admin.AccessControlOperations;
 import org.bf2.admin.kafka.admin.ConsumerGroupOperations;
 import org.bf2.admin.kafka.admin.HttpMetrics;
 import org.bf2.admin.kafka.admin.InvalidConsumerGroupException;
@@ -16,6 +18,8 @@ import org.bf2.admin.kafka.admin.InvalidTopicException;
 import org.bf2.admin.kafka.admin.KafkaAdminConfigRetriever;
 import org.bf2.admin.kafka.admin.TopicOperations;
 import org.bf2.admin.kafka.admin.model.Types;
+import org.bf2.admin.kafka.admin.model.Types.PagedResponse;
+import org.bf2.admin.kafka.admin.model.Types.TopicPartitionResetResult;
 
 import java.io.IOException;
 import java.util.Collections;
@@ -34,10 +38,13 @@ public class RestOperations extends CommonHandler implements OperationsHandler {
     private static final String DEFAULT_NUM_PARTITIONS_MAX = "100";
 
     private final HttpMetrics httpMetrics;
+    private final AccessControlOperations aclOperations;
+    private final ObjectMapper mapper = new ObjectMapper();
 
     public RestOperations(KafkaAdminConfigRetriever config, HttpMetrics httpMetrics) {
         super(config);
         this.httpMetrics = httpMetrics;
+        this.aclOperations = new AccessControlOperations(config);
     }
 
     @Override
@@ -45,30 +52,25 @@ public class RestOperations extends CommonHandler implements OperationsHandler {
         Map<String, Object> acConfig = routingContext.get(ADMIN_CLIENT_CONFIG);
         httpMetrics.getCreateTopicCounter().increment();
         httpMetrics.getRequestsCounter().increment();
+        Timer timer = httpMetrics.getCreateTopicRequestTimer();
         Timer.Sample requestTimerSample = Timer.start(httpMetrics.getRegistry());
 
         createAdminClient(routingContext.vertx(), acConfig).onComplete(ac -> {
-            Types.NewTopic inputTopic = new Types.NewTopic();
+            Types.NewTopic inputTopic;
             Promise<Types.NewTopic> prom = Promise.promise();
-            ObjectMapper mapper = new ObjectMapper();
+
             try {
                 inputTopic = mapper.readValue(routingContext.getBody().getBytes(), Types.NewTopic.class);
             } catch (IOException e) {
-                routingContext.response().setStatusCode(HttpResponseStatus.BAD_REQUEST.code());
-                JsonObject jsonObject = new JsonObject();
-                jsonObject.put("code", routingContext.response().getStatusCode());
-                jsonObject.put("error", e.getMessage());
-                routingContext.response().end(jsonObject.toBuffer());
+                errorResponse(e, HttpResponseStatus.BAD_REQUEST, routingContext, httpMetrics, timer, requestTimerSample);
                 log.error(e);
                 prom.fail(e);
-                httpMetrics.getFailedRequestsCounter(HttpResponseStatus.BAD_REQUEST.code()).increment();
-                requestTimerSample.stop(httpMetrics.getCreateTopicRequestTimer());
                 return;
             }
 
             if (!internalTopicsAllowed() && inputTopic.getName().startsWith("__")) {
                 prom.fail(new InvalidTopicException("Topic " + inputTopic.getName() + " cannot be created"));
-                processResponse(prom, routingContext, HttpResponseStatus.BAD_REQUEST, httpMetrics, httpMetrics.getCreateTopicRequestTimer(), requestTimerSample);
+                processResponse(prom, routingContext, HttpResponseStatus.BAD_REQUEST, httpMetrics, timer, requestTimerSample);
                 return;
             }
 
@@ -78,7 +80,7 @@ public class RestOperations extends CommonHandler implements OperationsHandler {
                 prom.fail(new InvalidTopicException(String.format("Number of partitions for topic %s must between 1 and %d (inclusive)",
                                                                   inputTopic.getName(),
                                                                   maxPartitions)));
-                processResponse(prom, routingContext, HttpResponseStatus.BAD_REQUEST, httpMetrics, httpMetrics.getCreateTopicRequestTimer(), requestTimerSample);
+                processResponse(prom, routingContext, HttpResponseStatus.BAD_REQUEST, httpMetrics, timer, requestTimerSample);
                 return;
             }
 
@@ -87,7 +89,7 @@ public class RestOperations extends CommonHandler implements OperationsHandler {
             } else {
                 TopicOperations.createTopic(ac.result(), prom, inputTopic);
             }
-            processResponse(prom, routingContext, HttpResponseStatus.CREATED, httpMetrics, httpMetrics.getCreateTopicRequestTimer(), requestTimerSample);
+            processResponse(prom, routingContext, HttpResponseStatus.CREATED, httpMetrics, timer, requestTimerSample);
         });
     }
 
@@ -126,19 +128,20 @@ public class RestOperations extends CommonHandler implements OperationsHandler {
         Map<String, Object> acConfig = routingContext.get(ADMIN_CLIENT_CONFIG);
         httpMetrics.getUpdateTopicCounter().increment();
         httpMetrics.getRequestsCounter().increment();
+        Timer timer = httpMetrics.getUpdateTopicRequestTimer();
         Timer.Sample requestTimerSample = Timer.start(httpMetrics.getRegistry());
 
         Promise<Types.UpdatedTopic> prom = Promise.promise();
         String topicToUpdate = routingContext.pathParam("topicName");
         if (topicToUpdate == null || topicToUpdate.isEmpty()) {
             prom.fail(new InvalidTopicException("Topic to update has not been specified."));
-            processResponse(prom, routingContext, HttpResponseStatus.BAD_REQUEST, httpMetrics, httpMetrics.getUpdateTopicRequestTimer(), requestTimerSample);
+            processResponse(prom, routingContext, HttpResponseStatus.BAD_REQUEST, httpMetrics, timer, requestTimerSample);
             return;
         }
 
         if (!internalTopicsAllowed() && topicToUpdate.startsWith("__")) {
             prom.fail(new InvalidTopicException("Topic " + topicToUpdate + " cannot be updated"));
-            processResponse(prom, routingContext, HttpResponseStatus.BAD_REQUEST, httpMetrics, httpMetrics.getUpdateTopicRequestTimer(), requestTimerSample);
+            processResponse(prom, routingContext, HttpResponseStatus.BAD_REQUEST, httpMetrics, timer, requestTimerSample);
             return;
         }
 
@@ -146,23 +149,19 @@ public class RestOperations extends CommonHandler implements OperationsHandler {
             if (ac.failed()) {
                 prom.fail(ac.cause());
             } else {
-                Types.UpdatedTopic updatedTopic = new Types.UpdatedTopic();
-                ObjectMapper mapper = new ObjectMapper();
+                Types.UpdatedTopic updatedTopic;
+
                 try {
                     updatedTopic = mapper.readValue(routingContext.getBody().getBytes(), Types.UpdatedTopic.class);
-                    updatedTopic.setName(topicToUpdate);
                 } catch (IOException e) {
-                    routingContext.response().setStatusCode(HttpResponseStatus.BAD_REQUEST.code());
-                    JsonObject jsonObject = new JsonObject();
-                    jsonObject.put("code", routingContext.response().getStatusCode());
-                    jsonObject.put("error", e.getMessage());
-                    routingContext.response().end(jsonObject.toBuffer());
-                    requestTimerSample.stop(httpMetrics.getUpdateTopicRequestTimer());
-                    httpMetrics.getFailedRequestsCounter(HttpResponseStatus.BAD_REQUEST.code()).increment();
-                    prom.fail(e);
+                    errorResponse(e, HttpResponseStatus.BAD_REQUEST, routingContext, httpMetrics, timer, requestTimerSample);
                     log.error(e);
+                    prom.fail(e);
                     return;
                 }
+
+                updatedTopic.setName(topicToUpdate);
+
                 int maxPartitions = getNumPartitionsMax();
 
                 if (!numPartitionsLessThanMax(updatedTopic, maxPartitions)) {
@@ -345,18 +344,19 @@ public class RestOperations extends CommonHandler implements OperationsHandler {
         Map<String, Object> acConfig = routingContext.get(ADMIN_CLIENT_CONFIG);
         httpMetrics.getResetGroupOffsetCounter().increment();
         httpMetrics.getRequestsCounter().increment();
+        Timer timer = httpMetrics.getResetGroupOffsetRequestTimer();
         Timer.Sample requestTimerSample = Timer.start(httpMetrics.getRegistry());
         String groupToReset = routingContext.pathParam("consumerGroupId");
 
-        Promise<List<String>> prom = Promise.promise();
+        Promise<List<TopicPartitionResetResult>> prom = Promise.promise();
         if (!internalGroupsAllowed() && groupToReset.startsWith("strimzi")) {
             prom.fail(new InvalidConsumerGroupException("ConsumerGroup " + groupToReset + " cannot be reset."));
-            processResponse(prom, routingContext, HttpResponseStatus.BAD_REQUEST, httpMetrics, httpMetrics.getResetGroupOffsetRequestTimer(), requestTimerSample);
+            processResponse(prom, routingContext, HttpResponseStatus.BAD_REQUEST, httpMetrics, timer, requestTimerSample);
             return;
         }
         if (groupToReset == null || groupToReset.isEmpty()) {
             prom.fail(new InvalidConsumerGroupException("ConsumerGroup to reset Offset has not been specified."));
-            processResponse(prom, routingContext, HttpResponseStatus.BAD_REQUEST, httpMetrics, httpMetrics.getResetGroupOffsetRequestTimer(), requestTimerSample);
+            processResponse(prom, routingContext, HttpResponseStatus.BAD_REQUEST, httpMetrics, timer, requestTimerSample);
             return;
         }
 
@@ -364,27 +364,104 @@ public class RestOperations extends CommonHandler implements OperationsHandler {
             if (ac.failed()) {
                 prom.fail(ac.cause());
             } else {
-                ObjectMapper mapper = new ObjectMapper();
                 Types.ConsumerGroupOffsetResetParameters parameters;
+
                 try {
                     parameters = mapper.readValue(routingContext.getBody().getBytes(), Types.ConsumerGroupOffsetResetParameters.class);
-                    parameters.setGroupId(groupToReset);
-                } catch (IOException | InvalidRequestException e) {
-                    routingContext.response().setStatusCode(HttpResponseStatus.BAD_REQUEST.code());
-                    JsonObject jsonObject = new JsonObject();
-                    jsonObject.put("code", routingContext.response().getStatusCode());
-                    jsonObject.put("error", e.getMessage());
-                    routingContext.response().end(jsonObject.toBuffer());
-                    requestTimerSample.stop(httpMetrics.getResetGroupOffsetRequestTimer());
-                    httpMetrics.getFailedRequestsCounter(HttpResponseStatus.BAD_REQUEST.code()).increment();
-                    prom.fail(e);
+                } catch (IOException e) {
+                    errorResponse(e, HttpResponseStatus.BAD_REQUEST, routingContext, httpMetrics, timer, requestTimerSample);
                     log.error(e);
+                    prom.fail(e);
                     return;
                 }
+
+                parameters.setGroupId(groupToReset);
                 ConsumerGroupOperations.resetGroupOffset(ac.result(), parameters, prom);
             }
             processResponse(prom, routingContext, HttpResponseStatus.OK, httpMetrics, httpMetrics.getResetGroupOffsetRequestTimer(), requestTimerSample);
         });
+    }
+
+    @Override
+    public void getAclResourceOperations(RoutingContext routingContext) {
+        httpMetrics.getGetAclResourceOperationsCounter().increment();
+        httpMetrics.getRequestsCounter().increment();
+        Timer timer = httpMetrics.getGetAclResourceOperationsRequestTimer();
+        Timer.Sample requestTimerSample = Timer.start(httpMetrics.getRegistry());
+        Promise<String> promise = Promise.promise();
+        promise.complete(this.kaConfig.getAclResourceOperations());
+        processResponse(promise, routingContext, HttpResponseStatus.OK, httpMetrics, timer, requestTimerSample);
+    }
+
+    @Override
+    public void describeAcls(RoutingContext routingContext) {
+        Map<String, Object> acConfig = routingContext.get(ADMIN_CLIENT_CONFIG);
+        httpMetrics.getDescribeAclsCounter().increment();
+        httpMetrics.getRequestsCounter().increment();
+        Timer timer = httpMetrics.getDescribeAclsRequestTimer();
+        Timer.Sample requestTimerSample = Timer.start(httpMetrics.getRegistry());
+        Promise<PagedResponse<Types.AclBinding>> promise = Promise.promise();
+        AdminClient client = AdminClient.create(acConfig);
+
+        try {
+            var filter = Types.AclBinding.fromQueryParams(routingContext.queryParams());
+            aclOperations.getAcls(client, promise, filter, parsePageRequest(routingContext), null);
+        } catch (Exception e) {
+            promise.fail(e);
+        } finally {
+            // Use the Vertx client wrapper to close on worker thread
+            KafkaAdminClient.create(routingContext.vertx(), client).close();
+        }
+
+        processResponse(promise, routingContext, HttpResponseStatus.OK, httpMetrics, timer, requestTimerSample);
+    }
+
+    @Override
+    public void createAcl(RoutingContext routingContext) {
+        Map<String, Object> acConfig = routingContext.get(ADMIN_CLIENT_CONFIG);
+        httpMetrics.getCreateAclsCounter().increment();
+        httpMetrics.getRequestsCounter().increment();
+        Timer timer = httpMetrics.getCreateAclsRequestTimer();
+        Timer.Sample requestTimerSample = Timer.start(httpMetrics.getRegistry());
+        AdminClient client = AdminClient.create(acConfig);
+
+        try {
+            Types.AclBinding binding =
+                    mapper.readValue(routingContext.getBody().getBytes(), AccessControlOperations.TYPEREF_ACL_BINDING);
+            Promise<Void> promise = Promise.promise();
+            aclOperations.createAcl(client, promise, binding);
+            processResponse(promise, routingContext, HttpResponseStatus.CREATED, httpMetrics, timer, requestTimerSample);
+        } catch (IOException e) {
+            errorResponse(e, HttpResponseStatus.BAD_REQUEST, routingContext, httpMetrics, timer, requestTimerSample);
+            log.error(e);
+        } catch (Exception e) {
+            processFailure(e, routingContext, httpMetrics, timer, requestTimerSample);
+        } finally {
+            // Use the Vertx client wrapper to close on worker thread
+            KafkaAdminClient.create(routingContext.vertx(), client).close();
+        }
+    }
+
+    @Override
+    public void deleteAcls(RoutingContext routingContext) {
+        Map<String, Object> acConfig = routingContext.get(ADMIN_CLIENT_CONFIG);
+        httpMetrics.getDeleteAclsCounter().increment();
+        httpMetrics.getRequestsCounter().increment();
+        Timer.Sample requestTimerSample = Timer.start(httpMetrics.getRegistry());
+        Promise<PagedResponse<Types.AclBinding>> promise = Promise.promise();
+        AdminClient client = AdminClient.create(acConfig);
+
+        try {
+            var filter = Types.AclBinding.fromQueryParams(routingContext.queryParams());
+            aclOperations.deleteAcls(client, promise, filter);
+        } catch (Exception e) {
+            promise.fail(e);
+        } finally {
+            // Use the Vertx client wrapper to close on worker thread
+            KafkaAdminClient.create(routingContext.vertx(), client).close();
+        }
+
+        processResponse(promise, routingContext, HttpResponseStatus.OK, httpMetrics, httpMetrics.getDeleteAclsRequestTimer(), requestTimerSample);
     }
 
     private boolean internalTopicsAllowed() {

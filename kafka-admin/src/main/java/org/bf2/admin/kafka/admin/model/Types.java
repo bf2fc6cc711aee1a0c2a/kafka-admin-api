@@ -1,5 +1,19 @@
 package org.bf2.admin.kafka.admin.model;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fasterxml.jackson.annotation.JsonInclude.Include;
+import io.vertx.core.Future;
+import org.apache.kafka.common.acl.AccessControlEntry;
+import org.apache.kafka.common.acl.AccessControlEntryFilter;
+import org.apache.kafka.common.acl.AclOperation;
+import org.apache.kafka.common.acl.AclPermissionType;
+import org.apache.kafka.common.errors.InvalidRequestException;
+import org.apache.kafka.common.resource.PatternType;
+import org.apache.kafka.common.resource.ResourcePattern;
+import org.apache.kafka.common.resource.ResourcePatternFilter;
+import org.apache.kafka.common.resource.ResourceType;
+
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
@@ -146,7 +160,6 @@ public class Types {
         }
     }
 
-
     public static class NewTopicInput {
         private List<NewTopicConfigEntry> config;
 
@@ -172,6 +185,7 @@ public class Types {
     public static class NewTopic {
         private String name;
         private NewTopicInput settings;
+
         public String getName() {
             return name;
         }
@@ -392,6 +406,7 @@ public class Types {
             this.limit = limit;
         }
     }
+
     public enum SortDirectionEnum {
         DESC,
         ASC;
@@ -461,6 +476,7 @@ public class Types {
         }
     }
 
+    @JsonInclude(Include.NON_NULL)
     public static class PagedResponse<T> {
         private List<T> items;
         private Integer size;
@@ -471,9 +487,38 @@ public class Types {
         private Integer limit;
         private Integer count;
 
+        public static <I> Future<PagedResponse<I>> forItems(List<I> items) {
+            PageRequest allResults = new PageRequest();
+            allResults.setPage(1);
+            allResults.setSize(items.size());
+            return forPage(allResults, items);
+        }
+
+        public static <I> Future<PagedResponse<I>> forPage(PageRequest pageRequest, List<I> items) {
+            final int offset = (pageRequest.getPage() - 1) * pageRequest.getSize();
+            final int total = items.size();
+
+            if (total > 0 && offset >= total) {
+                return Future.failedFuture(new InvalidRequestException("Requested pagination incorrect. Beginning of list greater than full list size (" + items.size() + ")"));
+            }
+
+            final int pageSize = pageRequest.getSize();
+            final int pageNumber = pageRequest.getPage();
+            final int offsetEnd = Math.min(pageSize * pageNumber, total);
+
+            PagedResponse<I> response = new PagedResponse<>();
+            response.setSize(pageSize);
+            response.setPage(pageNumber);
+            response.setItems(items.subList(offset, offsetEnd));
+            response.setTotal(total);
+
+            return Future.succeededFuture(response);
+        }
+
         public List<T> getItems() {
             return items;
         }
+
         public void setItems(List<T> items) {
             this.items = items;
         }
@@ -602,8 +647,10 @@ public class Types {
 
         @Override
         public boolean equals(Object o) {
-            if (this == o) return true;
-            if (o == null || getClass() != o.getClass()) return false;
+            if (this == o)
+                return true;
+            if (o == null || getClass() != o.getClass())
+                return false;
             Consumer consumer = (Consumer) o;
             return getOffset() == consumer.getOffset() &&
                     getLag() == consumer.getLag() &&
@@ -617,6 +664,120 @@ public class Types {
         @Override
         public int hashCode() {
             return Objects.hash(getGroupId(), getTopic(), getPartition(), getOffset(), getLag(), getLogEndOffset());
+        }
+    }
+
+    public static class AclBinding {
+        private String resourceType;
+        private String resourceName;
+        private String patternType;
+        private String principal;
+        private String operation;
+        private String permission;
+
+        public static AclBinding fromQueryParams(io.vertx.core.MultiMap params) {
+            var binding = new AclBinding();
+            binding.setResourceType(Objects.requireNonNullElse(params.get("resourceType"), "ANY"));
+            binding.setResourceName(params.get("resourceName"));
+            binding.setPatternType(Objects.requireNonNullElse(params.get("patternType"), "ANY"));
+            binding.setPrincipal(Objects.requireNonNullElse(params.get("principal"), ""));
+            binding.setOperation(Objects.requireNonNullElse(params.get("operation"), "ANY"));
+            binding.setPermission(Objects.requireNonNullElse(params.get("permission"), "ANY"));
+
+            return binding;
+        }
+
+        public static AclBinding fromKafkaBinding(org.apache.kafka.common.acl.AclBinding kafkaBinding) {
+            var binding = new AclBinding();
+            binding.setResourceType(kafkaBinding.pattern().resourceType().toString());
+            binding.setResourceName(kafkaBinding.pattern().name());
+            binding.setPatternType(kafkaBinding.pattern().patternType().toString());
+            binding.setPrincipal(kafkaBinding.entry().principal());
+            binding.setOperation(kafkaBinding.entry().operation().toString());
+            binding.setPermission(kafkaBinding.entry().permissionType().toString());
+
+            return binding;
+        }
+
+        public org.apache.kafka.common.acl.AclBinding toKafkaBinding() {
+            var pattern = new ResourcePattern(getKafkaResourceType(), getResourceName(), getKafkaPatternType());
+            var entry = new AccessControlEntry(getPrincipal(), "*", getKafkaOperation(), getKafkaPermissionType());
+            return new org.apache.kafka.common.acl.AclBinding(pattern, entry);
+        }
+
+        public org.apache.kafka.common.acl.AclBindingFilter toKafkaBindingFilter() {
+            var patternFilter = new ResourcePatternFilter(getKafkaResourceType(), getResourceName(), getKafkaPatternType());
+            var principalFilter = this.principal.isBlank() ? null : this.principal;
+            var entryFilter = new AccessControlEntryFilter(principalFilter, null, getKafkaOperation(), getKafkaPermissionType());
+            return new org.apache.kafka.common.acl.AclBindingFilter(patternFilter, entryFilter);
+        }
+
+        @JsonIgnore
+        public ResourceType getKafkaResourceType() {
+            return ResourceType.fromString(Objects.requireNonNullElse(resourceType, ""));
+        }
+
+        @JsonIgnore
+        public PatternType getKafkaPatternType() {
+            return PatternType.fromString(Objects.requireNonNullElse(patternType, ""));
+        }
+
+        @JsonIgnore
+        public AclOperation getKafkaOperation() {
+            return AclOperation.fromString(Objects.requireNonNullElse(operation, ""));
+        }
+
+        @JsonIgnore
+        public AclPermissionType getKafkaPermissionType() {
+            return AclPermissionType.fromString(Objects.requireNonNullElse(permission, ""));
+        }
+
+        public String getResourceType() {
+            return resourceType;
+        }
+
+        public void setResourceType(String resourceType) {
+            this.resourceType = resourceType;
+        }
+
+        public String getResourceName() {
+            return resourceName;
+        }
+
+        public void setResourceName(String resourceName) {
+            this.resourceName = resourceName;
+        }
+
+        public String getPatternType() {
+            return patternType;
+        }
+
+        public void setPatternType(String patternType) {
+            this.patternType = patternType;
+        }
+
+        public String getPrincipal() {
+            return principal;
+        }
+
+        public void setPrincipal(String principal) {
+            this.principal = principal;
+        }
+
+        public String getOperation() {
+            return operation;
+        }
+
+        public void setOperation(String operation) {
+            this.operation = operation;
+        }
+
+        public String getPermission() {
+            return permission;
+        }
+
+        public void setPermission(String permission) {
+            this.permission = permission;
         }
     }
 }
