@@ -111,7 +111,6 @@ public class ConsumerGroupOperations {
                     response.setLimit(pageRequest.getLimit());
                     response.setOffset(pageRequest.getOffset());
                     response.setCount(croppedList.size());
-                    response.setTotal(croppedList.size());
                 } else {
                     if (list.size() > 0 && pageRequest.getSize() * (pageRequest.getPage() - 1) >= list.size()) {
                         return Future.failedFuture(new InvalidRequestException("Requested pagination incorrect. Beginning of list greater than full list size (" + list.size() + ")"));
