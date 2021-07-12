@@ -654,7 +654,17 @@ paths:
                     type: string
               examples:
                 success:
-                  value: '{ "cluster": [ "describe", "alter" ], "group": [ "delete", "describe", "read" ], "topic": [ "alter", "alter_configs", "create", "delete", "describe", "describe_configs", "read", "write" ], "transactional_id": [ "describe", "write" ] }'
+                  summary: Map of resources to allowed ACL operations
+                  value: |-
+                    {
+                        "cluster": [ "describe", "alter" ],
+                        "group": [ "all", "delete", "describe", "read" ],
+                        "topic": [ "all", "alter", "alter_configs", "create", "delete", "describe", "describe_configs", "read", "write" ],
+                        "transactional_id": [ "all", "describe", "write" ]
+                    }
+                disabled:
+                  summary: No configuration of ACL bindings is allowed
+                  value: '{}'
         '401':
           $ref: '#/components/responses/NotAuthorized'
         '403':
