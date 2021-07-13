@@ -1,4 +1,4 @@
-FROM registry.access.redhat.com/ubi8/openjdk-11:1.3-15.1622643823
+FROM registry.access.redhat.com/ubi8/openjdk-11:1.3-16
 
 ENV KAFKA_ADMIN_API_HOME=/opt/kafka-admin-api
 WORKDIR ${KAFKA_ADMIN_API_HOME}
