@@ -20,8 +20,11 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.extension.ExtensionContext;
 
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 
 @Tag(TestTag.OAUTH)
 public class OauthTestBase extends TestBase {
@@ -62,20 +65,24 @@ public class OauthTestBase extends TestBase {
         HttpClient client = vertx.createHttpClient();
         String payload = "grant_type=password&username=alice&password=alice-password&client_id=kafka-cli";
 
-        CountDownLatch countDownLatch = new CountDownLatch(1);
+        CompletableFuture<Void> result = new CompletableFuture<>();
         client.request(HttpMethod.POST, 8080, "localhost", "/auth/realms/kafka-authz/protocol/openid-connect/token")
                 .compose(req -> req.putHeader("Host", "keycloak:8080")
                         .putHeader("Content-Type", "application/x-www-form-urlencoded").send(payload))
-                .compose(HttpClientResponse::body).onComplete(buffer -> {
+                .compose(HttpClientResponse::body).onSuccess(buffer -> {
                     try {
-                        token = new ObjectMapper().readValue(buffer.result().toString(), TokenModel.class);
+                        token = new ObjectMapper().readValue(buffer.toString(), TokenModel.class);
                         LOGGER.warn("Got token");
-                        countDownLatch.countDown();
-                    } catch (JsonProcessingException e) {
-                        e.printStackTrace();
+                        result.complete(null);
+                    } catch (Exception e) {
+                        result.completeExceptionally(e);
                     }
-                });
-        countDownLatch.await(30, TimeUnit.SECONDS);
+                }).onFailure(result::completeExceptionally);
+        try {
+            result.get(30, TimeUnit.SECONDS);
+        } catch (TimeoutException | ExecutionException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     protected void changeTokenToUnauthorized(Vertx vertx, VertxTestContext testContext) {
