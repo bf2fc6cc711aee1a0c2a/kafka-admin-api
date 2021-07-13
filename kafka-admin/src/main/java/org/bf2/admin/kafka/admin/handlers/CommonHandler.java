@@ -21,7 +21,6 @@ import org.apache.kafka.common.KafkaException;
 import org.apache.kafka.common.config.SaslConfigs;
 import org.apache.kafka.common.errors.AuthenticationException;
 import org.apache.kafka.common.errors.AuthorizationException;
-import org.apache.kafka.common.errors.GroupAuthorizationException;
 import org.apache.kafka.common.errors.GroupIdNotFoundException;
 import org.apache.kafka.common.errors.GroupNotEmptyException;
 import org.apache.kafka.common.errors.InvalidConfigurationException;
@@ -192,10 +191,9 @@ public class CommonHandler {
             status = HttpResponseStatus.SERVICE_UNAVAILABLE;
         } else if (failureCause instanceof GroupNotEmptyException) {
             status = HttpResponseStatus.LOCKED;
-        } else if (failureCause instanceof GroupAuthorizationException) {
+        } else if (failureCause instanceof AuthorizationException) {
             status = HttpResponseStatus.FORBIDDEN;
         } else if (failureCause instanceof AuthenticationException
-            || failureCause instanceof AuthorizationException
             || failureCause instanceof TokenExpiredException
             || (failureCause.getCause() instanceof SaslAuthenticationException
                     && failureCause.getCause().getMessage().contains("Authentication failed due to an invalid token"))) {

@@ -79,8 +79,8 @@ public class AdminServer extends AbstractVerticle {
 
     @Override
     public void start(final Promise<Void> startServer) {
-        startManagementServer()
-            .compose(nothing -> startResourcesServer())
+        startResourcesServer()
+            .compose(nothing -> startManagementServer())
             .onFailure(startServer::fail);
     }
 
