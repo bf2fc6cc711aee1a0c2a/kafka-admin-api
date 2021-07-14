@@ -27,7 +27,8 @@ import java.util.concurrent.TimeoutException;
 @Tag(TestTag.OAUTH)
 public class OauthTestBase extends TestBase {
     protected static final ModelDeserializer MODEL_DESERIALIZER = new ModelDeserializer();
-    protected static TokenModel token = new TokenModel();
+
+    protected TokenModel token = new TokenModel();
     protected AdminClient kafkaClient;
     protected int publishedAdminPort = 0;
 
@@ -61,31 +62,31 @@ public class OauthTestBase extends TestBase {
 
     protected void changeTokenToAuthorized(Vertx vertx, VertxTestContext testContext) {
         String payload = "grant_type=password&username=alice&password=alice-password&client_id=kafka-cli";
-        changeToken(vertx, payload);
+        token = changeToken(vertx, payload);
     }
 
     protected void changeTokenToUnauthorized(Vertx vertx, VertxTestContext testContext) {
         String payload = "grant_type=password&username=bob&password=bob-password&client_id=kafka-cli";
-        changeToken(vertx, payload);
+        token = changeToken(vertx, payload);
     }
 
-    private void changeToken(Vertx vertx, String payload) {
+    private TokenModel changeToken(Vertx vertx, String payload) {
         HttpClient client = vertx.createHttpClient();
-        CompletableFuture<Void> result = new CompletableFuture<>();
+        CompletableFuture<TokenModel> result = new CompletableFuture<>();
         client.request(HttpMethod.POST, 8080, "localhost", "/auth/realms/kafka-authz/protocol/openid-connect/token")
                 .compose(req -> req.putHeader("Host", "keycloak:8080")
                         .putHeader("Content-Type", "application/x-www-form-urlencoded").send(payload))
                 .compose(HttpClientResponse::body).onSuccess(buffer -> {
-            try {
-                token = new ObjectMapper().readValue(buffer.toString(), TokenModel.class);
-                LOGGER.warn("Got token");
-                result.complete(null);
-            } catch (Exception e) {
-                result.completeExceptionally(e);
-            }
-        }).onFailure(result::completeExceptionally);
+                    try {
+                        TokenModel token = new ObjectMapper().readValue(buffer.toString(), TokenModel.class);
+                        LOGGER.warn("Got token");
+                        result.complete(token);
+                    } catch (Exception e) {
+                        result.completeExceptionally(e);
+                    }
+                }).onFailure(result::completeExceptionally);
         try {
-            result.get(30, TimeUnit.SECONDS);
+            return result.get(30, TimeUnit.SECONDS);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             throw new RuntimeException(e);
