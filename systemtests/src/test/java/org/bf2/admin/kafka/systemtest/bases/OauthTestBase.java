@@ -27,7 +27,6 @@ import java.util.concurrent.TimeoutException;
 @Tag(TestTag.OAUTH)
 public class OauthTestBase extends TestBase {
     protected static final ModelDeserializer MODEL_DESERIALIZER = new ModelDeserializer();
-
     protected TokenModel token = new TokenModel();
     protected AdminClient kafkaClient;
     protected int publishedAdminPort = 0;
@@ -62,15 +61,15 @@ public class OauthTestBase extends TestBase {
 
     protected void changeTokenToAuthorized(Vertx vertx, VertxTestContext testContext) {
         String payload = "grant_type=password&username=alice&password=alice-password&client_id=kafka-cli";
-        token = changeToken(vertx, payload);
+        token = getToken(vertx, payload);
     }
 
     protected void changeTokenToUnauthorized(Vertx vertx, VertxTestContext testContext) {
         String payload = "grant_type=password&username=bob&password=bob-password&client_id=kafka-cli";
-        token = changeToken(vertx, payload);
+        token = getToken(vertx, payload);
     }
 
-    private TokenModel changeToken(Vertx vertx, String payload) {
+    private TokenModel getToken(Vertx vertx, String payload) {
         HttpClient client = vertx.createHttpClient();
         CompletableFuture<TokenModel> result = new CompletableFuture<>();
         client.request(HttpMethod.POST, 8080, "localhost", "/auth/realms/kafka-authz/protocol/openid-connect/token")
