@@ -1,4 +1,5 @@
-FROM quay.io/strimzi/kafka:0.21.1-kafka-2.6.0
+FROM quay.io/strimzi/kafka:0.23.0-kafka-2.7.0
+
 COPY ${PWD}/docker/target/kafka/libs/* /opt/kafka/libs/strimzi/
 COPY ${PWD}/docker/target/kafka/config/* /opt/kafka/config/strimzi/
 COPY ${PWD}/docker/kafka/scripts /opt/kafka/
@@ -77,5 +78,3 @@ ENV KEYCLOAK_HOST: keycloak
 ENV REALM kafka-authz
 
 CMD ["/bin/bash", "/opt/kafka/start.sh"]
-
-

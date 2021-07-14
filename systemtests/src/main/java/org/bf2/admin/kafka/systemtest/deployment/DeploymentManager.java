@@ -71,6 +71,10 @@ public class DeploymentManager {
         this.testNetwork = Network.newNetwork();
     }
 
+    public boolean isOauthEnabled() {
+        return oauthEnabled;
+    }
+
     public void shutdown() {
         stopAll(adminContainer,
                 strimziContainer,
