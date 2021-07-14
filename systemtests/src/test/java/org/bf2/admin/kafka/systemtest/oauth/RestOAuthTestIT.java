@@ -167,7 +167,7 @@ public class RestOAuthTestIT extends OauthTestBase {
         createHttpClient(vertx).request(HttpMethod.GET, publishedAdminPort, "localhost", queryReq)
                 .compose(req -> req.putHeader("Authorization", "Bearer " + token).send()
                         .onSuccess(response -> testContext.verify(() -> {
-                            assertThat(response.statusCode()).isEqualTo(ReturnCodes.UNAUTHORIZED.code);
+                            assertThat(response.statusCode()).isEqualTo(ReturnCodes.FORBIDDEN.code);
                             assertStrictTransportSecurityEnabled(response, testContext);
                             testContext.completeNow();
                         })));
@@ -206,7 +206,7 @@ public class RestOAuthTestIT extends OauthTestBase {
                 .compose(req -> req.putHeader("content-type", "application/json")
                         .putHeader("Authorization", "Bearer " + token)
                         .send(MODEL_DESERIALIZER.serializeBody(topic)).onSuccess(response -> testContext.verify(() -> {
-                            assertThat(response.statusCode()).isEqualTo(ReturnCodes.UNAUTHORIZED.code);
+                            assertThat(response.statusCode()).isEqualTo(ReturnCodes.FORBIDDEN.code);
                             assertStrictTransportSecurityEnabled(response, testContext);
                             testContext.completeNow();
                         })));
@@ -283,7 +283,7 @@ public class RestOAuthTestIT extends OauthTestBase {
                 .compose(req -> req.putHeader("content-type", "application/json")
                         .putHeader("Authorization", "Bearer " + token)
                         .send().onSuccess(response -> testContext.verify(() -> {
-                            assertThat(response.statusCode()).isEqualTo(ReturnCodes.UNAUTHORIZED.code);
+                            assertThat(response.statusCode()).isEqualTo(ReturnCodes.FORBIDDEN.code);
                             assertStrictTransportSecurityEnabled(response, testContext);
                             testContext.completeNow();
                         })));
@@ -346,7 +346,7 @@ public class RestOAuthTestIT extends OauthTestBase {
                 .compose(req -> req.putHeader("content-type", "application/json")
                         .putHeader("Authorization", "Bearer " + token)
                         .send(MODEL_DESERIALIZER.serializeBody(topic1)).onSuccess(response -> testContext.verify(() -> {
-                            assertThat(response.statusCode()).isEqualTo(ReturnCodes.UNAUTHORIZED.code);
+                            assertThat(response.statusCode()).isEqualTo(ReturnCodes.FORBIDDEN.code);
                             assertStrictTransportSecurityEnabled(response, testContext);
                             testContext.completeNow();
                         })));
