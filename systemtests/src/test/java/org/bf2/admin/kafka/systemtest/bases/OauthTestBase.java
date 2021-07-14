@@ -1,6 +1,5 @@
 package org.bf2.admin.kafka.systemtest.bases;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.vertx.core.Vertx;
 import io.vertx.core.http.HttpClient;
@@ -21,7 +20,6 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.extension.ExtensionContext;
 
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
@@ -61,51 +59,38 @@ public class OauthTestBase extends TestBase {
         kafkaClient = KafkaAdminClient.create(ClientsConfig.getAdminConfigOauth(token));
     }
 
-    protected void changeTokenToAuthorized(Vertx vertx, VertxTestContext testContext) throws InterruptedException {
-        HttpClient client = vertx.createHttpClient();
+    protected void changeTokenToAuthorized(Vertx vertx, VertxTestContext testContext) {
         String payload = "grant_type=password&username=alice&password=alice-password&client_id=kafka-cli";
+        changeToken(vertx, payload);
+    }
 
+    protected void changeTokenToUnauthorized(Vertx vertx, VertxTestContext testContext) {
+        String payload = "grant_type=password&username=bob&password=bob-password&client_id=kafka-cli";
+        changeToken(vertx, payload);
+    }
+
+    private void changeToken(Vertx vertx, String payload) {
+        HttpClient client = vertx.createHttpClient();
         CompletableFuture<Void> result = new CompletableFuture<>();
         client.request(HttpMethod.POST, 8080, "localhost", "/auth/realms/kafka-authz/protocol/openid-connect/token")
                 .compose(req -> req.putHeader("Host", "keycloak:8080")
                         .putHeader("Content-Type", "application/x-www-form-urlencoded").send(payload))
                 .compose(HttpClientResponse::body).onSuccess(buffer -> {
-                    try {
-                        token = new ObjectMapper().readValue(buffer.toString(), TokenModel.class);
-                        LOGGER.warn("Got token");
-                        result.complete(null);
-                    } catch (Exception e) {
-                        result.completeExceptionally(e);
-                    }
-                }).onFailure(result::completeExceptionally);
+            try {
+                token = new ObjectMapper().readValue(buffer.toString(), TokenModel.class);
+                LOGGER.warn("Got token");
+                result.complete(null);
+            } catch (Exception e) {
+                result.completeExceptionally(e);
+            }
+        }).onFailure(result::completeExceptionally);
         try {
             result.get(30, TimeUnit.SECONDS);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new RuntimeException(e);
         } catch (TimeoutException | ExecutionException e) {
             throw new RuntimeException(e);
-        }
-    }
-
-    protected void changeTokenToUnauthorized(Vertx vertx, VertxTestContext testContext) {
-        HttpClient client = vertx.createHttpClient();
-        String payload = "grant_type=password&username=bob&password=bob-password&client_id=kafka-cli";
-        CountDownLatch countDownLatch = new CountDownLatch(1);
-        client.request(HttpMethod.POST, 8080, "localhost", "/auth/realms/kafka-authz/protocol/openid-connect/token")
-                .compose(req -> req.putHeader("Host", "keycloak:8080")
-                        .putHeader("Content-Type", "application/x-www-form-urlencoded").send(payload))
-                .compose(HttpClientResponse::body).onComplete(buffer -> {
-                    try {
-                        token = new ObjectMapper().readValue(buffer.result().toString(), TokenModel.class);
-                    } catch (JsonProcessingException e) {
-                        e.printStackTrace();
-                    }
-                    countDownLatch.countDown();
-                });
-        try {
-            countDownLatch.await(30, TimeUnit.SECONDS);
-        } catch (InterruptedException e) {
-            e.printStackTrace();
-            testContext.failNow("Could not retrieve token");
-            testContext.completeNow();
         }
     }
 
