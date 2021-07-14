@@ -15,8 +15,6 @@ import org.bf2.admin.kafka.systemtest.utils.DynamicWait;
 import org.bf2.admin.kafka.systemtest.utils.RequestUtils;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtensionContext;
-import org.junit.jupiter.api.parallel.Execution;
-import org.junit.jupiter.api.parallel.ExecutionMode;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
@@ -121,7 +119,6 @@ class RestEndpointTestIT extends PlainTestBase {
     }
 
     @ParameterizedTest(name = "testTopicListWithPagination-{0}")
-    @Execution(ExecutionMode.CONCURRENT)
     @ValueSource(ints = {1, 2, 3})
     void testTopicListWithPagination(int page, Vertx vertx, VertxTestContext testContext, ExtensionContext extensionContext) throws Exception {
         List<NewTopic> topics = new ArrayList<>();
@@ -157,7 +154,6 @@ class RestEndpointTestIT extends PlainTestBase {
     }
 
     @ParameterizedTest(name = "testTopicListWithLimit-{0}")
-    @Execution(ExecutionMode.CONCURRENT)
     @ValueSource(ints = {1, 2, 3, 5})
     void testTopicListWithLimit(int limit, Vertx vertx, VertxTestContext testContext, ExtensionContext extensionContext) throws Exception {
         List<NewTopic> topics = new ArrayList<>();
@@ -182,7 +178,6 @@ class RestEndpointTestIT extends PlainTestBase {
     }
 
     @ParameterizedTest(name = "testTopicListWithOffset-{0}")
-    @Execution(ExecutionMode.CONCURRENT)
     @ValueSource(ints = {0, 1, 3, 4})
     void testTopicListWithOffset(int offset, Vertx vertx, VertxTestContext testContext, ExtensionContext extensionContext) throws Exception {
         LOGGER.info("Display name: " + extensionContext.getDisplayName());
@@ -234,7 +229,6 @@ class RestEndpointTestIT extends PlainTestBase {
     }
 
     @ParameterizedTest(name = "testTopicListWithSize-{0}")
-    @Execution(ExecutionMode.CONCURRENT)
     @ValueSource(ints = {1, 2, 3, 5})
     void testTopicListWithSize(int size, Vertx vertx, VertxTestContext testContext, ExtensionContext extensionContext) throws Exception {
         List<NewTopic> topics = new ArrayList<>();
@@ -259,7 +253,6 @@ class RestEndpointTestIT extends PlainTestBase {
     }
 
     @ParameterizedTest(name = "testTopicListWithPage-{0}")
-    @Execution(ExecutionMode.CONCURRENT)
     @ValueSource(ints = {1, 3, 4})
     void testTopicListWithPage(int page, Vertx vertx, VertxTestContext testContext, ExtensionContext extensionContext) throws Exception {
         List<NewTopic> topics = new ArrayList<>();
@@ -529,7 +522,6 @@ class RestEndpointTestIT extends PlainTestBase {
     }
 
     @ParameterizedTest(name = "{displayName}-{0}")
-    @Execution(ExecutionMode.CONCURRENT)
     @ValueSource(ints = { 0, 101 })
     void testCreateTopicWithInvalidNumPartitions(int numPartitions, Vertx vertx, VertxTestContext testContext, ExtensionContext extensionContext) throws InterruptedException {
         Types.NewTopic topic = RequestUtils.getTopicObject(numPartitions);
