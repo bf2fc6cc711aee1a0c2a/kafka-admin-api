@@ -1,108 +1,93 @@
 package org.bf2.admin.kafka.systemtest.bases;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import io.vertx.core.Vertx;
 import io.vertx.core.http.HttpClient;
 import io.vertx.core.http.HttpClientResponse;
-import io.vertx.core.http.HttpMethod;
 import io.vertx.junit5.VertxTestContext;
 import org.apache.kafka.clients.admin.AdminClient;
-import org.apache.kafka.clients.admin.KafkaAdminClient;
+import org.apache.kafka.clients.admin.TopicListing;
 import org.bf2.admin.kafka.systemtest.TestTag;
+import org.bf2.admin.kafka.systemtest.deployment.DeploymentManager;
+import org.bf2.admin.kafka.systemtest.deployment.DeploymentManager.UserType;
 import org.bf2.admin.kafka.systemtest.json.ModelDeserializer;
-import org.bf2.admin.kafka.systemtest.json.TokenModel;
-import org.bf2.admin.kafka.systemtest.utils.ClientsConfig;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.extension.ExtensionContext;
+import org.testcontainers.containers.GenericContainer;
 
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
+import java.util.stream.Collectors;
 
 @Tag(TestTag.OAUTH)
 public class OauthTestBase extends TestBase {
+
     protected static final ModelDeserializer MODEL_DESERIALIZER = new ModelDeserializer();
-    protected TokenModel token = new TokenModel();
+    protected static DeploymentManager deployments;
+
+    protected GenericContainer<?> kafkaContainer;
+    protected GenericContainer<?> adminContainer;
+
+    protected int publishedAdminPort;
     protected AdminClient kafkaClient;
-    protected int publishedAdminPort = 0;
+    protected String token;
+    protected String externalBootstrap;
 
     @BeforeAll
-    public static void initialize(Vertx vertx, VertxTestContext vertxTestContext, ExtensionContext extensionContext) throws Exception {
-        DEPLOYMENT_MANAGER.deployKeycloak(vertxTestContext, extensionContext);
+    static void initialize(ExtensionContext extensionContext) {
+        deployments = DeploymentManager.newInstance(extensionContext, true);
+        deployments.getKeycloakContainer();
     }
 
     @AfterAll
-    public static void cleanup(ExtensionContext extensionContext) throws Exception {
-        DEPLOYMENT_MANAGER.teardown(extensionContext);
+    static void shutdown() {
+        deployments.shutdown();
     }
 
     @BeforeEach
-    public void startup(Vertx vertx, VertxTestContext vertxTestContext, ExtensionContext extensionContext) throws Exception {
-        DEPLOYMENT_MANAGER.deployOauthStack(vertxTestContext, extensionContext);
-        publishedAdminPort = DEPLOYMENT_MANAGER.getAdminPort(extensionContext);
-        // Get valid auth token
-        //String payload = "grant_type=client_credentials&client_id=kafka&client_secret=kafka-secret";
-        changeTokenToAuthorized(vertx, vertxTestContext);
-        createKafkaAdmin();
+    void setup() {
+        kafkaContainer = deployments.getKafkaContainer();
+        adminContainer = deployments.getAdminContainer();
+        externalBootstrap = deployments.getExternalBootstrapServers();
+    }
+
+    @BeforeEach
+    void setup(Vertx vertx) {
+        this.publishedAdminPort = deployments.getAdminServerPort();
+        this.token = deployments.getAccessTokenNow(vertx, UserType.OWNER);
+        this.kafkaClient = deployments.createKafkaAdmin(token);
+    }
+
+    @AfterEach
+    void cleanup(Vertx vertx) throws InterruptedException, ExecutionException {
+        deployments.getAccessToken(vertx, UserType.OWNER)
+            .map(token -> deployments.createKafkaAdmin(token))
+            .map(adminClient -> adminClient.listTopics()
+                    .listings()
+                    .whenComplete((allTopics, error) -> {
+                        adminClient.deleteTopics(allTopics.stream().map(TopicListing::name).collect(Collectors.toList()));
+                    }))
+            .toCompletionStage()
+            .toCompletableFuture()
+            .get();
+
+        if (this.kafkaClient != null) {
+            this.kafkaClient.close();
+        }
     }
 
     protected HttpClient createHttpClient(Vertx vertx) {
         return super.createHttpClient(vertx, true);
     }
 
-    private void createKafkaAdmin() {
-        kafkaClient = KafkaAdminClient.create(ClientsConfig.getAdminConfigOauth(token));
-    }
-
-    protected void changeTokenToAuthorized(Vertx vertx, VertxTestContext testContext) {
-        String payload = "grant_type=password&username=alice&password=alice-password&client_id=kafka-cli";
-        token = getToken(vertx, payload);
-    }
-
     protected void changeTokenToUnauthorized(Vertx vertx, VertxTestContext testContext) {
-        String payload = "grant_type=password&username=bob&password=bob-password&client_id=kafka-cli";
-        token = getToken(vertx, payload);
-    }
-
-    private TokenModel getToken(Vertx vertx, String payload) {
-        HttpClient client = vertx.createHttpClient();
-        CompletableFuture<TokenModel> result = new CompletableFuture<>();
-        client.request(HttpMethod.POST, 8080, "localhost", "/auth/realms/kafka-authz/protocol/openid-connect/token")
-                .compose(req -> req.putHeader("Host", "keycloak:8080")
-                        .putHeader("Content-Type", "application/x-www-form-urlencoded").send(payload))
-                .compose(HttpClientResponse::body).onSuccess(buffer -> {
-                    try {
-                        TokenModel token = new ObjectMapper().readValue(buffer.toString(), TokenModel.class);
-                        LOGGER.warn("Got token");
-                        result.complete(token);
-                    } catch (Exception e) {
-                        result.completeExceptionally(e);
-                    }
-                }).onFailure(result::completeExceptionally);
-        try {
-            return result.get(30, TimeUnit.SECONDS);
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            throw new RuntimeException(e);
-        } catch (TimeoutException | ExecutionException e) {
-            throw new RuntimeException(e);
-        }
+        this.token = deployments.getAccessTokenNow(vertx, UserType.OTHER);
     }
 
     protected void assertStrictTransportSecurityEnabled(HttpClientResponse response, VertxTestContext testContext) {
         assertStrictTransportSecurity(response, testContext, true);
     }
 
-    @AfterEach
-    public void teardown() {
-        if (kafkaClient != null) {
-            kafkaClient.close();
-            kafkaClient = null;
-        }
-    }
 }

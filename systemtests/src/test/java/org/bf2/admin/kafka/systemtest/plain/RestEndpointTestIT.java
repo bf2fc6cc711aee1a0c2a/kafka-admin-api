@@ -1,21 +1,19 @@
 package org.bf2.admin.kafka.systemtest.plain;
 
-import com.github.dockerjava.api.DockerClient;
 import io.vertx.core.Vertx;
 import io.vertx.core.http.HttpClient;
 import io.vertx.core.http.HttpClientResponse;
 import io.vertx.core.http.HttpMethod;
 import io.vertx.junit5.VertxTestContext;
-import org.apache.kafka.clients.admin.AdminClient;
 import org.apache.kafka.clients.admin.NewTopic;
 import org.apache.kafka.clients.admin.TopicDescription;
 import org.apache.kafka.common.config.ConfigResource;
 import org.bf2.admin.kafka.admin.model.Types;
-import org.bf2.admin.kafka.systemtest.annotations.ParallelTest;
 import org.bf2.admin.kafka.systemtest.bases.PlainTestBase;
 import org.bf2.admin.kafka.systemtest.enums.ReturnCodes;
 import org.bf2.admin.kafka.systemtest.utils.DynamicWait;
 import org.bf2.admin.kafka.systemtest.utils.RequestUtils;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtensionContext;
 import org.junit.jupiter.api.parallel.Execution;
 import org.junit.jupiter.api.parallel.ExecutionMode;
@@ -32,13 +30,10 @@ import java.util.stream.Collectors;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-public class RestEndpointTestIT extends PlainTestBase {
+class RestEndpointTestIT extends PlainTestBase {
 
-    @ParallelTest
+    @Test
     void testTopicListAfterCreation(Vertx vertx, VertxTestContext testContext, ExtensionContext extensionContext) throws Exception {
-        AdminClient kafkaClient = AdminClient.create(RequestUtils.getKafkaAdminConfig(DEPLOYMENT_MANAGER
-                .getKafkaContainer(extensionContext).getBootstrapServers()));
-        int publishedAdminPort = DEPLOYMENT_MANAGER.getAdminPort(extensionContext);
         List<NewTopic> topics = new ArrayList<>();
         for (int i = 0; i < 2; i++) topics.add(new NewTopic(UUID.randomUUID().toString(), 1, (short) 1));
         kafkaClient.createTopics(topics);
@@ -60,11 +55,8 @@ public class RestEndpointTestIT extends PlainTestBase {
         assertThat(testContext.awaitCompletion(1, TimeUnit.MINUTES)).isTrue();
     }
 
-    @ParallelTest
+    @Test
     void testTopicListAfterCreationWithForbTopic(Vertx vertx, VertxTestContext testContext, ExtensionContext extensionContext) throws Exception {
-        AdminClient kafkaClient = AdminClient.create(RequestUtils.getKafkaAdminConfig(DEPLOYMENT_MANAGER
-                .getKafkaContainer(extensionContext).getBootstrapServers()));
-        int publishedAdminPort = DEPLOYMENT_MANAGER.getAdminPort(extensionContext);
         List<NewTopic> topics = new ArrayList<>();
         for (int i = 0; i < 2; i++) topics.add(new NewTopic(UUID.randomUUID().toString(), 1, (short) 1));
         topics.add(new NewTopic("__" + UUID.randomUUID().toString(), 1, (short) 1));
@@ -88,12 +80,10 @@ public class RestEndpointTestIT extends PlainTestBase {
         assertThat(testContext.awaitCompletion(1, TimeUnit.MINUTES)).isTrue();
     }
 
-    @ParallelTest
+    @Test
     void testTopicListWithKafkaDown(Vertx vertx, VertxTestContext testContext, ExtensionContext extensionContext) throws InterruptedException {
         HttpClient client = createHttpClient(vertx);
-        DEPLOYMENT_MANAGER.getClient().stopContainerCmd(DEPLOYMENT_MANAGER
-                .getKafkaContainer(extensionContext).getContainerId()).exec();
-        int publishedAdminPort = DEPLOYMENT_MANAGER.getAdminPort(extensionContext);
+        deployments.stopKafkaContainer();
         client.request(HttpMethod.GET, publishedAdminPort, "localhost", "/rest/topics")
                 .compose(req -> req.send().onComplete(l -> testContext.verify(() -> {
                     assertThat(testContext.failed()).isFalse();
@@ -106,11 +96,8 @@ public class RestEndpointTestIT extends PlainTestBase {
         assertThat(testContext.awaitCompletion(1, TimeUnit.MINUTES)).isTrue();
     }
 
-    @ParallelTest
+    @Test
     void testTopicListWithFilter(Vertx vertx, VertxTestContext testContext, ExtensionContext extensionContext) throws Exception {
-        AdminClient kafkaClient = AdminClient.create(RequestUtils.getKafkaAdminConfig(DEPLOYMENT_MANAGER
-                .getKafkaContainer(extensionContext).getBootstrapServers()));
-        int publishedAdminPort = DEPLOYMENT_MANAGER.getAdminPort(extensionContext);
         List<NewTopic> topics = new ArrayList<>();
         for (int i = 0; i < 2; i++) topics.add(new NewTopic(UUID.randomUUID().toString(), 1, (short) 1));
         kafkaClient.createTopics(topics);
@@ -137,9 +124,6 @@ public class RestEndpointTestIT extends PlainTestBase {
     @Execution(ExecutionMode.CONCURRENT)
     @ValueSource(ints = {1, 2, 3})
     void testTopicListWithPagination(int page, Vertx vertx, VertxTestContext testContext, ExtensionContext extensionContext) throws Exception {
-        AdminClient kafkaClient = AdminClient.create(RequestUtils.getKafkaAdminConfig(DEPLOYMENT_MANAGER
-                .getKafkaContainer(extensionContext).getBootstrapServers()));
-        int publishedAdminPort = DEPLOYMENT_MANAGER.getAdminPort(extensionContext);
         List<NewTopic> topics = new ArrayList<>();
         for (int i = 0; i < 5; i++) topics.add(new NewTopic(UUID.randomUUID().toString(), 1, (short) 1));
         kafkaClient.createTopics(topics);
@@ -176,10 +160,6 @@ public class RestEndpointTestIT extends PlainTestBase {
     @Execution(ExecutionMode.CONCURRENT)
     @ValueSource(ints = {1, 2, 3, 5})
     void testTopicListWithLimit(int limit, Vertx vertx, VertxTestContext testContext, ExtensionContext extensionContext) throws Exception {
-        AdminClient kafkaClient = AdminClient.create(RequestUtils.getKafkaAdminConfig(DEPLOYMENT_MANAGER
-                .getKafkaContainer(extensionContext).getBootstrapServers()));
-        int publishedAdminPort = DEPLOYMENT_MANAGER.getAdminPort(extensionContext);
-
         List<NewTopic> topics = new ArrayList<>();
         for (int i = 0; i < 3; i++) topics.add(new NewTopic(UUID.randomUUID().toString(), 1, (short) 1));
         kafkaClient.createTopics(topics);
@@ -205,10 +185,7 @@ public class RestEndpointTestIT extends PlainTestBase {
     @Execution(ExecutionMode.CONCURRENT)
     @ValueSource(ints = {0, 1, 3, 4})
     void testTopicListWithOffset(int offset, Vertx vertx, VertxTestContext testContext, ExtensionContext extensionContext) throws Exception {
-        AdminClient kafkaClient = AdminClient.create(RequestUtils.getKafkaAdminConfig(DEPLOYMENT_MANAGER
-                .getKafkaContainer(extensionContext).getBootstrapServers()));
         LOGGER.info("Display name: " + extensionContext.getDisplayName());
-        int publishedAdminPort = DEPLOYMENT_MANAGER.getAdminPort(extensionContext);
         List<NewTopic> topics = new ArrayList<>();
         for (int i = 0; i < 3; i++) topics.add(new NewTopic(UUID.randomUUID().toString(), 1, (short) 1));
         kafkaClient.createTopics(topics);
@@ -233,11 +210,8 @@ public class RestEndpointTestIT extends PlainTestBase {
         assertThat(testContext.awaitCompletion(1, TimeUnit.MINUTES)).isTrue();
     }
 
-    @ParallelTest
+    @Test
     void testTopicListWithFilterNone(Vertx vertx, VertxTestContext testContext, ExtensionContext extensionContext) throws Exception {
-        AdminClient kafkaClient = AdminClient.create(RequestUtils.getKafkaAdminConfig(DEPLOYMENT_MANAGER
-                .getKafkaContainer(extensionContext).getBootstrapServers()));
-        int publishedAdminPort = DEPLOYMENT_MANAGER.getAdminPort(extensionContext);
         List<NewTopic> topics = new ArrayList<>();
         for (int i = 0; i < 2; i++) topics.add(new NewTopic(UUID.randomUUID().toString(), 1, (short) 1));
         kafkaClient.createTopics(topics);
@@ -263,10 +237,6 @@ public class RestEndpointTestIT extends PlainTestBase {
     @Execution(ExecutionMode.CONCURRENT)
     @ValueSource(ints = {1, 2, 3, 5})
     void testTopicListWithSize(int size, Vertx vertx, VertxTestContext testContext, ExtensionContext extensionContext) throws Exception {
-        AdminClient kafkaClient = AdminClient.create(RequestUtils.getKafkaAdminConfig(DEPLOYMENT_MANAGER
-                .getKafkaContainer(extensionContext).getBootstrapServers()));
-        int publishedAdminPort = DEPLOYMENT_MANAGER.getAdminPort(extensionContext);
-
         List<NewTopic> topics = new ArrayList<>();
         for (int i = 0; i < 3; i++) topics.add(new NewTopic(UUID.randomUUID().toString(), 1, (short) 1));
         kafkaClient.createTopics(topics);
@@ -292,9 +262,6 @@ public class RestEndpointTestIT extends PlainTestBase {
     @Execution(ExecutionMode.CONCURRENT)
     @ValueSource(ints = {1, 3, 4})
     void testTopicListWithPage(int page, Vertx vertx, VertxTestContext testContext, ExtensionContext extensionContext) throws Exception {
-        AdminClient kafkaClient = AdminClient.create(RequestUtils.getKafkaAdminConfig(DEPLOYMENT_MANAGER
-                .getKafkaContainer(extensionContext).getBootstrapServers()));
-        int publishedAdminPort = DEPLOYMENT_MANAGER.getAdminPort(extensionContext);
         List<NewTopic> topics = new ArrayList<>();
         for (int i = 0; i < 3; i++) topics.add(new NewTopic(UUID.randomUUID().toString(), 1, (short) 1));
         kafkaClient.createTopics(topics);
@@ -319,11 +286,8 @@ public class RestEndpointTestIT extends PlainTestBase {
         assertThat(testContext.awaitCompletion(1, TimeUnit.MINUTES)).isTrue();
     }
 
-    @ParallelTest
+    @Test
     void testDescribeSingleTopic(Vertx vertx, VertxTestContext testContext, ExtensionContext extensionContext) throws Exception {
-        AdminClient kafkaClient = AdminClient.create(RequestUtils.getKafkaAdminConfig(DEPLOYMENT_MANAGER
-                .getKafkaContainer(extensionContext).getBootstrapServers()));
-        int publishedAdminPort = DEPLOYMENT_MANAGER.getAdminPort(extensionContext);
         final String topicName = UUID.randomUUID().toString();
         kafkaClient.createTopics(Collections.singletonList(
                 new NewTopic(topicName, 2, (short) 1)
@@ -348,11 +312,8 @@ public class RestEndpointTestIT extends PlainTestBase {
         assertThat(testContext.awaitCompletion(1, TimeUnit.MINUTES)).isTrue();
     }
 
-    @ParallelTest
+    @Test
     void testDescribeForbiddenTopic(Vertx vertx, VertxTestContext testContext, ExtensionContext extensionContext) throws Exception {
-        AdminClient kafkaClient = AdminClient.create(RequestUtils.getKafkaAdminConfig(DEPLOYMENT_MANAGER
-                .getKafkaContainer(extensionContext).getBootstrapServers()));
-        int publishedAdminPort = DEPLOYMENT_MANAGER.getAdminPort(extensionContext);
         final String topicName = "__" + UUID.randomUUID().toString();
         kafkaClient.createTopics(Collections.singletonList(
                 new NewTopic(topicName, 2, (short) 1)
@@ -373,13 +334,11 @@ public class RestEndpointTestIT extends PlainTestBase {
         assertThat(testContext.awaitCompletion(1, TimeUnit.MINUTES)).isTrue();
     }
 
-    @ParallelTest
+    @Test
     void testDescribeSingleTopicWithKafkaDown(Vertx vertx, VertxTestContext testContext, ExtensionContext extensionContext) throws Exception {
-        int publishedAdminPort = DEPLOYMENT_MANAGER.getAdminPort(extensionContext);
         final String topicName = UUID.randomUUID().toString();
         String queryReq = "/rest/topics/" + topicName;
-        DockerClient client = DEPLOYMENT_MANAGER.getClient();
-        client.stopContainerCmd(DEPLOYMENT_MANAGER.getKafkaContainer(extensionContext).getContainerId()).exec();
+        deployments.stopKafkaContainer();
 
         createHttpClient(vertx).request(HttpMethod.GET, publishedAdminPort, "localhost", queryReq)
                 .compose(req -> req.send().onComplete(l -> testContext.verify(() -> {
@@ -392,10 +351,8 @@ public class RestEndpointTestIT extends PlainTestBase {
         assertThat(testContext.awaitCompletion(1, TimeUnit.MINUTES)).isTrue();
     }
 
-    @ParallelTest
+    @Test
     void testDescribeNonExistingTopic(Vertx vertx, VertxTestContext testContext, ExtensionContext extensionContext) throws Exception {
-        int publishedAdminPort = DEPLOYMENT_MANAGER.getAdminPort(extensionContext);
-
         final String topicName = "test-non-exist";
 
         String queryReq = "/rest/topics/" + topicName;
@@ -410,11 +367,8 @@ public class RestEndpointTestIT extends PlainTestBase {
         assertThat(testContext.awaitCompletion(1, TimeUnit.MINUTES)).isTrue();
     }
 
-    @ParallelTest
+    @Test
     void testCreateTopic(Vertx vertx, VertxTestContext testContext, ExtensionContext extensionContext) throws InterruptedException {
-        AdminClient kafkaClient = AdminClient.create(RequestUtils.getKafkaAdminConfig(DEPLOYMENT_MANAGER
-                .getKafkaContainer(extensionContext).getBootstrapServers()));
-        int publishedAdminPort = DEPLOYMENT_MANAGER.getAdminPort(extensionContext);
         Types.NewTopic topic = RequestUtils.getTopicObject(3);
 
         createHttpClient(vertx).request(HttpMethod.POST, publishedAdminPort, "localhost", "/rest/topics")
@@ -437,12 +391,10 @@ public class RestEndpointTestIT extends PlainTestBase {
         assertThat(testContext.awaitCompletion(1, TimeUnit.MINUTES)).isTrue();
     }
 
-    @ParallelTest
+    @Test
     void testCreateTopicWithKafkaDown(Vertx vertx, VertxTestContext testContext, ExtensionContext extensionContext) throws InterruptedException {
         Types.NewTopic topic = RequestUtils.getTopicObject(3);
-
-        DEPLOYMENT_MANAGER.getClient().stopContainerCmd(DEPLOYMENT_MANAGER.getKafkaContainer(extensionContext).getContainerId()).exec();
-        int publishedAdminPort = DEPLOYMENT_MANAGER.getAdminPort(extensionContext);
+        deployments.stopKafkaContainer();
 
         createHttpClient(vertx).request(HttpMethod.POST, publishedAdminPort, "localhost", "/rest/topics")
                 .compose(req -> req.putHeader("content-type", "application/json")
@@ -456,11 +408,9 @@ public class RestEndpointTestIT extends PlainTestBase {
         assertThat(testContext.awaitCompletion(1, TimeUnit.MINUTES)).isTrue();
     }
 
-    @ParallelTest
+    @Test
     void testCreateWithInvJson(Vertx vertx, VertxTestContext testContext, ExtensionContext extensionContext) throws InterruptedException {
         Types.NewTopic topic = RequestUtils.getTopicObject(3);
-        int publishedAdminPort = DEPLOYMENT_MANAGER.getAdminPort(extensionContext);
-
 
         createHttpClient(vertx).request(HttpMethod.POST, publishedAdminPort, "localhost", "/rest/topics")
                 .compose(req -> req.putHeader("content-type", "application/json")
@@ -474,11 +424,9 @@ public class RestEndpointTestIT extends PlainTestBase {
         assertThat(testContext.awaitCompletion(1, TimeUnit.MINUTES)).isTrue();
     }
 
-    @ParallelTest
+    @Test
     void testCreateWithInvJson2(Vertx vertx, VertxTestContext testContext, ExtensionContext extensionContext) throws InterruptedException {
         Types.NewTopic topic = RequestUtils.getTopicObject(3);
-        int publishedAdminPort = DEPLOYMENT_MANAGER.getAdminPort(extensionContext);
-
 
         createHttpClient(vertx).request(HttpMethod.POST, publishedAdminPort, "localhost", "/rest/topics")
                 .compose(req -> req.putHeader("content-type", "application/json")
@@ -492,9 +440,8 @@ public class RestEndpointTestIT extends PlainTestBase {
         assertThat(testContext.awaitCompletion(1, TimeUnit.MINUTES)).isTrue();
     }
 
-    @ParallelTest
+    @Test
     void testCreateTopicWithInvName(Vertx vertx, VertxTestContext testContext, ExtensionContext extensionContext) throws InterruptedException {
-        int publishedAdminPort = DEPLOYMENT_MANAGER.getAdminPort(extensionContext);
         final String topicName = "testTopic3_9-=";
         Types.NewTopic topic = RequestUtils.getTopicObject(topicName, 3);
 
@@ -510,12 +457,8 @@ public class RestEndpointTestIT extends PlainTestBase {
         assertThat(testContext.awaitCompletion(1, TimeUnit.MINUTES)).isTrue();
     }
 
-    @ParallelTest
+    @Test
     void testCreateFaultTopic(Vertx vertx, VertxTestContext testContext, ExtensionContext extensionContext) throws InterruptedException {
-        AdminClient kafkaClient = AdminClient.create(RequestUtils.getKafkaAdminConfig(DEPLOYMENT_MANAGER
-                .getKafkaContainer(extensionContext).getBootstrapServers()));
-        int publishedAdminPort = DEPLOYMENT_MANAGER.getAdminPort(extensionContext);
-
         final String topicName = UUID.randomUUID().toString();
         final String configKey = "cleanup.policy";
         Types.NewTopic topic = new Types.NewTopic();
@@ -544,11 +487,8 @@ public class RestEndpointTestIT extends PlainTestBase {
         assertThat(testContext.awaitCompletion(1, TimeUnit.MINUTES)).isTrue();
     }
 
-    @ParallelTest
+    @Test
     void testCreateForbiddenTopic(Vertx vertx, VertxTestContext testContext, ExtensionContext extensionContext) throws InterruptedException {
-        AdminClient kafkaClient = AdminClient.create(RequestUtils.getKafkaAdminConfig(DEPLOYMENT_MANAGER
-                .getKafkaContainer(extensionContext).getBootstrapServers()));
-        int publishedAdminPort = DEPLOYMENT_MANAGER.getAdminPort(extensionContext);
         Types.NewTopic topic = RequestUtils.getTopicObject(3);
         topic.setName("__" + topic.getName());
 
@@ -568,11 +508,8 @@ public class RestEndpointTestIT extends PlainTestBase {
         assertThat(testContext.awaitCompletion(1, TimeUnit.MINUTES)).isTrue();
     }
 
-    @ParallelTest
+    @Test
     void testCreateDuplicatedTopic(Vertx vertx, VertxTestContext testContext, ExtensionContext extensionContext) throws Exception {
-        AdminClient kafkaClient = AdminClient.create(RequestUtils.getKafkaAdminConfig(DEPLOYMENT_MANAGER
-                .getKafkaContainer(extensionContext).getBootstrapServers()));
-        int publishedAdminPort = DEPLOYMENT_MANAGER.getAdminPort(extensionContext);
         Types.NewTopic topic = RequestUtils.getTopicObject(2);
 
         kafkaClient.createTopics(Collections.singletonList(
@@ -595,9 +532,6 @@ public class RestEndpointTestIT extends PlainTestBase {
     @Execution(ExecutionMode.CONCURRENT)
     @ValueSource(ints = { 0, 101 })
     void testCreateTopicWithInvalidNumPartitions(int numPartitions, Vertx vertx, VertxTestContext testContext, ExtensionContext extensionContext) throws InterruptedException {
-        AdminClient kafkaClient = AdminClient.create(RequestUtils.getKafkaAdminConfig(DEPLOYMENT_MANAGER
-                .getKafkaContainer(extensionContext).getBootstrapServers()));
-        int publishedAdminPort = DEPLOYMENT_MANAGER.getAdminPort(extensionContext);
         Types.NewTopic topic = RequestUtils.getTopicObject(numPartitions);
 
         createHttpClient(vertx).request(HttpMethod.POST, publishedAdminPort, "localhost", "/rest/topics")
@@ -616,11 +550,8 @@ public class RestEndpointTestIT extends PlainTestBase {
         assertThat(testContext.awaitCompletion(1, TimeUnit.MINUTES)).isTrue();
     }
 
-    @ParallelTest
+    @Test
     void testTopicDeleteSingle(Vertx vertx, VertxTestContext testContext, ExtensionContext extensionContext) throws Exception {
-        AdminClient kafkaClient = AdminClient.create(RequestUtils.getKafkaAdminConfig(DEPLOYMENT_MANAGER
-                .getKafkaContainer(extensionContext).getBootstrapServers()));
-        int publishedAdminPort = DEPLOYMENT_MANAGER.getAdminPort(extensionContext);
         final String topicName = UUID.randomUUID().toString();
         String query = "/rest/topics/" + topicName;
 
@@ -645,11 +576,8 @@ public class RestEndpointTestIT extends PlainTestBase {
         assertThat(testContext.awaitCompletion(1, TimeUnit.MINUTES)).isTrue();
     }
 
-    @ParallelTest
+    @Test
     void testTopicDeleteForbidden(Vertx vertx, VertxTestContext testContext, ExtensionContext extensionContext) throws Exception {
-        AdminClient kafkaClient = AdminClient.create(RequestUtils.getKafkaAdminConfig(DEPLOYMENT_MANAGER
-                .getKafkaContainer(extensionContext).getBootstrapServers()));
-        int publishedAdminPort = DEPLOYMENT_MANAGER.getAdminPort(extensionContext);
         final String topicName = "__" + UUID.randomUUID().toString();
         String query = "/rest/topics/" + topicName;
 
@@ -673,12 +601,11 @@ public class RestEndpointTestIT extends PlainTestBase {
         assertThat(testContext.awaitCompletion(1, TimeUnit.MINUTES)).isTrue();
     }
 
-    @ParallelTest
+    @Test
     void testTopicDeleteWithKafkaDown(Vertx vertx, VertxTestContext testContext, ExtensionContext extensionContext) throws Exception {
         final String topicName = UUID.randomUUID().toString();
         String query = "/rest/topics/" + topicName;
-        DEPLOYMENT_MANAGER.getClient().stopContainerCmd(DEPLOYMENT_MANAGER.getKafkaContainer(extensionContext).getContainerId()).exec();
-        int publishedAdminPort = DEPLOYMENT_MANAGER.getAdminPort(extensionContext);
+        deployments.stopKafkaContainer();
 
         createHttpClient(vertx).request(HttpMethod.DELETE, publishedAdminPort, "localhost", query)
                 .compose(req -> req.putHeader("content-type", "application/json")
@@ -692,9 +619,8 @@ public class RestEndpointTestIT extends PlainTestBase {
         assertThat(testContext.awaitCompletion(1, TimeUnit.MINUTES)).isTrue();
     }
 
-    @ParallelTest
+    @Test
     void testTopicDeleteNotExisting(Vertx vertx, VertxTestContext testContext, ExtensionContext extensionContext) throws InterruptedException {
-        int publishedAdminPort = DEPLOYMENT_MANAGER.getAdminPort(extensionContext);
         final String topicName = "test-topic-non-existing";
         String query = "/rest/topics/" + topicName;
         createHttpClient(vertx).request(HttpMethod.DELETE, publishedAdminPort, "localhost", query)
@@ -710,12 +636,8 @@ public class RestEndpointTestIT extends PlainTestBase {
 
     }
 
-    @ParallelTest
+    @Test
     void testUpdateTopic(Vertx vertx, VertxTestContext testContext, ExtensionContext extensionContext) throws Exception {
-        AdminClient kafkaClient = AdminClient.create(RequestUtils.getKafkaAdminConfig(DEPLOYMENT_MANAGER
-                .getKafkaContainer(extensionContext).getBootstrapServers()));
-        int publishedAdminPort = DEPLOYMENT_MANAGER.getAdminPort(extensionContext);
-
         final String topicName = UUID.randomUUID().toString();
         final String configKey = "min.insync.replicas";
         Types.Topic topic1 = new Types.Topic();
@@ -750,9 +672,8 @@ public class RestEndpointTestIT extends PlainTestBase {
         assertThat(testContext.awaitCompletion(1, TimeUnit.MINUTES)).isTrue();
     }
 
-    @ParallelTest
+    @Test
     void testUpdateTopicWithKafkaDown(Vertx vertx, VertxTestContext testContext, ExtensionContext extensionContext) throws InterruptedException {
-        int publishedAdminPort = DEPLOYMENT_MANAGER.getAdminPort(extensionContext);
         final String topicName = UUID.randomUUID().toString();
         final String configKey = "min.insync.replicas";
         Types.Topic topic1 = new Types.Topic();
@@ -761,7 +682,7 @@ public class RestEndpointTestIT extends PlainTestBase {
         conf.setKey(configKey);
         conf.setValue("2");
         topic1.setConfig(Collections.singletonList(conf));
-        DEPLOYMENT_MANAGER.getClient().stopContainerCmd(DEPLOYMENT_MANAGER.getKafkaContainer(extensionContext).getContainerId()).exec();
+        deployments.stopKafkaContainer();
 
         createHttpClient(vertx).request(HttpMethod.PATCH, publishedAdminPort, "localhost", "/rest/topics/" + topicName)
                 .compose(req -> req.putHeader("content-type", "application/json")
@@ -775,12 +696,8 @@ public class RestEndpointTestIT extends PlainTestBase {
         assertThat(testContext.awaitCompletion(1, TimeUnit.MINUTES)).isTrue();
     }
 
-    @ParallelTest
+    @Test
     void testUpdateForbiddenTopic(Vertx vertx, VertxTestContext testContext, ExtensionContext extensionContext) throws Exception {
-        AdminClient kafkaClient = AdminClient.create(RequestUtils.getKafkaAdminConfig(DEPLOYMENT_MANAGER
-                .getKafkaContainer(extensionContext).getBootstrapServers()));
-        int publishedAdminPort = DEPLOYMENT_MANAGER.getAdminPort(extensionContext);
-
         final String topicName = "__" + UUID.randomUUID().toString();
         final String configKey = "min.insync.replicas";
         Types.Topic topic1 = new Types.Topic();
@@ -814,12 +731,8 @@ public class RestEndpointTestIT extends PlainTestBase {
         assertThat(testContext.awaitCompletion(1, TimeUnit.MINUTES)).isTrue();
     }
 
-    @ParallelTest
+    @Test
     void testIncreaseTopicPartitions(Vertx vertx, VertxTestContext testContext, ExtensionContext extensionContext) throws Exception {
-        AdminClient kafkaClient = AdminClient.create(RequestUtils.getKafkaAdminConfig(DEPLOYMENT_MANAGER
-                .getKafkaContainer(extensionContext).getBootstrapServers()));
-        int publishedAdminPort = DEPLOYMENT_MANAGER.getAdminPort(extensionContext);
-
         final String topicName = UUID.randomUUID().toString();
         final String configKey = "min.insync.replicas";
         Types.UpdatedTopic topic1 = new Types.UpdatedTopic();
@@ -857,12 +770,8 @@ public class RestEndpointTestIT extends PlainTestBase {
         assertThat(testContext.awaitCompletion(1, TimeUnit.MINUTES)).isTrue();
     }
 
-    @ParallelTest
+    @Test
     void testDecreaseTopicPartitions(Vertx vertx, VertxTestContext testContext, ExtensionContext extensionContext) throws Exception {
-        AdminClient kafkaClient = AdminClient.create(RequestUtils.getKafkaAdminConfig(DEPLOYMENT_MANAGER
-                .getKafkaContainer(extensionContext).getBootstrapServers()));
-        int publishedAdminPort = DEPLOYMENT_MANAGER.getAdminPort(extensionContext);
-
         final String topicName = UUID.randomUUID().toString();
         final String configKey = "min.insync.replicas";
         Types.UpdatedTopic topic1 = new Types.UpdatedTopic();
