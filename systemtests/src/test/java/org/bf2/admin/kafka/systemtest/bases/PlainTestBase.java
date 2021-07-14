@@ -50,23 +50,23 @@ public class PlainTestBase extends TestBase {
     }
 
     @BeforeEach
-    void setup(Vertx vertx) {
+    void setup(Vertx vertx) throws InterruptedException, ExecutionException {
         this.publishedAdminPort = deployments.getAdminServerPort();
         this.kafkaClient = deployments.createKafkaAdmin();
-    }
 
-    @AfterEach
-    void cleanup(Vertx vertx) throws InterruptedException, ExecutionException {
-        Future.succeededFuture(deployments.createKafkaAdmin())
+        Future.succeededFuture(kafkaClient)
             .map(adminClient -> adminClient.listTopics()
-                 .listings()
-                 .whenComplete((allTopics, error) -> {
-                     adminClient.deleteTopics(allTopics.stream().map(TopicListing::name).collect(Collectors.toList()));
-                 }))
+                .listings()
+                .whenComplete((allTopics, error) -> {
+                    adminClient.deleteTopics(allTopics.stream().map(TopicListing::name).collect(Collectors.toList()));
+                }))
             .toCompletionStage()
             .toCompletableFuture()
             .get();
+    }
 
+    @AfterEach
+    void cleanup(Vertx vertx) {
         if (this.kafkaClient != null) {
             this.kafkaClient.close();
         }

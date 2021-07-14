@@ -1,5 +1,6 @@
 package org.bf2.admin.kafka.systemtest.bases;
 
+import io.vertx.core.Future;
 import io.vertx.core.Vertx;
 import io.vertx.core.http.HttpClient;
 import io.vertx.core.http.HttpClientResponse;
@@ -54,25 +55,24 @@ public class OauthTestBase extends TestBase {
     }
 
     @BeforeEach
-    void setup(Vertx vertx) {
+    void setup(Vertx vertx) throws InterruptedException, ExecutionException {
         this.publishedAdminPort = deployments.getAdminServerPort();
         this.token = deployments.getAccessTokenNow(vertx, UserType.OWNER);
         this.kafkaClient = deployments.createKafkaAdmin(token);
+
+        Future.succeededFuture(kafkaClient)
+            .map(adminClient -> adminClient.listTopics()
+                .listings()
+                .whenComplete((allTopics, error) -> {
+                    adminClient.deleteTopics(allTopics.stream().map(TopicListing::name).collect(Collectors.toList()));
+                }))
+            .toCompletionStage()
+            .toCompletableFuture()
+            .get();
     }
 
     @AfterEach
     void cleanup(Vertx vertx) throws InterruptedException, ExecutionException {
-        deployments.getAccessToken(vertx, UserType.OWNER)
-            .map(token -> deployments.createKafkaAdmin(token))
-            .map(adminClient -> adminClient.listTopics()
-                    .listings()
-                    .whenComplete((allTopics, error) -> {
-                        adminClient.deleteTopics(allTopics.stream().map(TopicListing::name).collect(Collectors.toList()));
-                    }))
-            .toCompletionStage()
-            .toCompletableFuture()
-            .get();
-
         if (this.kafkaClient != null) {
             this.kafkaClient.close();
         }

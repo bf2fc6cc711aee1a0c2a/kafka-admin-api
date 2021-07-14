@@ -261,7 +261,7 @@ public class PartitionsOffsetOauthIT extends OauthTestBase {
         CountDownLatch cd = new CountDownLatch(1);
         KafkaConsumer<String, String> consumer = KafkaConsumer.create(vertx, ClientsConfig.getConsumerConfigOauth(externalBootstrap, groupID, token));
 
-        AsyncMessaging.produceMessages(vertx, externalBootstrap, topic.name(), 10, token, "Y");
+        AsyncMessaging.produceMessages(vertx, externalBootstrap, topic.name(), 10, token);
 
         AsyncMessaging.consumeMessages(vertx, consumer, topic.name(), 10).onComplete(x -> cd.countDown()).onFailure(y -> testContext.failNow("Could not receive messages"));
         assertThat(cd.await(2, TimeUnit.MINUTES)).isTrue();
