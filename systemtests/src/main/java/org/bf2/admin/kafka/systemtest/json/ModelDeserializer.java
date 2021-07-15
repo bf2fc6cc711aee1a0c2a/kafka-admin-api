@@ -71,7 +71,7 @@ public class ModelDeserializer {
         try {
             res = MAPPER.readValue(responseBuffer.toString(), new TypeReference<List<Types.TopicPartitionResetResult>>() { });
         } catch (JsonProcessingException e) {
-            Collections.emptyList();
+            return Collections.emptyList();
         }
         return res;
     }
