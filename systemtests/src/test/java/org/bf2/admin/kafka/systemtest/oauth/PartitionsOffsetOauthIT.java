@@ -207,12 +207,11 @@ public class PartitionsOffsetOauthIT extends OauthTestBase {
 
         AsyncMessaging.produceMessages(vertx, externalBootstrap, topic.name(), 5, token, "A");
         // Sleep between sections
-        Thread.sleep(1_000);
+        Thread.sleep(2_000);
 
         DateTimeFormatter sdfDate = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss'" + ZonedDateTime.now().getZone().getId() + "'");
         String timestamp = sdfDate.format(LocalDateTime.now());
 
-        Thread.sleep(1_000);
         AsyncMessaging.produceMessages(vertx, externalBootstrap, topic.name(), 5, token, "B");
 
         AsyncMessaging.consumeMessages(vertx, consumer, topic.name(), 10).onComplete(x -> cd.countDown()).onFailure(y -> testContext.failNow("Could not receive messages"));
@@ -237,6 +236,9 @@ public class PartitionsOffsetOauthIT extends OauthTestBase {
                     List<Types.TopicPartitionResetResult> results = MODEL_DESERIALIZER.getResetResult(buffer);
                     assertThat(results).isNotEmpty();
                     Types.TopicPartitionResetResult expected = new Types.TopicPartitionResetResult(topic.name(), 0, 5L);
+                    if (!results.contains(expected)) {
+                        System.out.println("missing! " + timestamp);
+                    }
                     assertThat(results).contains(expected);
                     cd2.countDown();
                 })));
