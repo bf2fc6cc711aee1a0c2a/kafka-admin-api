@@ -2,6 +2,7 @@ package org.bf2.admin.kafka.systemtest.deployment;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.github.dockerjava.api.model.ContainerNetwork;
 import io.strimzi.StrimziKafkaContainer;
 import io.vertx.core.Future;
 import io.vertx.core.Vertx;
@@ -35,6 +36,7 @@ import java.util.concurrent.ExecutionException;
 public class DeploymentManager {
 
     protected static final Logger LOGGER = LogManager.getLogger(DeploymentManager.class);
+    private static final String KAFKA_ALIAS = "kafka";
 
     public enum UserType {
         OWNER("alice"),
@@ -127,7 +129,19 @@ public class DeploymentManager {
                 .map("RestEndpointInternalIT"::equals)
                 .orElse(false);
 
-            adminContainer = deployAdminContainer("kafka:9093", allowInternal);
+            // Obtain the container's IP address on the test bridge network
+            String kafkaIp = ((GenericContainer<?>) kafkaContainer).getContainerInfo()
+                .getNetworkSettings()
+                .getNetworks()
+                .entrySet()
+                .stream()
+                .map(Map.Entry::getValue)
+                .filter(net -> net.getAliases().contains(KAFKA_ALIAS))
+                .findFirst()
+                .map(ContainerNetwork::getIpAddress)
+                .orElseThrow();
+
+            adminContainer = deployAdminContainer(kafkaIp + ":9093", allowInternal);
         }
 
         return adminContainer;
@@ -285,7 +299,7 @@ public class DeploymentManager {
 
         var container = new KeycloakSecuredKafkaContainer()
                 .withNetwork(testNetwork)
-                .withNetworkAliases("kafka");
+                .withNetworkAliases(KAFKA_ALIAS);
 
         container.start();
         return container;
@@ -303,7 +317,7 @@ public class DeploymentManager {
 
         var container = new StrimziPlainKafkaContainer("0.23.0-kafka-2.7.0")
                     .withNetwork(testNetwork)
-                    .withNetworkAliases("kafka");
+                    .withNetworkAliases(KAFKA_ALIAS);
 
         container.start();
         return (KafkaContainer<?>) container;
