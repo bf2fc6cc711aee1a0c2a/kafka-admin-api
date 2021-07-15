@@ -6,6 +6,7 @@ import io.vertx.core.http.HttpMethod;
 import io.vertx.junit5.VertxTestContext;
 import io.vertx.kafka.client.common.TopicPartition;
 import io.vertx.kafka.client.consumer.KafkaConsumer;
+import io.vertx.kafka.client.consumer.KafkaConsumerRecord;
 import org.apache.kafka.clients.admin.NewTopic;
 import org.bf2.admin.kafka.admin.model.Types;
 import org.bf2.admin.kafka.systemtest.bases.OauthTestBase;
@@ -24,6 +25,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
@@ -59,9 +61,10 @@ public class PartitionsOffsetOauthIT extends OauthTestBase {
                             assertStrictTransportSecurityEnabled(response, testContext);
                         }).onFailure(testContext::failNow).compose(HttpClientResponse::body))
                 .onComplete(testContext.succeeding(buffer -> testContext.verify(() -> {
-                    Types.TopicPartitionResetResult result = MODEL_DESERIALIZER.getResetResult(buffer);
-                    assertThat(result.getOffset()).isEqualTo(0);
-                    assertThat(result.getTopic()).isEqualTo(topic.name());
+                    List<Types.TopicPartitionResetResult> results = MODEL_DESERIALIZER.getResetResult(buffer);
+                    assertThat(results).hasSize(1);
+                    Types.TopicPartitionResetResult expected = new Types.TopicPartitionResetResult(topic.name(), 0, 0L);
+                    assertThat(results).contains(expected);
                     cd2.countDown();
                 })));
 
@@ -130,10 +133,10 @@ public class PartitionsOffsetOauthIT extends OauthTestBase {
                             assertStrictTransportSecurityEnabled(response, testContext);
                         }).onFailure(testContext::failNow).compose(HttpClientResponse::body))
                 .onComplete(testContext.succeeding(buffer -> testContext.verify(() -> {
-                    Types.TopicPartitionResetResult result = MODEL_DESERIALIZER.getResetResult(buffer);
-                    assertThat(result).isNotEqualTo(null);
-                    assertThat(result.getOffset()).isEqualTo(10);
-                    assertThat(result.getTopic()).isEqualTo(topic.name());
+                    List<Types.TopicPartitionResetResult> results = MODEL_DESERIALIZER.getResetResult(buffer);
+                    assertThat(results).hasSize(1);
+                    Types.TopicPartitionResetResult expected = new Types.TopicPartitionResetResult(topic.name(), 0, 10L);
+                    assertThat(results).contains(expected);
                     cd2.countDown();
                 })));
         assertThat(cd2.await(1, TimeUnit.MINUTES)).isTrue();
@@ -175,10 +178,10 @@ public class PartitionsOffsetOauthIT extends OauthTestBase {
                             assertStrictTransportSecurityEnabled(response, testContext);
                         }).onFailure(testContext::failNow).compose(HttpClientResponse::body))
                 .onComplete(testContext.succeeding(buffer -> testContext.verify(() -> {
-                    Types.TopicPartitionResetResult result = MODEL_DESERIALIZER.getResetResult(buffer);
-                    assertThat(result).isNotEqualTo(null);
-                    assertThat(result.getOffset()).isEqualTo(5);
-                    assertThat(result.getTopic()).isEqualTo(topic.name());
+                    List<Types.TopicPartitionResetResult> results = MODEL_DESERIALIZER.getResetResult(buffer);
+                    assertThat(results).hasSize(1);
+                    Types.TopicPartitionResetResult expected = new Types.TopicPartitionResetResult(topic.name(), 0, 5L);
+                    assertThat(results).contains(expected);
                     cd2.countDown();
                 })));
         assertThat(cd2.await(1, TimeUnit.MINUTES)).isTrue();
@@ -204,12 +207,12 @@ public class PartitionsOffsetOauthIT extends OauthTestBase {
 
         AsyncMessaging.produceMessages(vertx, externalBootstrap, topic.name(), 5, token, "A");
         // Sleep between sections
-        Thread.sleep(10_000);
+        Thread.sleep(1_000);
 
         DateTimeFormatter sdfDate = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss'" + ZonedDateTime.now().getZone().getId() + "'");
         String timestamp = sdfDate.format(LocalDateTime.now());
 
-        Thread.sleep(10_000);
+        Thread.sleep(1_000);
         AsyncMessaging.produceMessages(vertx, externalBootstrap, topic.name(), 5, token, "B");
 
         AsyncMessaging.consumeMessages(vertx, consumer, topic.name(), 10).onComplete(x -> cd.countDown()).onFailure(y -> testContext.failNow("Could not receive messages"));
@@ -231,10 +234,10 @@ public class PartitionsOffsetOauthIT extends OauthTestBase {
                         }).onFailure(testContext::failNow).compose(HttpClientResponse::body))
                 .onComplete(testContext.succeeding(buffer -> testContext.verify(() -> {
                     assertThat(testContext.failed()).isFalse();
-                    Types.TopicPartitionResetResult result = MODEL_DESERIALIZER.getResetResult(buffer);
-                    assertThat(result).isNotEqualTo(null);
-                    assertThat(result.getOffset()).isEqualTo(5);
-                    assertThat(result.getTopic()).isEqualTo(topic.name());
+                    List<Types.TopicPartitionResetResult> results = MODEL_DESERIALIZER.getResetResult(buffer);
+                    assertThat(results).isNotEmpty();
+                    Types.TopicPartitionResetResult expected = new Types.TopicPartitionResetResult(topic.name(), 0, 5L);
+                    assertThat(results).contains(expected);
                     cd2.countDown();
                 })));
         assertThat(cd2.await(1, TimeUnit.MINUTES)).isTrue();
@@ -263,13 +266,22 @@ public class PartitionsOffsetOauthIT extends OauthTestBase {
 
         AsyncMessaging.produceMessages(vertx, externalBootstrap, topic.name(), 10, token);
 
-        AsyncMessaging.consumeMessages(vertx, consumer, topic.name(), 10).onComplete(x -> cd.countDown()).onFailure(y -> testContext.failNow("Could not receive messages"));
+        List<KafkaConsumerRecord<String, String>> part0Records = new ArrayList<>();
+
+        AsyncMessaging.consumeMessages(vertx, consumer, topic.name(), 10)
+            .map(records -> {
+                records.stream().filter(r -> r.partition() == 0).forEach(part0Records::add);
+                return null;
+            })
+            .onComplete(x -> cd.countDown())
+            .onFailure(y -> testContext.failNow("Could not receive messages"));
+
         assertThat(cd.await(2, TimeUnit.MINUTES)).isTrue();
         consumer.close();
 
-        List<PartitionsModel> partList = Collections.singletonList(new PartitionsModel(topic.name(), Collections.singletonList(0)));
+        List<PartitionsModel> partList = Collections.singletonList(new PartitionsModel(topic.name(), List.of(0, 1, 2)));
 
-        OffsetModel model = new OffsetModel("absolute", "5", partList);
+        OffsetModel model = new OffsetModel("absolute", "0", partList);
         CountDownLatch cd2 = new CountDownLatch(1);
         createHttpClient(vertx).request(HttpMethod.POST, publishedAdminPort, "localhost", "/rest/consumer-groups/" + groupID + "/reset-offset")
                 .compose(req -> req.putHeader("content-type", "application/json")
@@ -282,10 +294,11 @@ public class PartitionsOffsetOauthIT extends OauthTestBase {
                         }).onFailure(testContext::failNow).compose(HttpClientResponse::body))
                 .onComplete(testContext.succeeding(buffer -> testContext.verify(() -> {
                     assertThat(testContext.failed()).isFalse();
-                    Types.TopicPartitionResetResult result = MODEL_DESERIALIZER.getResetResult(buffer);
-                    assertThat(result).isNotEqualTo(null);
-                    assertThat(result.getOffset()).isEqualTo(5);
-                    assertThat(result.getTopic()).isEqualTo(topic.name());
+                    List<Types.TopicPartitionResetResult> results = MODEL_DESERIALIZER.getResetResult(buffer);
+                    assertThat(results).hasSize(3);
+                    assertThat(results).contains(new Types.TopicPartitionResetResult(topic.name(), 0, 0L));
+                    assertThat(results).contains(new Types.TopicPartitionResetResult(topic.name(), 1, 0L));
+                    assertThat(results).contains(new Types.TopicPartitionResetResult(topic.name(), 2, 0L));
                     cd2.countDown();
                 })));
         assertThat(cd2.await(1, TimeUnit.MINUTES)).isTrue();
@@ -296,9 +309,9 @@ public class PartitionsOffsetOauthIT extends OauthTestBase {
         CountDownLatch cd3 = new CountDownLatch(1);
         consumer2.poll(Duration.ofSeconds(20), result -> testContext.verify(() -> {
             assertThat(result.succeeded()).isTrue();
-            assertThat(result.result().size()).isEqualTo(5);
+            assertThat(result.result().size()).isEqualTo(part0Records.size());
             result.result().records().records(topic.name()).forEach(record -> {
-                assertThat(record.partition()).isEqualTo(0);
+                assertThat(part0Records.stream().anyMatch(c -> Objects.equals(c.value(), record.value())));
             });
             cd3.countDown();
         }));

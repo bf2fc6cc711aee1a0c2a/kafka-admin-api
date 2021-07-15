@@ -52,28 +52,38 @@ public class AsyncMessaging {
      * Subscribe at the end of the topic
      */
     private static Future<Void> resetToEnd(KafkaConsumer<String, String> consumer, String topic) {
-
         LOGGER.info("reset topic {} offset for all partitions to the end", topic);
+
         return consumer.partitionsFor(topic)
-
-                // seek the end for all partitions in a topic
-                .compose(partitions -> CompositeFuture.all(partitions.stream()
-                        .map(partition -> {
-                            var tp = new TopicPartition(partition.getTopic(), partition.getPartition());
-                            return consumer.assign(tp)
-                                    .compose(__ -> consumer.seekToBeginning(tp))
-
-                                    // the seekToEnd take place only once consumer.position() is called
-                                    .compose(__ -> consumer.position(tp)
-                                            .onSuccess(p -> LOGGER.info("reset partition {}-{} to offset {}", tp.getTopic(), tp.getPartition(), p)));
-                        })
-                        .collect(Collectors.toList())))
-
-                // commit all partitions offset
-                .compose(__ -> consumer.commit())
-
-                // unsubscribe from  all partitions
-                .compose(__ -> consumer.unsubscribe());
+            .map(partitions -> partitions.stream()
+                 .map(p -> new TopicPartition(p.getTopic(), p.getPartition()))
+                 .collect(Collectors.toSet()))
+            .compose(partitions -> {
+                LOGGER.info("Assigning partitions to consumer: {}", partitions);
+                return consumer.assign(partitions).map(partitions);
+            })
+            .compose(partitions -> {
+                LOGGER.info("Assignment complete, seeking to beginning of partitions: {}", partitions);
+                return consumer.seekToBeginning(partitions).map(partitions);
+            })
+            .compose(partitions ->
+                CompositeFuture.all(partitions.stream()
+                    .map(consumer::position)
+                    .collect(Collectors.toList())))
+            .map(positionResults -> {
+                positionResults.<Long>list().forEach(p -> {
+                    LOGGER.info("Partition to offset {}", p);
+                });
+                return null;
+            })
+            .compose(nothing -> {
+                LOGGER.info("reset topic {}, commit consumer", topic);
+                return consumer.commit();
+            })
+            .compose(nothing -> {
+                LOGGER.info("reset topic {}, unsubscribe consumer", topic);
+                return consumer.unsubscribe();
+            });
     }
 
     private static Future<List<KafkaConsumerRecord<String, String>>> consumeMessages(KafkaConsumer<String, String> consumer, int expectedMessages) {
@@ -98,17 +108,17 @@ public class AsyncMessaging {
     }
 
     public static Future<List<KafkaConsumerRecord<String, String>>> consumeMessages(Vertx vertx, KafkaConsumer<String, String> consumer, String topic, int count) {
-        return receiveAsync(consumer, topic, count).compose(consumeFuture -> {
-            var timeoutPromise = Promise.promise();
-            var timeoutTimer = vertx.setTimer(120_000, __ -> {
-                timeoutPromise.fail("timeout after waiting for messages; host:; topic:");
-            });
-            var completeFuture = consumeFuture.onComplete(__ -> {
-                vertx.cancelTimer(timeoutTimer);
-                timeoutPromise.tryComplete();
-            });
-            return completeFuture;
-        });
+        return receiveAsync(consumer, topic, count)
+                .compose(consumeFuture -> {
+                    var timeoutPromise = Promise.promise();
+                    var timeoutTimer = vertx.setTimer(120_000, __ -> {
+                        timeoutPromise.fail("timeout after waiting for messages; host:; topic:");
+                    });
+                    return consumeFuture.onComplete(__ -> {
+                        vertx.cancelTimer(timeoutTimer);
+                        timeoutPromise.tryComplete();
+                    });
+                });
     }
 
     public static KafkaConsumer<String, String> createActiveConsumerGroup(Vertx vertx, AdminClient kafkaClient, String bootstrap, String groupID, String topicName) throws Exception {
