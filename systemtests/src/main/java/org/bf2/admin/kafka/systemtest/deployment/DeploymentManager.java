@@ -18,6 +18,7 @@ import org.testcontainers.containers.BindMode;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.Network;
 import org.testcontainers.containers.wait.strategy.Wait;
+import org.testcontainers.lifecycle.Startable;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -56,9 +57,7 @@ public class DeploymentManager {
     private boolean oauthEnabled;
     private Network testNetwork;
     private GenericContainer<?> keycloakContainer;
-    private GenericContainer<?> kafkaContainer;
-    private GenericContainer<?> zookeeperContainer;
-    private StrimziKafkaContainer strimziContainer;
+    private KafkaContainer<?> kafkaContainer;
     private GenericContainer<?> adminContainer;
 
     public static DeploymentManager newInstance(ExtensionContext testContext, boolean oauthEnabled) {
@@ -76,14 +75,10 @@ public class DeploymentManager {
     }
 
     public void shutdown() {
-        stopAll(adminContainer,
-                strimziContainer,
-                kafkaContainer,
-                zookeeperContainer,
-                keycloakContainer);
+        stopAll(adminContainer, kafkaContainer, keycloakContainer);
     }
 
-    private void stopAll(GenericContainer<?>... containers) {
+    private void stopAll(Startable... containers) {
         for (var container : containers) {
             if (container != null) {
                 container.stop();
@@ -107,33 +102,21 @@ public class DeploymentManager {
     }
 
     public GenericContainer<?> getKafkaContainer() {
-        if (oauthEnabled) {
-            if (kafkaContainer == null) {
-                zookeeperContainer = deployZookeeper();
+        if (kafkaContainer == null) {
+            if (oauthEnabled) {
                 kafkaContainer = deployKafka();
+            } else {
+                kafkaContainer = deployStrimziKafka();
             }
-
-            return kafkaContainer;
         }
 
-        if (strimziContainer == null) {
-            strimziContainer = deployStrimziKafka();
-        }
-
-        return strimziContainer;
+        return (GenericContainer<?>) kafkaContainer;
     }
 
     public void stopKafkaContainer() {
         if (kafkaContainer != null) {
             kafkaContainer.stop();
             kafkaContainer = null;
-            zookeeperContainer.stop();
-            zookeeperContainer = null;
-        }
-
-        if (strimziContainer != null) {
-            strimziContainer.stop();
-            strimziContainer = null;
         }
     }
 
@@ -144,8 +127,7 @@ public class DeploymentManager {
                 .map("RestEndpointInternalIT"::equals)
                 .orElse(false);
 
-            String port = (this.strimziContainer != null) ? "9093" : "9092";
-            adminContainer = deployAdminContainer("kafka:" + port, allowInternal);
+            adminContainer = deployAdminContainer("kafka:9093", allowInternal);
         }
 
         return adminContainer;
@@ -202,25 +184,9 @@ public class DeploymentManager {
             .map(TokenModel::getAccessToken);
     }
 
-    public String getBootstrapServers() {
-        if (strimziContainer != null) {
-            return String.format("%s:%d", strimziContainer.getContainerIpAddress(), 9093);
-        }
-
-        if (kafkaContainer != null) {
-            return String.format("localhost:%d", kafkaContainer.getMappedPort(9092));
-        }
-
-        return null;
-    }
-
     public String getExternalBootstrapServers() {
-        if (strimziContainer != null) {
-            return strimziContainer.getBootstrapServers();
-        }
-
         if (kafkaContainer != null) {
-            return String.format("localhost:%d", kafkaContainer.getMappedPort(9092));
+            return this.kafkaContainer.getBootstrapServers();
         }
 
         return null;
@@ -314,61 +280,33 @@ public class DeploymentManager {
         return container;
     }
 
-    private GenericContainer<?> deployZookeeper() {
-        LOGGER.info("Deploying zookeeper container");
-        GenericContainer<?> container = new GenericContainer<>("kafka-admin-zookeeper")
-                .withNetwork(testNetwork)
-                .withNetworkAliases("zookeeper")
-                .withExposedPorts(2181);
-
-        container.start();
-        return container;
-    }
-
-    private GenericContainer<?> deployKafka() {
+    private KafkaContainer<?> deployKafka() {
         LOGGER.info("Deploying Kafka container");
-        class KafkaContainer extends GenericContainer<KafkaContainer> {
-            KafkaContainer() {
-                super("kafka-admin-kafka");
-            }
-            @Override
-            public void addFixedExposedPort(int hostPort, int containerPort) {
-                super.addFixedExposedPort(hostPort, containerPort);
-            }
-        }
 
-        KafkaContainer container = new KafkaContainer()
+        var container = new KeycloakSecuredKafkaContainer()
                 .withNetwork(testNetwork)
-                .withNetworkAliases("kafka")
-                .withExposedPorts(9092);
+                .withNetworkAliases("kafka");
 
-        // TODO: Should not need to fix the exposed port - update tests
-        container.addFixedExposedPort(9092, 9092);
         container.start();
         return container;
     }
 
-    private StrimziKafkaContainer deployStrimziKafka() {
+    private KafkaContainer<?> deployStrimziKafka() {
         LOGGER.info("Deploying Strimzi Kafka container");
-        class StrimziKafkaFixedContainer extends StrimziKafkaContainer {
-            public StrimziKafkaFixedContainer(String version) {
+
+        class StrimziPlainKafkaContainer extends StrimziKafkaContainer
+                implements KafkaContainer<StrimziKafkaContainer> {
+            StrimziPlainKafkaContainer(String version) {
                 super(version);
             }
-            @Override
-            public void addFixedExposedPort(int hostPort, int containerPort) {
-                super.addFixedExposedPort(hostPort, containerPort);
-            }
         }
 
-        StrimziKafkaFixedContainer container = (StrimziKafkaFixedContainer)
-                new StrimziKafkaFixedContainer("latest-kafka-2.7.0")
+        var container = new StrimziPlainKafkaContainer("0.23.0-kafka-2.7.0")
                     .withNetwork(testNetwork)
                     .withNetworkAliases("kafka");
 
-        // TODO: Should not need to fix the exposed port - update tests
-        //container.addFixedExposedPort(9092, 9092);
         container.start();
-        return container;
+        return (KafkaContainer<?>) container;
     }
 
     private String encodeTLSConfig(String fileName) {
