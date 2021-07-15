@@ -217,6 +217,15 @@ public class Types {
         private Integer partition;
         private Long offset;
 
+        public TopicPartitionResetResult() {
+        }
+
+        public TopicPartitionResetResult(String topic, Integer partition, Long offset) {
+            this.topic = topic;
+            this.partition = partition;
+            this.offset = offset;
+        }
+
         public String getTopic() {
             return topic;
         }
@@ -239,6 +248,26 @@ public class Types {
 
         public void setOffset(Long offset) {
             this.offset = offset;
+        }
+
+        @Override
+        public boolean equals(Object obj) {
+            if (this == obj) {
+                return true;
+            }
+            if (!(obj instanceof TopicPartitionResetResult)) {
+                return false;
+            }
+            TopicPartitionResetResult other = (TopicPartitionResetResult) obj;
+
+            return Objects.equals(topic, other.topic)
+                    && Objects.equals(partition, other.partition)
+                    && Objects.equals(offset, other.offset);
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(topic, partition, offset);
         }
     }
 

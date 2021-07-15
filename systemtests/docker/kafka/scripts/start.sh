@@ -16,10 +16,10 @@ wait_for_url "$URI/realms/${REALM:-demo}" "Waiting for realm '${REALM}' to be av
 
 
 # Add 'admin' user
-/opt/kafka/bin/kafka-configs.sh --zookeeper zookeeper:2181 --alter --add-config 'SCRAM-SHA-512=[password=admin-secret]' --entity-type users --entity-name admin
+/opt/kafka/bin/kafka-configs.sh --zookeeper ${KAFKA_ZOOKEEPER_CONNECT} --alter --add-config 'SCRAM-SHA-512=[password=admin-secret]' --entity-type users --entity-name admin
 
 # Add 'alice' user
-/opt/kafka/bin/kafka-configs.sh --zookeeper zookeeper:2181 --alter --add-config 'SCRAM-SHA-512=[password=alice-secret]' --entity-type users --entity-name alice
+/opt/kafka/bin/kafka-configs.sh --zookeeper ${KAFKA_ZOOKEEPER_CONNECT} --alter --add-config 'SCRAM-SHA-512=[password=alice-secret]' --entity-type users --entity-name alice
 
 
 # set log dir to writable directory
@@ -33,4 +33,4 @@ export KAFKA_LOG4J_OPTS="-Dlog4j.configuration=file:/opt/kafka/config/strimzi/lo
 # add extra jars to classpath
 export CLASSPATH="/opt/kafka/libs/strimzi/*:$CLASSPATH"
 
-exec /opt/kafka/bin/kafka-server-start.sh /tmp/strimzi.properties
+exec /opt/kafka/bin/kafka-server-start.sh /tmp/strimzi.properties "$@"

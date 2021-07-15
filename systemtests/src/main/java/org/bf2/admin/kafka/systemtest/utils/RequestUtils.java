@@ -18,7 +18,6 @@ import org.apache.kafka.common.serialization.StringDeserializer;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.bf2.admin.kafka.admin.model.Types;
-import org.bf2.admin.kafka.systemtest.deployment.AdminDeploymentManager;
 import org.bf2.admin.kafka.systemtest.enums.ReturnCodes;
 import org.bf2.admin.kafka.systemtest.json.ModelDeserializer;
 import org.junit.jupiter.api.extension.ExtensionContext;
@@ -290,9 +289,8 @@ public class RequestUtils {
 
     }
 
-    public static String retrieveMetrics(Vertx vertx, ExtensionContext extensionContext, VertxTestContext testContext) {
+    public static String retrieveMetrics(Vertx vertx, ExtensionContext extensionContext, VertxTestContext testContext, int port) {
         CountDownLatch countDownLatch = new CountDownLatch(1);
-        int port = AdminDeploymentManager.getInstance().getManagementPort(extensionContext);
         LOGGER.info("Fetching metrics from {}:{}{}", "localhost", port, "/metrics");
 
         Future<Buffer> metricsBuffer = vertx.createHttpClient().request(HttpMethod.GET, port, "localhost", "/metrics")

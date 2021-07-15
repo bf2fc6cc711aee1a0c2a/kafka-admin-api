@@ -31,6 +31,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class RestOAuthTestIT extends OauthTestBase {
+
     @Test
     public void testListWithValidToken(Vertx vertx, VertxTestContext testContext) throws Exception {
         List<String> topicNames = new ArrayList<>();
@@ -44,7 +45,7 @@ public class RestOAuthTestIT extends OauthTestBase {
         DynamicWait.waitForTopicsExists(topicNames, kafkaClient);
         HttpClient client = createHttpClient(vertx);
         client.request(HttpMethod.GET, publishedAdminPort, "localhost", "/rest/topics")
-                .compose(req -> req.putHeader("Authorization", "Bearer " + token.getAccessToken()).send().onSuccess(response -> {
+                .compose(req -> req.putHeader("Authorization", "Bearer " + token).send().onSuccess(response -> {
                     if (response.statusCode() != ReturnCodes.SUCCESS.code) {
                         testContext.failNow("Status code not correct");
                     }
@@ -72,7 +73,7 @@ public class RestOAuthTestIT extends OauthTestBase {
         changeTokenToUnauthorized(vertx, testContext);
         HttpClient client = createHttpClient(vertx);
         client.request(HttpMethod.GET, publishedAdminPort, "localhost", "/rest/topics")
-                .compose(req -> req.putHeader("Authorization", "Bearer " + token.getAccessToken()).send().onSuccess(response -> {
+                .compose(req -> req.putHeader("Authorization", "Bearer " + token).send().onSuccess(response -> {
                     if (response.statusCode() != ReturnCodes.SUCCESS.code) {
                         testContext.failNow("Status code not correct");
                     }
@@ -99,7 +100,7 @@ public class RestOAuthTestIT extends OauthTestBase {
         DynamicWait.waitForTopicsExists(topicNames, kafkaClient);
         kafkaClient.close();
         String invalidToken = new Random().ints(97, 98)
-                .limit(token.getAccessToken().length())
+                .limit(token.length())
                 .collect(StringBuilder::new, StringBuilder::appendCodePoint, StringBuilder::append)
                 .toString();
         HttpClient client = createHttpClient(vertx);
@@ -120,7 +121,7 @@ public class RestOAuthTestIT extends OauthTestBase {
         Thread.sleep(120_000);
         HttpClient client = createHttpClient(vertx);
         client.request(HttpMethod.GET, publishedAdminPort, "localhost", "/rest/topics")
-                .compose(req -> req.putHeader("Authorization", "Bearer " + token.getAccessToken()).send()
+                .compose(req -> req.putHeader("Authorization", "Bearer " + token).send()
                         .onSuccess(response -> testContext.verify(() -> {
                             assertThat(response.statusCode()).isEqualTo(ReturnCodes.UNAUTHORIZED.code);
                             assertStrictTransportSecurityEnabled(response, testContext);
@@ -139,7 +140,7 @@ public class RestOAuthTestIT extends OauthTestBase {
 
         String queryReq = "/rest/topics/" + topicName;
         createHttpClient(vertx).request(HttpMethod.GET, publishedAdminPort, "localhost", queryReq)
-                .compose(req -> req.putHeader("Authorization", "Bearer " + token.getAccessToken()).send().onSuccess(response -> {
+                .compose(req -> req.putHeader("Authorization", "Bearer " + token).send().onSuccess(response -> {
                     if (response.statusCode() != ReturnCodes.SUCCESS.code) {
                         testContext.failNow("Status code not correct");
                     }
@@ -164,7 +165,7 @@ public class RestOAuthTestIT extends OauthTestBase {
 
         String queryReq = "/rest/topics/" + topicName;
         createHttpClient(vertx).request(HttpMethod.GET, publishedAdminPort, "localhost", queryReq)
-                .compose(req -> req.putHeader("Authorization", "Bearer " + token.getAccessToken()).send()
+                .compose(req -> req.putHeader("Authorization", "Bearer " + token).send()
                         .onSuccess(response -> testContext.verify(() -> {
                             assertThat(response.statusCode()).isEqualTo(ReturnCodes.UNAUTHORIZED.code);
                             assertStrictTransportSecurityEnabled(response, testContext);
@@ -179,7 +180,7 @@ public class RestOAuthTestIT extends OauthTestBase {
 
         createHttpClient(vertx).request(HttpMethod.POST, publishedAdminPort, "localhost", "/rest/topics")
                 .compose(req -> req.putHeader("content-type", "application/json")
-                        .putHeader("Authorization", "Bearer " + token.getAccessToken())
+                        .putHeader("Authorization", "Bearer " + token)
                         .send(MODEL_DESERIALIZER.serializeBody(topic)).onSuccess(response -> {
                             if (response.statusCode() !=  ReturnCodes.TOPIC_CREATED.code) {
                                 testContext.failNow("Status code " + response.statusCode() + " is not correct");
@@ -203,7 +204,7 @@ public class RestOAuthTestIT extends OauthTestBase {
         changeTokenToUnauthorized(vertx, testContext);
         createHttpClient(vertx).request(HttpMethod.POST, publishedAdminPort, "localhost", "/rest/topics")
                 .compose(req -> req.putHeader("content-type", "application/json")
-                        .putHeader("Authorization", "Bearer " + token.getAccessToken())
+                        .putHeader("Authorization", "Bearer " + token)
                         .send(MODEL_DESERIALIZER.serializeBody(topic)).onSuccess(response -> testContext.verify(() -> {
                             assertThat(response.statusCode()).isEqualTo(ReturnCodes.UNAUTHORIZED.code);
                             assertStrictTransportSecurityEnabled(response, testContext);
@@ -218,7 +219,7 @@ public class RestOAuthTestIT extends OauthTestBase {
         HttpClient httpClient = createHttpClient(vertx);
         AtomicLong unauthorizedRequestCountBefore = new AtomicLong(0L);
 
-        Arrays.stream(RequestUtils.retrieveMetrics(vertx, extensionContext, testContext).split("\n"))
+        Arrays.stream(RequestUtils.retrieveMetrics(vertx, extensionContext, testContext, deployments.getAdminServerManagementPort()).split("\n"))
             .filter(line -> line.startsWith("failed_requests_total{status_code=\"401\",}"))
             .map(line -> Double.valueOf(line.split("\\s+")[1]).longValue())
             .forEach(value -> unauthorizedRequestCountBefore.addAndGet(value));
@@ -234,7 +235,7 @@ public class RestOAuthTestIT extends OauthTestBase {
 
         AtomicLong unauthorizedRequestCountAfter = new AtomicLong(0L);
 
-        Arrays.stream(RequestUtils.retrieveMetrics(vertx, extensionContext, testContext).split("\n"))
+        Arrays.stream(RequestUtils.retrieveMetrics(vertx, extensionContext, testContext, deployments.getAdminServerManagementPort()).split("\n"))
             .filter(line -> line.startsWith("failed_requests_total{status_code=\"401\",}"))
             .map(line -> Double.valueOf(line.split("\\s+")[1]).longValue())
             .forEach(value -> unauthorizedRequestCountAfter.addAndGet(value));
@@ -253,7 +254,7 @@ public class RestOAuthTestIT extends OauthTestBase {
         DynamicWait.waitForTopicExists(topicName, kafkaClient);
         createHttpClient(vertx).request(HttpMethod.DELETE, publishedAdminPort, "localhost", query)
                 .compose(req -> req.putHeader("content-type", "application/json")
-                        .putHeader("Authorization", "Bearer " + token.getAccessToken())
+                        .putHeader("Authorization", "Bearer " + token)
                         .send().onSuccess(response -> {
                             if (response.statusCode() !=  ReturnCodes.SUCCESS.code) {
                                 testContext.failNow("Status code " + response.statusCode() + " is not correct");
@@ -280,7 +281,7 @@ public class RestOAuthTestIT extends OauthTestBase {
         changeTokenToUnauthorized(vertx, testContext);
         createHttpClient(vertx).request(HttpMethod.DELETE, publishedAdminPort, "localhost", query)
                 .compose(req -> req.putHeader("content-type", "application/json")
-                        .putHeader("Authorization", "Bearer " + token.getAccessToken())
+                        .putHeader("Authorization", "Bearer " + token)
                         .send().onSuccess(response -> testContext.verify(() -> {
                             assertThat(response.statusCode()).isEqualTo(ReturnCodes.UNAUTHORIZED.code);
                             assertStrictTransportSecurityEnabled(response, testContext);
@@ -306,7 +307,7 @@ public class RestOAuthTestIT extends OauthTestBase {
         DynamicWait.waitForTopicExists(topicName, kafkaClient);
         createHttpClient(vertx).request(HttpMethod.PATCH, publishedAdminPort, "localhost", "/rest/topics/" + topicName)
                 .compose(req -> req.putHeader("content-type", "application/json")
-                        .putHeader("Authorization", "Bearer " + token.getAccessToken())
+                        .putHeader("Authorization", "Bearer " + token)
                         .send(MODEL_DESERIALIZER.serializeBody(topic1)).onSuccess(response -> {
                             if (response.statusCode() !=  ReturnCodes.SUCCESS.code) {
                                 testContext.failNow("Status code " + response.statusCode() + " is not correct");
@@ -343,7 +344,7 @@ public class RestOAuthTestIT extends OauthTestBase {
         changeTokenToUnauthorized(vertx, testContext);
         createHttpClient(vertx).request(HttpMethod.PATCH, publishedAdminPort, "localhost", "/rest/topics/" + topicName)
                 .compose(req -> req.putHeader("content-type", "application/json")
-                        .putHeader("Authorization", "Bearer " + token.getAccessToken())
+                        .putHeader("Authorization", "Bearer " + token)
                         .send(MODEL_DESERIALIZER.serializeBody(topic1)).onSuccess(response -> testContext.verify(() -> {
                             assertThat(response.statusCode()).isEqualTo(ReturnCodes.UNAUTHORIZED.code);
                             assertStrictTransportSecurityEnabled(response, testContext);
@@ -366,7 +367,7 @@ public class RestOAuthTestIT extends OauthTestBase {
         HttpClient client = createHttpClient(vertx);
         CountDownLatch latch = new CountDownLatch(1);
         client.request(HttpMethod.GET, publishedAdminPort, "localhost", "/rest/topics")
-                .compose(req -> req.putHeader("Authorization", "Bearer " + token.getAccessToken()).send().onSuccess(response -> {
+                .compose(req -> req.putHeader("Authorization", "Bearer " + token).send().onSuccess(response -> {
                     if (response.statusCode() != ReturnCodes.SUCCESS.code) {
                         testContext.failNow("Status code not correct");
                     }

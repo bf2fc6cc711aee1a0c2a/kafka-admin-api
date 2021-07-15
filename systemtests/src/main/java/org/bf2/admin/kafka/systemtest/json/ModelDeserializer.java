@@ -7,6 +7,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import io.vertx.core.buffer.Buffer;
 import org.bf2.admin.kafka.admin.model.Types;
 
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -65,12 +66,12 @@ public class ModelDeserializer {
         return groupsID;
     }
 
-    public Types.TopicPartitionResetResult getResetResult(Buffer responseBuffer) {
-        Types.TopicPartitionResetResult res = null;
+    public List<Types.TopicPartitionResetResult> getResetResult(Buffer responseBuffer) {
+        List<Types.TopicPartitionResetResult> res = null;
         try {
-            res = MAPPER.readValue(responseBuffer.toString(), new TypeReference<List<Types.TopicPartitionResetResult>>() { }).get(0);
+            res = MAPPER.readValue(responseBuffer.toString(), new TypeReference<List<Types.TopicPartitionResetResult>>() { });
         } catch (JsonProcessingException e) {
-            e.printStackTrace();
+            return Collections.emptyList();
         }
         return res;
     }

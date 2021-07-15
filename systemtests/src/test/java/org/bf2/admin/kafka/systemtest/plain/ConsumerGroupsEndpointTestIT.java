@@ -9,7 +9,6 @@ import io.vertx.core.http.HttpMethod;
 import io.vertx.junit5.VertxTestContext;
 import io.vertx.kafka.client.consumer.KafkaConsumer;
 import io.vertx.kafka.client.consumer.KafkaConsumerRecords;
-import org.apache.kafka.clients.admin.AdminClient;
 import org.apache.kafka.clients.admin.ConsumerGroupDescription;
 import org.apache.kafka.clients.admin.ConsumerGroupListing;
 import org.apache.kafka.clients.admin.NewTopic;
@@ -17,14 +16,13 @@ import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.consumer.OffsetAndMetadata;
 import org.apache.kafka.common.TopicPartition;
 import org.bf2.admin.kafka.admin.model.Types;
-import org.bf2.admin.kafka.systemtest.annotations.ParallelTest;
 import org.bf2.admin.kafka.systemtest.bases.PlainTestBase;
 import org.bf2.admin.kafka.systemtest.enums.ReturnCodes;
 import org.bf2.admin.kafka.systemtest.utils.AsyncMessaging;
 import org.bf2.admin.kafka.systemtest.utils.ClientsConfig;
 import org.bf2.admin.kafka.systemtest.utils.DynamicWait;
-import org.bf2.admin.kafka.systemtest.utils.RequestUtils;
 import org.bf2.admin.kafka.systemtest.utils.SyncMessaging;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtensionContext;
 
 import java.time.Duration;
@@ -44,15 +42,11 @@ import static org.awaitility.Awaitility.await;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.notNullValue;
 
-public class ConsumerGroupsEndpointTestIT extends PlainTestBase {
+class ConsumerGroupsEndpointTestIT extends PlainTestBase {
 
-    @ParallelTest
+    @Test
     void testListConsumerGroups(Vertx vertx, VertxTestContext testContext, ExtensionContext extensionContext) throws Exception {
-        AdminClient kafkaClient = AdminClient.create(RequestUtils.getKafkaAdminConfig(DEPLOYMENT_MANAGER
-                .getKafkaContainer(extensionContext).getBootstrapServers()));
-        int publishedAdminPort = DEPLOYMENT_MANAGER.getAdminPort(extensionContext);
-
-        SyncMessaging.createConsumerGroups(vertx, kafkaClient, 5, DEPLOYMENT_MANAGER.getKafkaContainer(extensionContext).getBootstrapServers(), testContext);
+        SyncMessaging.createConsumerGroups(vertx, kafkaClient, 5, deployments.getExternalBootstrapServers(), testContext);
         HttpClient client = createHttpClient(vertx);
         client.request(HttpMethod.GET, publishedAdminPort, "localhost", "/rest/consumer-groups")
                 .compose(req -> req.send().onSuccess(response -> {
@@ -71,22 +65,18 @@ public class ConsumerGroupsEndpointTestIT extends PlainTestBase {
         assertThat(testContext.awaitCompletion(1, TimeUnit.MINUTES)).isTrue();
     }
 
-    @ParallelTest
+    @Test
     void testEmptyTopicsOnList(Vertx vertx, VertxTestContext testContext, ExtensionContext extensionContext) throws Exception {
-        AdminClient kafkaClient = AdminClient.create(RequestUtils.getKafkaAdminConfig(DEPLOYMENT_MANAGER
-                .getKafkaContainer(extensionContext).getBootstrapServers()));
-        int publishedAdminPort = DEPLOYMENT_MANAGER.getAdminPort(extensionContext);
-
-        SyncMessaging.createConsumerGroups(vertx, kafkaClient, 4, DEPLOYMENT_MANAGER.getKafkaContainer(extensionContext).getBootstrapServers(), testContext);
+        SyncMessaging.createConsumerGroups(vertx, kafkaClient, 4, deployments.getExternalBootstrapServers(), testContext);
         String topic = UUID.randomUUID().toString();
         kafkaClient.createTopics(Collections.singletonList(new NewTopic(topic, 3, (short) 1)));
         DynamicWait.waitForTopicsExists(Collections.singletonList(topic), kafkaClient);
 
-        Properties props = ClientsConfig.getConsumerConfig(DEPLOYMENT_MANAGER.getKafkaContainer(extensionContext).getBootstrapServers(), "test-group");
+        Properties props = ClientsConfig.getConsumerConfig(deployments.getExternalBootstrapServers(), "test-group");
         props.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
         KafkaConsumer<String, String> consumer = KafkaConsumer.create(vertx, props);
 
-        AsyncMessaging.produceMessages(vertx, DEPLOYMENT_MANAGER.getKafkaContainer(extensionContext).getBootstrapServers(), topic, 30, null);
+        AsyncMessaging.produceMessages(vertx, deployments.getExternalBootstrapServers(), topic, 30, null);
         consumer.subscribe(topic);
         AtomicReference<KafkaConsumerRecords<String, String>> records = new AtomicReference<>();
         CountDownLatch cd = new CountDownLatch(1);
@@ -143,13 +133,9 @@ public class ConsumerGroupsEndpointTestIT extends PlainTestBase {
         assertThat(testContext.awaitCompletion(1, TimeUnit.MINUTES)).isTrue();
     }
 
-    @ParallelTest
+    @Test
     void testListConsumerGroupsWithSortDesc(Vertx vertx, VertxTestContext testContext, ExtensionContext extensionContext) throws Exception {
-        AdminClient kafkaClient = AdminClient.create(RequestUtils.getKafkaAdminConfig(DEPLOYMENT_MANAGER
-                .getKafkaContainer(extensionContext).getBootstrapServers()));
-        int publishedAdminPort = DEPLOYMENT_MANAGER.getAdminPort(extensionContext);
-
-        List<String> grpIds = SyncMessaging.createConsumerGroups(vertx, kafkaClient, 5, DEPLOYMENT_MANAGER.getKafkaContainer(extensionContext).getBootstrapServers(), testContext);
+        List<String> grpIds = SyncMessaging.createConsumerGroups(vertx, kafkaClient, 5, deployments.getExternalBootstrapServers(), testContext);
         grpIds.sort(String::compareToIgnoreCase);
         Collections.reverse(grpIds);
         HttpClient client = createHttpClient(vertx);
@@ -168,13 +154,9 @@ public class ConsumerGroupsEndpointTestIT extends PlainTestBase {
         assertThat(testContext.awaitCompletion(1, TimeUnit.MINUTES)).isTrue();
     }
 
-    @ParallelTest
+    @Test
     void testListConsumerGroupsWithSortAsc(Vertx vertx, VertxTestContext testContext, ExtensionContext extensionContext) throws Exception {
-        AdminClient kafkaClient = AdminClient.create(RequestUtils.getKafkaAdminConfig(DEPLOYMENT_MANAGER
-                .getKafkaContainer(extensionContext).getBootstrapServers()));
-        int publishedAdminPort = DEPLOYMENT_MANAGER.getAdminPort(extensionContext);
-
-        List<String> grpIds = SyncMessaging.createConsumerGroups(vertx, kafkaClient, 5, DEPLOYMENT_MANAGER.getKafkaContainer(extensionContext).getBootstrapServers(), testContext);
+        List<String> grpIds = SyncMessaging.createConsumerGroups(vertx, kafkaClient, 5, deployments.getExternalBootstrapServers(), testContext);
 
         grpIds.sort(String::compareToIgnoreCase);
         HttpClient client = createHttpClient(vertx);
@@ -187,18 +169,16 @@ public class ConsumerGroupsEndpointTestIT extends PlainTestBase {
                 .onComplete(testContext.succeeding(buffer -> testContext.verify(() -> {
                     Types.ConsumerGroupList response = MODEL_DESERIALIZER.deserializeResponse(buffer, Types.ConsumerGroupList.class);
                     List<String> responseGroupIDs = response.getItems().stream().map(Types.ConsumerGroup::getGroupId).collect(Collectors.toList());
-                    assertThat(grpIds).isEqualTo(responseGroupIDs);
+                    assertThat(responseGroupIDs).isEqualTo(grpIds);
                     testContext.completeNow();
                 })));
         assertThat(testContext.awaitCompletion(1, TimeUnit.MINUTES)).isTrue();
     }
 
-    @ParallelTest
+    @Test
     void testListConsumerGroupKafkaDown(Vertx vertx, VertxTestContext testContext, ExtensionContext extensionContext) throws Exception {
         HttpClient client = createHttpClient(vertx);
-        DEPLOYMENT_MANAGER.getClient().stopContainerCmd(DEPLOYMENT_MANAGER
-                .getKafkaContainer(extensionContext).getContainerId()).exec();
-        int publishedAdminPort = DEPLOYMENT_MANAGER.getAdminPort(extensionContext);
+        deployments.stopKafkaContainer();
         client.request(HttpMethod.GET, publishedAdminPort, "localhost", "/rest/consumer-groups")
                 .compose(req -> req.send().onComplete(l -> testContext.verify(() -> {
                     assertThat(testContext.failed()).isFalse();
@@ -210,13 +190,9 @@ public class ConsumerGroupsEndpointTestIT extends PlainTestBase {
         assertThat(testContext.awaitCompletion(1, TimeUnit.MINUTES)).isTrue();
     }
 
-    @ParallelTest
+    @Test
     void testDeleteConsumerGroup(Vertx vertx, VertxTestContext testContext, ExtensionContext extensionContext) throws Exception {
-        AdminClient kafkaClient = AdminClient.create(RequestUtils.getKafkaAdminConfig(DEPLOYMENT_MANAGER
-                .getKafkaContainer(extensionContext).getBootstrapServers()));
-        int publishedAdminPort = DEPLOYMENT_MANAGER.getAdminPort(extensionContext);
-
-        List<String> groupdIds = SyncMessaging.createConsumerGroups(vertx, kafkaClient, 5, DEPLOYMENT_MANAGER.getKafkaContainer(extensionContext).getBootstrapServers(), testContext);
+        List<String> groupdIds = SyncMessaging.createConsumerGroups(vertx, kafkaClient, 5, deployments.getExternalBootstrapServers(), testContext);
 
         HttpClient client = createHttpClient(vertx);
         client.request(HttpMethod.DELETE, publishedAdminPort, "localhost", "/rest/consumer-groups/" + groupdIds.get(0))
@@ -234,16 +210,12 @@ public class ConsumerGroupsEndpointTestIT extends PlainTestBase {
         assertThat(testContext.awaitCompletion(1, TimeUnit.MINUTES)).isTrue();
     }
 
-    @ParallelTest
+    @Test
     void testDeleteActiveConsumerGroup(Vertx vertx, VertxTestContext testContext, ExtensionContext extensionContext) throws Exception {
-        AdminClient kafkaClient = AdminClient.create(RequestUtils.getKafkaAdminConfig(DEPLOYMENT_MANAGER
-                .getKafkaContainer(extensionContext).getBootstrapServers()));
-        int publishedAdminPort = DEPLOYMENT_MANAGER.getAdminPort(extensionContext);
-
         String groupID = UUID.randomUUID().toString();
         String topicName = UUID.randomUUID().toString();
         KafkaConsumer<String, String> consumer = AsyncMessaging.createActiveConsumerGroup(vertx, kafkaClient,
-                DEPLOYMENT_MANAGER.getKafkaContainer(extensionContext).getBootstrapServers(), groupID, topicName);
+                deployments.getExternalBootstrapServers(), groupID, topicName);
         AsyncMessaging.consumeMessages(vertx, consumer, topicName, 200);
         DynamicWait.waitForGroupExists(groupID, kafkaClient);
         HttpClient client = createHttpClient(vertx);
@@ -263,16 +235,12 @@ public class ConsumerGroupsEndpointTestIT extends PlainTestBase {
         consumer.close();
     }
 
-    @ParallelTest
+    @Test
     void testDeleteConsumerGroupKafkaDown(Vertx vertx, VertxTestContext testContext, ExtensionContext extensionContext) throws Exception {
-        AdminClient kafkaClient = AdminClient.create(RequestUtils.getKafkaAdminConfig(DEPLOYMENT_MANAGER
-                .getKafkaContainer(extensionContext).getBootstrapServers()));
-        List<String> groupdIds = SyncMessaging.createConsumerGroups(vertx, kafkaClient, 2, DEPLOYMENT_MANAGER.getKafkaContainer(extensionContext).getBootstrapServers(), testContext);
+        List<String> groupdIds = SyncMessaging.createConsumerGroups(vertx, kafkaClient, 2, deployments.getExternalBootstrapServers(), testContext);
 
         HttpClient client = createHttpClient(vertx);
-        DEPLOYMENT_MANAGER.getClient().stopContainerCmd(DEPLOYMENT_MANAGER
-                .getKafkaContainer(extensionContext).getContainerId()).exec();
-        int publishedAdminPort = DEPLOYMENT_MANAGER.getAdminPort(extensionContext);
+        deployments.stopKafkaContainer();
         client.request(HttpMethod.DELETE, publishedAdminPort, "localhost", "/rest/consumer-groups/" + groupdIds.get(0))
                 .compose(req -> req.send().onComplete(l -> testContext.verify(() -> {
                     assertThat(testContext.failed()).isFalse();
@@ -284,13 +252,9 @@ public class ConsumerGroupsEndpointTestIT extends PlainTestBase {
         assertThat(testContext.awaitCompletion(1, TimeUnit.MINUTES)).isTrue();
     }
 
-    @ParallelTest
+    @Test
     void testDescribeConsumerGroup(Vertx vertx, VertxTestContext testContext, ExtensionContext extensionContext) throws Exception {
-        AdminClient kafkaClient = AdminClient.create(RequestUtils.getKafkaAdminConfig(DEPLOYMENT_MANAGER
-                .getKafkaContainer(extensionContext).getBootstrapServers()));
-        int publishedAdminPort = DEPLOYMENT_MANAGER.getAdminPort(extensionContext);
-
-        List<String> groupdIds = SyncMessaging.createConsumerGroups(vertx, kafkaClient, 2, DEPLOYMENT_MANAGER.getKafkaContainer(extensionContext).getBootstrapServers(), testContext);
+        List<String> groupdIds = SyncMessaging.createConsumerGroups(vertx, kafkaClient, 2, deployments.getExternalBootstrapServers(), testContext);
         HttpClient client = createHttpClient(vertx);
         client.request(HttpMethod.GET, publishedAdminPort, "localhost", "/rest/consumer-groups/" + groupdIds.get(0))
                 .compose(req -> req.send().onSuccess(response -> {
@@ -309,16 +273,12 @@ public class ConsumerGroupsEndpointTestIT extends PlainTestBase {
         assertThat(testContext.awaitCompletion(1, TimeUnit.MINUTES)).isTrue();
     }
 
-    @ParallelTest
+    @Test
     void testDescribeConsumerGroupKafkaDown(Vertx vertx, VertxTestContext testContext, ExtensionContext extensionContext) throws Exception {
-        AdminClient kafkaClient = AdminClient.create(RequestUtils.getKafkaAdminConfig(DEPLOYMENT_MANAGER
-                .getKafkaContainer(extensionContext).getBootstrapServers()));
-        List<String> groupdIds = SyncMessaging.createConsumerGroups(vertx, kafkaClient, 2, DEPLOYMENT_MANAGER.getKafkaContainer(extensionContext).getBootstrapServers(), testContext);
+        List<String> groupdIds = SyncMessaging.createConsumerGroups(vertx, kafkaClient, 2, deployments.getExternalBootstrapServers(), testContext);
 
         HttpClient client = createHttpClient(vertx);
-        DEPLOYMENT_MANAGER.getClient().stopContainerCmd(DEPLOYMENT_MANAGER
-                .getKafkaContainer(extensionContext).getContainerId()).exec();
-        int publishedAdminPort = DEPLOYMENT_MANAGER.getAdminPort(extensionContext);
+        deployments.stopKafkaContainer();
         client.request(HttpMethod.GET, publishedAdminPort, "localhost", "/rest/consumer-groups/" + groupdIds.get(0))
                 .compose(req -> req.send().onComplete(l -> testContext.verify(() -> {
                     assertThat(testContext.failed()).isFalse();
@@ -330,10 +290,8 @@ public class ConsumerGroupsEndpointTestIT extends PlainTestBase {
         assertThat(testContext.awaitCompletion(1, TimeUnit.MINUTES)).isTrue();
     }
 
-    @ParallelTest
+    @Test
     void testDescribeNonExistingConsumerGroup(Vertx vertx, VertxTestContext testContext, ExtensionContext extensionContext) throws Exception {
-        int publishedAdminPort = DEPLOYMENT_MANAGER.getAdminPort(extensionContext);
-
         HttpClient client = createHttpClient(vertx);
         client.request(HttpMethod.GET, publishedAdminPort, "localhost", "/rest/consumer-groups/test-1")
                 .compose(req -> req.send().onSuccess(response -> {

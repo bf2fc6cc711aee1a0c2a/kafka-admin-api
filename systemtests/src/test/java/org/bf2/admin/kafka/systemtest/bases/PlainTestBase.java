@@ -2,30 +2,31 @@ package org.bf2.admin.kafka.systemtest.bases;
 
 import io.vertx.core.Vertx;
 import io.vertx.core.http.HttpClient;
-import io.vertx.core.http.HttpClientResponse;
-import io.vertx.junit5.VertxTestContext;
 import org.bf2.admin.kafka.systemtest.TestTag;
-import org.bf2.admin.kafka.systemtest.deployment.AdminDeploymentManager;
-import org.bf2.admin.kafka.systemtest.json.ModelDeserializer;
+import org.bf2.admin.kafka.systemtest.deployment.DeploymentManager;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.extension.ExtensionContext;
 
+import java.util.concurrent.ExecutionException;
+
 @Tag(TestTag.PLAIN)
 public class PlainTestBase extends TestBase {
-    protected static final AdminDeploymentManager DEPLOYMENT_MANAGER = AdminDeploymentManager.getInstance();
-    protected static final ModelDeserializer MODEL_DESERIALIZER = new ModelDeserializer();
+
+    @BeforeAll
+    static void initialize(ExtensionContext extensionContext) {
+        deployments = DeploymentManager.newInstance(extensionContext, false);
+    }
 
     @BeforeEach
-    public void startup(Vertx vertx, VertxTestContext vertxTestContext, ExtensionContext testContext) throws Exception {
-        DEPLOYMENT_MANAGER.deployPlainStack(vertxTestContext, testContext);
+    void setup(Vertx vertx) throws InterruptedException, ExecutionException {
+        this.kafkaClient = deployments.createKafkaAdmin();
+        deleteAllTopics();
     }
 
     protected HttpClient createHttpClient(Vertx vertx) {
         return super.createHttpClient(vertx, false);
     }
 
-    protected void assertStrictTransportSecurityDisabled(HttpClientResponse response, VertxTestContext testContext) {
-        assertStrictTransportSecurity(response, testContext, false);
-    }
 }

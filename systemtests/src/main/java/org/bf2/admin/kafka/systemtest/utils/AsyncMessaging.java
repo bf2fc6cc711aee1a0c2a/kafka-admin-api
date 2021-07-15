@@ -15,13 +15,14 @@ import org.apache.kafka.clients.admin.AdminClient;
 import org.apache.kafka.clients.admin.NewTopic;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.bf2.admin.kafka.systemtest.json.TokenModel;
 
 import java.util.Collections;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Properties;
+import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 public class AsyncMessaging {
     protected static final Logger LOGGER = LogManager.getLogger(AsyncMessaging.class);
@@ -51,28 +52,38 @@ public class AsyncMessaging {
      * Subscribe at the end of the topic
      */
     private static Future<Void> resetToEnd(KafkaConsumer<String, String> consumer, String topic) {
+        LOGGER.info("reset topic {} offset for all partitions to the end", topic);
 
-        LOGGER.info("rest topic {} offset for all partitions to the end", topic);
         return consumer.partitionsFor(topic)
-
-                // seek the end for all partitions in a topic
-                .compose(partitions -> CompositeFuture.all(partitions.stream()
-                        .map(partition -> {
-                            var tp = new TopicPartition(partition.getTopic(), partition.getPartition());
-                            return (Future) consumer.assign(tp)
-                                    .compose(__ -> consumer.seekToBeginning(tp))
-
-                                    // the seekToEnd take place only once consumer.position() is called
-                                    .compose(__ -> consumer.position(tp)
-                                            .onSuccess(p -> LOGGER.info("reset partition {}-{} to offset {}", tp.getTopic(), tp.getPartition(), p)));
-                        })
-                        .collect(Collectors.toList())))
-
-                // commit all partitions offset
-                .compose(__ -> consumer.commit())
-
-                // unsubscribe from  all partitions
-                .compose(__ -> consumer.unsubscribe());
+            .map(partitions -> partitions.stream()
+                 .map(p -> new TopicPartition(p.getTopic(), p.getPartition()))
+                 .collect(Collectors.toSet()))
+            .compose(partitions -> {
+                LOGGER.info("Assigning partitions to consumer: {}", partitions);
+                return consumer.assign(partitions).map(partitions);
+            })
+            .compose(partitions -> {
+                LOGGER.info("Assignment complete, seeking to beginning of partitions: {}", partitions);
+                return consumer.seekToBeginning(partitions).map(partitions);
+            })
+            .compose(partitions ->
+                CompositeFuture.all(partitions.stream()
+                    .map(consumer::position)
+                    .collect(Collectors.toList())))
+            .map(positionResults -> {
+                positionResults.<Long>list().forEach(p -> {
+                    LOGGER.info("Partition to offset {}", p);
+                });
+                return null;
+            })
+            .compose(nothing -> {
+                LOGGER.info("reset topic {}, commit consumer", topic);
+                return consumer.commit();
+            })
+            .compose(nothing -> {
+                LOGGER.info("reset topic {}, unsubscribe consumer", topic);
+                return consumer.unsubscribe();
+            });
     }
 
     private static Future<List<KafkaConsumerRecord<String, String>>> consumeMessages(KafkaConsumer<String, String> consumer, int expectedMessages) {
@@ -97,28 +108,17 @@ public class AsyncMessaging {
     }
 
     public static Future<List<KafkaConsumerRecord<String, String>>> consumeMessages(Vertx vertx, KafkaConsumer<String, String> consumer, String topic, int count) {
-        return receiveAsync(consumer, topic, count).compose(consumeFuture -> {
-            var timeoutPromise = Promise.promise();
-            var timeoutTimer = vertx.setTimer(120_000, __ -> {
-                timeoutPromise.fail("timeout after waiting for messages; host:; topic:");
-            });
-            var completeFuture = consumeFuture.onComplete(__ -> {
-                vertx.cancelTimer(timeoutTimer);
-                timeoutPromise.tryComplete();
-            });
-            return completeFuture;
-        });
-    }
-
-    public static KafkaConsumer<String, String> createActiveConsumerGroupOauth(Vertx vertx, AdminClient kafkaClient, String bootstrap, String groupID, String topicName, TokenModel token) throws Exception {
-        kafkaClient.createTopics(Collections.singletonList(
-                new NewTopic(topicName, 1, (short) 1)
-        ));
-        DynamicWait.waitForTopicExists(topicName, kafkaClient);
-
-        KafkaConsumer<String, String> consumer = KafkaConsumer.create(vertx, ClientsConfig.getConsumerConfigOauth(bootstrap, groupID, token));
-
-        return consumer;
+        return receiveAsync(consumer, topic, count)
+                .compose(consumeFuture -> {
+                    var timeoutPromise = Promise.promise();
+                    var timeoutTimer = vertx.setTimer(120_000, __ -> {
+                        timeoutPromise.fail("timeout after waiting for messages; host:; topic:");
+                    });
+                    return consumeFuture.onComplete(__ -> {
+                        vertx.cancelTimer(timeoutTimer);
+                        timeoutPromise.tryComplete();
+                    });
+                });
     }
 
     public static KafkaConsumer<String, String> createActiveConsumerGroup(Vertx vertx, AdminClient kafkaClient, String bootstrap, String groupID, String topicName) throws Exception {
@@ -141,36 +141,52 @@ public class AsyncMessaging {
         return consumer;
     }
 
-    public static void produceMessages(Vertx vertx, String bootstrap, String topicName, int numberOfMessages, TokenModel token) {
-        produceMessages(vertx, bootstrap, topicName, numberOfMessages, token, "X");
+    public static void produceMessages(Vertx vertx, String bootstrap, String topicName, int numberOfMessages, String token) {
+        try {
+            produceMessages(vertx, bootstrap, topicName, numberOfMessages, token, "X")
+                    .toCompletionStage()
+                    .toCompletableFuture()
+                    .get();
+        } catch (InterruptedException | ExecutionException e) {
+            throw new RuntimeException(e);
+        }
     }
 
-    public static void produceMessages(Vertx vertx, String bootstrap, String topicName, int numberOfMessages, TokenModel token, String messagePrefix) {
+    public static Future<Void> produceMessages(Vertx vertx, String bootstrap, String topicName, int numberOfMessages, String token, String messagePrefix) {
         final Properties props;
+
         if (token == null) {
             props = ClientsConfig.getProducerConfig(bootstrap);
         } else {
             props = ClientsConfig.getProducerConfigOauth(bootstrap, token);
         }
+
         KafkaProducer<String, String> producer = KafkaProducer.create(vertx, props);
-        for (int i = 0; i < numberOfMessages; i++) {
-            RandomStringGenerator randomStringGenerator =
-                    new RandomStringGenerator.Builder()
-                            .withinRange('0', 'z')
-                            .filteredBy(CharacterPredicates.LETTERS, CharacterPredicates.DIGITS)
-                            .build();
-            KafkaProducerRecord<String, String> record =
-                    KafkaProducerRecord.create(topicName, messagePrefix + "_message_" + randomStringGenerator.generate(100));
+        RandomStringGenerator randomStringGenerator =
+                new RandomStringGenerator.Builder()
+                        .withinRange('0', 'z')
+                        .filteredBy(CharacterPredicates.LETTERS, CharacterPredicates.DIGITS)
+                        .build();
 
-            producer.send(record).onSuccess(recordMetadata -> {
-                    LOGGER.info(
-                            "Message " + record.value() + " written on topic=" + recordMetadata.getTopic() +
-                                    ", partition=" + recordMetadata.getPartition() +
-                                    ", offset=" + recordMetadata.getOffset()
-                    );
-                }
-            );
+        return vertx.executeBlocking(promise -> {
+            @SuppressWarnings("rawtypes")
+            List<Future> pendingMessages = IntStream.range(0, numberOfMessages)
+                .mapToObj(index -> messagePrefix + "_message_" + randomStringGenerator.generate(100))
+                .map(message -> KafkaProducerRecord.<String, String>create(topicName, message))
+                .map(producerRecord -> {
+                    return producer.send(producerRecord)
+                            .onSuccess(meta -> {
+                                LOGGER.info("Message " + producerRecord.value() + " written on topic=" + meta.getTopic() +
+                                    ", partition=" + meta.getPartition() +
+                                    ", offset=" + meta.getOffset());
+                            });
+                })
+                .collect(Collectors.toList());
 
-        }
+            CompositeFuture.all(pendingMessages)
+                .onFailure(promise::fail)
+                .onSuccess(results -> promise.complete());
+        });
+
     }
 }

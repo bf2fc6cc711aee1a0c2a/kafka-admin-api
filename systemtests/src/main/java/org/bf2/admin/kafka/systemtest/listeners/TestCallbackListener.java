@@ -1,6 +1,5 @@
 package org.bf2.admin.kafka.systemtest.listeners;
 
-import org.bf2.admin.kafka.systemtest.deployment.AdminDeploymentManager;
 import org.bf2.admin.kafka.systemtest.utils.TestUtils;
 import org.junit.jupiter.api.extension.AfterAllCallback;
 import org.junit.jupiter.api.extension.AfterEachCallback;
@@ -27,6 +26,5 @@ public class TestCallbackListener implements BeforeAllCallback, BeforeEachCallba
     @Override
     public void afterEach(ExtensionContext extensionContext) throws Exception {
         TestUtils.logWithSeparator("-> End of test method: {}", extensionContext.getDisplayName());
-        AdminDeploymentManager.getInstance().teardown(extensionContext);
     }
 }

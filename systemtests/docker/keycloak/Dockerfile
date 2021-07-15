@@ -1,4 +1,4 @@
-FROM quay.io/keycloak/keycloak:12.0.2
+FROM quay.io/keycloak/keycloak:14.0.0
 
 COPY ${PWD}/docker/keycloak/scripts/* /opt/jboss/keycloak/
 COPY ${PWD}/docker/target/keycloak/certs/* /opt/jboss/keycloak/standalone/configuration/certs/

@@ -1,4 +1,5 @@
-FROM quay.io/keycloak/keycloak:12.0.2
+FROM quay.io/keycloak/keycloak:14.0.0
+
 RUN mkdir /opt/jboss/realms
 COPY ${PWD}/docker/keycloak-import/realms/* /opt/jboss/realms/
 

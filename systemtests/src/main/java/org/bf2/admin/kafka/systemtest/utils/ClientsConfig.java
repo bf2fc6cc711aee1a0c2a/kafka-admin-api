@@ -6,7 +6,6 @@ import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.common.config.SaslConfigs;
 import org.apache.kafka.common.serialization.StringDeserializer;
-import org.bf2.admin.kafka.systemtest.json.TokenModel;
 
 import java.util.Properties;
 import java.util.UUID;
@@ -31,33 +30,33 @@ public class ClientsConfig {
         return props;
     }
 
-    public static Properties getAdminConfigOauth(TokenModel token) {
+    public static Properties getAdminConfigOauth(String token, String bootstrapServers) {
         Properties props = new Properties();
         props.put(CommonClientConfigs.SECURITY_PROTOCOL_CONFIG, "SASL_PLAINTEXT");
         props.put(AdminClientConfig.METADATA_MAX_AGE_CONFIG, "30000");
         props.put(SaslConfigs.SASL_LOGIN_CALLBACK_HANDLER_CLASS, "io.strimzi.kafka.oauth.client.JaasClientOauthLoginCallbackHandler");
         props.put(SaslConfigs.SASL_MECHANISM, "OAUTHBEARER");
         props.put(AdminClientConfig.REQUEST_TIMEOUT_MS_CONFIG, "10000");
-        props.put(SaslConfigs.SASL_JAAS_CONFIG, "org.apache.kafka.common.security.oauthbearer.OAuthBearerLoginModule required oauth.access.token=\"" + token.getAccessToken() + "\";");
-        props.put(AdminClientConfig.BOOTSTRAP_SERVERS_CONFIG, "localhost:9092");
+        props.put(SaslConfigs.SASL_JAAS_CONFIG, "org.apache.kafka.common.security.oauthbearer.OAuthBearerLoginModule required oauth.access.token=\"" + token + "\";");
+        props.put(AdminClientConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
         props.put(AdminClientConfig.DEFAULT_API_TIMEOUT_MS_CONFIG, "30000");
         return props;
     }
 
-    private static void getOauthConfig(Properties props, TokenModel token) {
+    private static void getOauthConfig(Properties props, String token) {
         props.put(SaslConfigs.SASL_MECHANISM, "OAUTHBEARER");
         props.put(CommonClientConfigs.SECURITY_PROTOCOL_CONFIG, "SASL_PLAINTEXT");
-        props.put(SaslConfigs.SASL_JAAS_CONFIG, "org.apache.kafka.common.security.oauthbearer.OAuthBearerLoginModule required oauth.access.token=\"" + token.getAccessToken() + "\";");
+        props.put(SaslConfigs.SASL_JAAS_CONFIG, "org.apache.kafka.common.security.oauthbearer.OAuthBearerLoginModule required oauth.access.token=\"" + token + "\";");
         props.put(SaslConfigs.SASL_LOGIN_CALLBACK_HANDLER_CLASS, "io.strimzi.kafka.oauth.client.JaasClientOauthLoginCallbackHandler");
     }
 
-    public static Properties getConsumerConfigOauth(String bootstrap, String groupID, TokenModel token) {
+    public static Properties getConsumerConfigOauth(String bootstrap, String groupID, String token) {
         Properties props = getConsumerConfig(bootstrap, groupID);
         getOauthConfig(props, token);
         return props;
     }
 
-    public static Properties getProducerConfigOauth(String bootstrap, TokenModel token) {
+    public static Properties getProducerConfigOauth(String bootstrap, String token) {
         Properties props = getProducerConfig(bootstrap);
         getOauthConfig(props, token);
         return props;
