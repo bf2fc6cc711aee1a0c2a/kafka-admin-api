@@ -25,8 +25,9 @@ import java.util.stream.Collectors;
 
 public class AccessControlOperations {
 
-    private static final Logger log = LogManager.getLogger(AccessControlOperations.class);
+    public static final String INVALID_ACL_RESOURCE_OPERATION = "Invalid ACL binding resourceType or operation";
 
+    private static final Logger log = LogManager.getLogger(AccessControlOperations.class);
     private static final String WILDCARD_PRINCIPAL = KafkaPrincipal.USER_TYPE + ":*";
 
     private static final TypeReference<Map<String, List<String>>> TYPEREF_MAP_LIST_STRING =
@@ -60,7 +61,7 @@ public class AccessControlOperations {
 
     public void createAcl(Admin client, Promise<Void> promise, Types.AclBinding binding) {
         if (!validAclBinding(binding)) {
-            promise.fail(new IllegalArgumentException("Invalid ACL binding resourceType or operation"));
+            promise.fail(new IllegalArgumentException(INVALID_ACL_RESOURCE_OPERATION));
             return;
         }
 
@@ -78,8 +79,7 @@ public class AccessControlOperations {
     public void getAcls(Admin client,
                         Promise<Types.PagedResponse<Types.AclBinding>> promise,
                         Types.AclBinding filter,
-                        Types.PageRequest pageRequest,
-                        Types.OrderByInput orderByInput) {
+                        Types.PageRequest pageRequest) {
 
         var pendingResults = new ArrayList<KafkaFuture<Collection<AclBinding>>>(2);
 

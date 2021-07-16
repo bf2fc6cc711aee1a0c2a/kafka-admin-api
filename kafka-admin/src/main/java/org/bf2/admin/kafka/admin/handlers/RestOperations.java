@@ -405,7 +405,7 @@ public class RestOperations extends CommonHandler implements OperationsHandler {
 
         try {
             var filter = Types.AclBinding.fromQueryParams(routingContext.queryParams());
-            aclOperations.getAcls(client, promise, filter, parsePageRequest(routingContext), null);
+            aclOperations.getAcls(client, promise, filter, parsePageRequest(routingContext));
         } catch (Exception e) {
             promise.fail(e);
         } finally {
