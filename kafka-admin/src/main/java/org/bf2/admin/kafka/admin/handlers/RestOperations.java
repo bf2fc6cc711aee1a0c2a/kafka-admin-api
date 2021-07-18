@@ -99,17 +99,18 @@ public class RestOperations extends CommonHandler implements OperationsHandler {
         httpMetrics.getDescribeTopicCounter().increment();
         httpMetrics.getRequestsCounter().increment();
         Timer.Sample requestTimerSample = Timer.start(httpMetrics.getRegistry());
+        Timer timer = httpMetrics.getDescribeTopicRequestTimer();
 
         String topicToDescribe = routingContext.pathParam("topicName");
         Promise<Types.Topic> prom = Promise.promise();
         if (topicToDescribe == null || topicToDescribe.isEmpty()) {
             prom.fail(new InvalidTopicException("Topic to describe has not been specified."));
-            processResponse(prom, routingContext, HttpResponseStatus.BAD_REQUEST, httpMetrics, httpMetrics.getDescribeTopicRequestTimer(), requestTimerSample);
+            processResponse(prom, routingContext, HttpResponseStatus.BAD_REQUEST, httpMetrics, timer, requestTimerSample);
             return;
         }
         if (!internalTopicsAllowed() && topicToDescribe.startsWith("__")) {
             prom.fail(new InvalidTopicException("Topic " + topicToDescribe + " cannot be described"));
-            processResponse(prom, routingContext, HttpResponseStatus.BAD_REQUEST, httpMetrics, httpMetrics.getDescribeTopicRequestTimer(), requestTimerSample);
+            processResponse(prom, routingContext, HttpResponseStatus.BAD_REQUEST, httpMetrics, timer, requestTimerSample);
             return;
         }
 
@@ -119,7 +120,7 @@ public class RestOperations extends CommonHandler implements OperationsHandler {
             } else {
                 TopicOperations.describeTopic(ac.result(), prom, topicToDescribe);
             }
-            processResponse(prom, routingContext, HttpResponseStatus.OK, httpMetrics, httpMetrics.getDescribeTopicRequestTimer(), requestTimerSample);
+            processResponse(prom, routingContext, HttpResponseStatus.OK, httpMetrics, timer, requestTimerSample);
         });
     }
 
@@ -167,12 +168,12 @@ public class RestOperations extends CommonHandler implements OperationsHandler {
                 if (!numPartitionsLessThanMax(updatedTopic, maxPartitions)) {
                     prom.fail(new InvalidTopicException(String.format("Number of partitions for topic %s must between 1 and %d (inclusive)",
                             updatedTopic.getName(), maxPartitions)));
-                    processResponse(prom, routingContext, HttpResponseStatus.BAD_REQUEST, httpMetrics, httpMetrics.getCreateTopicRequestTimer(), requestTimerSample);
+                    processResponse(prom, routingContext, HttpResponseStatus.BAD_REQUEST, httpMetrics, timer, requestTimerSample);
                     return;
                 }
                 TopicOperations.updateTopic(ac.result(), updatedTopic, prom);
             }
-            processResponse(prom, routingContext, HttpResponseStatus.OK, httpMetrics, httpMetrics.getUpdateTopicRequestTimer(), requestTimerSample);
+            processResponse(prom, routingContext, HttpResponseStatus.OK, httpMetrics, timer, requestTimerSample);
         });
 
     }
@@ -183,17 +184,19 @@ public class RestOperations extends CommonHandler implements OperationsHandler {
         httpMetrics.getDeleteTopicCounter().increment();
         httpMetrics.getRequestsCounter().increment();
         Timer.Sample requestTimerSample = Timer.start(httpMetrics.getRegistry());
+        Timer timer = httpMetrics.getDeleteTopicRequestTimer();
         String topicToDelete = routingContext.pathParam("topicName");
         Promise<List<String>> prom = Promise.promise();
+
         if (topicToDelete == null || topicToDelete.isEmpty()) {
             prom.fail(new InvalidTopicException("Topic to delete has not been specified."));
-            processResponse(prom, routingContext, HttpResponseStatus.BAD_REQUEST, httpMetrics, httpMetrics.getDeleteTopicRequestTimer(), requestTimerSample);
+            processResponse(prom, routingContext, HttpResponseStatus.BAD_REQUEST, httpMetrics, timer, requestTimerSample);
             return;
         }
 
         if (!internalTopicsAllowed() && topicToDelete.startsWith("__")) {
             prom.fail(new InvalidTopicException("Topic " + topicToDelete + " cannot be deleted"));
-            processResponse(prom, routingContext, HttpResponseStatus.BAD_REQUEST, httpMetrics, httpMetrics.getDeleteTopicRequestTimer(), requestTimerSample);
+            processResponse(prom, routingContext, HttpResponseStatus.BAD_REQUEST, httpMetrics, timer, requestTimerSample);
             return;
         }
 
@@ -203,7 +206,7 @@ public class RestOperations extends CommonHandler implements OperationsHandler {
             } else {
                 TopicOperations.deleteTopics(ac.result(), Collections.singletonList(topicToDelete), prom);
             }
-            processResponse(prom, routingContext, HttpResponseStatus.OK, httpMetrics, httpMetrics.getDeleteTopicRequestTimer(), requestTimerSample);
+            processResponse(prom, routingContext, HttpResponseStatus.OK, httpMetrics, timer, requestTimerSample);
         });
     }
 
@@ -211,6 +214,7 @@ public class RestOperations extends CommonHandler implements OperationsHandler {
     public void listTopics(RoutingContext routingContext) {
         Map<String, Object> acConfig = routingContext.get(ADMIN_CLIENT_CONFIG);
         Timer.Sample requestTimerSample = Timer.start(httpMetrics.getRegistry());
+        Timer timer = httpMetrics.getListTopicRequestTimer();
         httpMetrics.getListTopicsCounter().increment();
         httpMetrics.getRequestsCounter().increment();
         String filter = routingContext.queryParams().get("filter");
@@ -235,11 +239,11 @@ public class RestOperations extends CommonHandler implements OperationsHandler {
                     TopicOperations.getTopicList(ac.result(), prom, pattern, parsePageRequest(routingContext), orderBy);
                 } catch (NumberFormatException | InvalidRequestException e) {
                     prom.fail(e);
-                    processResponse(prom, routingContext, HttpResponseStatus.BAD_REQUEST, httpMetrics, httpMetrics.getListTopicRequestTimer(), requestTimerSample);
+                    processResponse(prom, routingContext, HttpResponseStatus.BAD_REQUEST, httpMetrics, timer, requestTimerSample);
                     return;
                 }
             }
-            processResponse(prom, routingContext, HttpResponseStatus.OK, httpMetrics, httpMetrics.getListTopicRequestTimer(), requestTimerSample);
+            processResponse(prom, routingContext, HttpResponseStatus.OK, httpMetrics, timer, requestTimerSample);
         });
     }
 
@@ -247,6 +251,7 @@ public class RestOperations extends CommonHandler implements OperationsHandler {
     public void listGroups(RoutingContext routingContext) {
         Map<String, Object> acConfig = routingContext.get(ADMIN_CLIENT_CONFIG);
         Timer.Sample requestTimerSample = Timer.start(httpMetrics.getRegistry());
+        Timer timer = httpMetrics.getListGroupsRequestTimer();
         httpMetrics.getListGroupsCounter().increment();
         httpMetrics.getRequestsCounter().increment();
         String topicFilter = routingContext.queryParams().get("topic");
@@ -274,11 +279,11 @@ public class RestOperations extends CommonHandler implements OperationsHandler {
                     ConsumerGroupOperations.getGroupList(ac.result(), prom, pattern, parsePageRequest(routingContext), consumerGroupIdFilter, orderBy);
                 } catch (NumberFormatException | InvalidRequestException e) {
                     prom.fail(e);
-                    processResponse(prom, routingContext, HttpResponseStatus.BAD_REQUEST, httpMetrics, httpMetrics.getListGroupsRequestTimer(), requestTimerSample);
+                    processResponse(prom, routingContext, HttpResponseStatus.BAD_REQUEST, httpMetrics, timer, requestTimerSample);
                     return;
                 }
             }
-            processResponse(prom, routingContext, HttpResponseStatus.OK, httpMetrics, httpMetrics.getListGroupsRequestTimer(), requestTimerSample);
+            processResponse(prom, routingContext, HttpResponseStatus.OK, httpMetrics, timer, requestTimerSample);
         });
     }
 
@@ -288,16 +293,17 @@ public class RestOperations extends CommonHandler implements OperationsHandler {
         httpMetrics.getDescribeGroupCounter().increment();
         httpMetrics.getRequestsCounter().increment();
         Timer.Sample requestTimerSample = Timer.start(httpMetrics.getRegistry());
+        Timer timer = httpMetrics.getDescribeGroupRequestTimer();
         String groupToDescribe = routingContext.pathParam("consumerGroupId");
         Promise<Types.Topic> prom = Promise.promise();
         if (!internalGroupsAllowed() && groupToDescribe.startsWith("strimzi")) {
             prom.fail(new InvalidConsumerGroupException("ConsumerGroup " + groupToDescribe + " cannot be described."));
-            processResponse(prom, routingContext, HttpResponseStatus.BAD_REQUEST, httpMetrics, httpMetrics.getDeleteTopicRequestTimer(), requestTimerSample);
+            processResponse(prom, routingContext, HttpResponseStatus.BAD_REQUEST, httpMetrics, timer, requestTimerSample);
             return;
         }
         if (groupToDescribe == null || groupToDescribe.isEmpty()) {
             prom.fail(new InvalidConsumerGroupException("ConsumerGroup to describe has not been specified."));
-            processResponse(prom, routingContext, HttpResponseStatus.BAD_REQUEST, httpMetrics, httpMetrics.getDescribeGroupRequestTimer(), requestTimerSample);
+            processResponse(prom, routingContext, HttpResponseStatus.BAD_REQUEST, httpMetrics, timer, requestTimerSample);
             return;
         }
         createAdminClient(routingContext.vertx(), acConfig).onComplete(ac -> {
@@ -306,7 +312,7 @@ public class RestOperations extends CommonHandler implements OperationsHandler {
             } else {
                 ConsumerGroupOperations.describeGroup(ac.result(), prom, Collections.singletonList(groupToDescribe));
             }
-            processResponse(prom, routingContext, HttpResponseStatus.OK, httpMetrics, httpMetrics.getDescribeGroupRequestTimer(), requestTimerSample);
+            processResponse(prom, routingContext, HttpResponseStatus.OK, httpMetrics, timer, requestTimerSample);
         });
     }
 
@@ -316,16 +322,17 @@ public class RestOperations extends CommonHandler implements OperationsHandler {
         httpMetrics.getDeleteGroupCounter().increment();
         httpMetrics.getRequestsCounter().increment();
         Timer.Sample requestTimerSample = Timer.start(httpMetrics.getRegistry());
+        Timer timer = httpMetrics.getDeleteGroupRequestTimer();
         String groupToDelete = routingContext.pathParam("consumerGroupId");
         Promise<List<String>> prom = Promise.promise();
         if (!internalGroupsAllowed() && groupToDelete.startsWith("strimzi")) {
             prom.fail(new InvalidConsumerGroupException("ConsumerGroup " + groupToDelete + " cannot be deleted"));
-            processResponse(prom, routingContext, HttpResponseStatus.BAD_REQUEST, httpMetrics, httpMetrics.getDeleteTopicRequestTimer(), requestTimerSample);
+            processResponse(prom, routingContext, HttpResponseStatus.BAD_REQUEST, httpMetrics, timer, requestTimerSample);
             return;
         }
         if (groupToDelete == null || groupToDelete.isEmpty()) {
             prom.fail(new InvalidConsumerGroupException("ConsumerGroup to delete has not been specified."));
-            processResponse(prom, routingContext, HttpResponseStatus.BAD_REQUEST, httpMetrics, httpMetrics.getDeleteGroupRequestTimer(), requestTimerSample);
+            processResponse(prom, routingContext, HttpResponseStatus.BAD_REQUEST, httpMetrics, timer, requestTimerSample);
             return;
         }
 
@@ -335,7 +342,7 @@ public class RestOperations extends CommonHandler implements OperationsHandler {
             } else {
                 ConsumerGroupOperations.deleteGroup(ac.result(), Collections.singletonList(groupToDelete), prom);
             }
-            processResponse(prom, routingContext, HttpResponseStatus.NO_CONTENT, httpMetrics, httpMetrics.getDeleteGroupRequestTimer(), requestTimerSample);
+            processResponse(prom, routingContext, HttpResponseStatus.NO_CONTENT, httpMetrics, timer, requestTimerSample);
         });
     }
 
@@ -378,7 +385,7 @@ public class RestOperations extends CommonHandler implements OperationsHandler {
                 parameters.setGroupId(groupToReset);
                 ConsumerGroupOperations.resetGroupOffset(ac.result(), parameters, prom);
             }
-            processResponse(prom, routingContext, HttpResponseStatus.OK, httpMetrics, httpMetrics.getResetGroupOffsetRequestTimer(), requestTimerSample);
+            processResponse(prom, routingContext, HttpResponseStatus.OK, httpMetrics, timer, requestTimerSample);
         });
     }
 
@@ -448,6 +455,7 @@ public class RestOperations extends CommonHandler implements OperationsHandler {
         httpMetrics.getDeleteAclsCounter().increment();
         httpMetrics.getRequestsCounter().increment();
         Timer.Sample requestTimerSample = Timer.start(httpMetrics.getRegistry());
+        Timer timer = httpMetrics.getDeleteAclsRequestTimer();
         Promise<PagedResponse<Types.AclBinding>> promise = Promise.promise();
         AdminClient client = AdminClient.create(acConfig);
 
@@ -461,7 +469,7 @@ public class RestOperations extends CommonHandler implements OperationsHandler {
             KafkaAdminClient.create(routingContext.vertx(), client).close();
         }
 
-        processResponse(promise, routingContext, HttpResponseStatus.OK, httpMetrics, httpMetrics.getDeleteAclsRequestTimer(), requestTimerSample);
+        processResponse(promise, routingContext, HttpResponseStatus.OK, httpMetrics, timer, requestTimerSample);
     }
 
     private boolean internalTopicsAllowed() {

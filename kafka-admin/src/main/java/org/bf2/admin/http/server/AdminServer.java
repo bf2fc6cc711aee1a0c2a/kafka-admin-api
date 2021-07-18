@@ -48,6 +48,7 @@ import java.nio.file.Path;
 import java.time.Duration;
 import java.util.Base64;
 import java.util.Base64.Decoder;
+import java.util.Iterator;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
@@ -231,11 +232,12 @@ public class AdminServer extends AbstractVerticle {
             }
         } else if (config.isBasicEnabled()) {
             JsonArray security = openAPI.getJsonArray("security");
+            Iterator<Object> items = security.iterator();
 
-            for (int i = 0; i < security.size(); i++) {
-                JsonObject securityEntry = security.getJsonObject(i);
-                if (securityEntry.containsKey(SECURITY_SCHEME_NAME_OAUTH)) {
-                    security.remove(i);
+            while (items.hasNext()) {
+                Object item = items.next();
+                if (item instanceof JsonObject && ((JsonObject) item).containsKey(SECURITY_SCHEME_NAME_OAUTH)) {
+                    items.remove();
                 }
             }
 
