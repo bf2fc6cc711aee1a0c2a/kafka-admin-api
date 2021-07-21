@@ -1000,6 +1000,15 @@ components:
         groupId:
           description: Unique identifier for the consumer group
           type: string
+        state:
+          type: string
+          enum:
+            - STABLE
+            - DEAD
+            - EMPTY
+            - COMPLETING_REBALANCE
+            - PREPARING_REBALANCE
+            - UNKNOWN
         consumers:
           description: The list of consumers associated with this consumer group
           type: array
