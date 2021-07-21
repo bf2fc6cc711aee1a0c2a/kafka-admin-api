@@ -739,7 +739,7 @@ components:
       nullable: false
       enum:
       - 'LITERAL'
-      - 'PATTERN'
+      - 'PREFIXED'
     AclPatternTypeFilter:
       title: ACL Pattern Type Filter
       type: string
