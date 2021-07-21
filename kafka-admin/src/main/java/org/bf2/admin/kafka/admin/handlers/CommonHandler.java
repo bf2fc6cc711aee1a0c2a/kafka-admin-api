@@ -21,7 +21,6 @@ import org.apache.kafka.common.KafkaException;
 import org.apache.kafka.common.config.SaslConfigs;
 import org.apache.kafka.common.errors.AuthenticationException;
 import org.apache.kafka.common.errors.AuthorizationException;
-import org.apache.kafka.common.errors.GroupAuthorizationException;
 import org.apache.kafka.common.errors.GroupIdNotFoundException;
 import org.apache.kafka.common.errors.GroupNotEmptyException;
 import org.apache.kafka.common.errors.InvalidConfigurationException;
@@ -56,7 +55,11 @@ public class CommonHandler {
 
     protected static final Logger log = LogManager.getLogger(CommonHandler.class);
     protected static final String ADMIN_CLIENT_CONFIG = RestOperations.class.getName() + ".ADMIN_CLIENT_CONFIG";
-    private static final String SASL_CONFIG_TEMPLATE = "org.apache.kafka.common.security.oauthbearer.OAuthBearerLoginModule required oauth.access.token=\"%s\";";
+    private static final String SASL_PLAIN_CONFIG_TEMPLATE = "org.apache.kafka.common.security.plain.PlainLoginModule "
+            + "required "
+            + "username=\"%s\" "
+            + "password=\"%s\";";
+    private static final String SASL_OAUTH_CONFIG_TEMPLATE = "org.apache.kafka.common.security.oauthbearer.OAuthBearerLoginModule required oauth.access.token=\"%s\";";
 
     protected final KafkaAdminConfigRetriever kaConfig;
 
@@ -80,7 +83,13 @@ public class CommonHandler {
 
         if (kaConfig.isOauthEnabled()) {
             final String accessToken = context.user().principal().getString("access_token");
-            acConfig.put(SaslConfigs.SASL_JAAS_CONFIG, String.format(SASL_CONFIG_TEMPLATE, accessToken));
+            acConfig.put(SaslConfigs.SASL_JAAS_CONFIG, String.format(SASL_OAUTH_CONFIG_TEMPLATE, accessToken));
+        } else if (kaConfig.isBasicEnabled()) {
+            final JsonObject principal = context.user().principal();
+            acConfig.put(SaslConfigs.SASL_JAAS_CONFIG,
+                         String.format(SASL_PLAIN_CONFIG_TEMPLATE,
+                                       principal.getString("username"),
+                                       principal.getString("password")));
         } else {
             log.debug("OAuth is disabled - no attempt to set access token in Admin Client config");
         }
@@ -108,111 +117,137 @@ public class CommonHandler {
     protected static <T> void processResponse(Promise<T> prom, RoutingContext routingContext, HttpResponseStatus successResponseStatus, HttpMetrics httpMetrics, Timer timer, Timer.Sample requestTimerSample) {
         prom.future().onComplete(res -> {
             if (res.failed()) {
-                Throwable failureCause = res.cause();
-
-                // TODO: Refactor this...
-                if (failureCause instanceof HttpException) {
-                    HttpException cause = (HttpException) failureCause;
-                    routingContext.response().setStatusCode(cause.getStatusCode());
-                } else if (failureCause instanceof ExceptionInInitializerError) {
-                    failureCause = failureCause.getCause();
-                    routingContext.response().setStatusCode(HttpResponseStatus.BAD_REQUEST.code());
-                } else if (failureCause instanceof UnknownTopicOrPartitionException
-                        || failureCause instanceof GroupIdNotFoundException) {
-                    routingContext.response().setStatusCode(HttpResponseStatus.NOT_FOUND.code());
-                } else if (failureCause instanceof TimeoutException) {
-                    routingContext.response().setStatusCode(HttpResponseStatus.SERVICE_UNAVAILABLE.code());
-                } else if (failureCause instanceof GroupNotEmptyException) {
-                    routingContext.response().setStatusCode(HttpResponseStatus.LOCKED.code());
-                } else if (failureCause instanceof GroupAuthorizationException) {
-                    routingContext.response().setStatusCode(HttpResponseStatus.FORBIDDEN.code());
-                } else if (failureCause instanceof AuthenticationException
-                    || failureCause instanceof AuthorizationException
-                    || failureCause instanceof TokenExpiredException
-                    || (failureCause.getCause() instanceof SaslAuthenticationException
-                            && failureCause.getCause().getMessage().contains("Authentication failed due to an invalid token"))) {
-                    routingContext.response().setStatusCode(HttpResponseStatus.UNAUTHORIZED.code());
-                } else if (failureCause instanceof org.apache.kafka.common.errors.InvalidTopicException
-                        || failureCause instanceof InvalidReplicationFactorException
-                        || failureCause instanceof BadRequestException) {
-                    routingContext.response().setStatusCode(HttpResponseStatus.BAD_REQUEST.code());
-                } else if (failureCause instanceof TopicExistsException) {
-                    routingContext.response().setStatusCode(HttpResponseStatus.CONFLICT.code());
-                } else if (failureCause instanceof InvalidRequestException
-                        || failureCause instanceof InvalidConfigurationException
-                        || failureCause instanceof IllegalArgumentException
-                        || failureCause instanceof InvalidReplicationFactorException
-                        || failureCause instanceof org.apache.kafka.common.errors.InvalidTopicException
-                        || failureCause instanceof InvalidPartitionsException) {
-                    routingContext.response().setStatusCode(HttpResponseStatus.BAD_REQUEST.code());
-                } else if (failureCause instanceof IllegalStateException) {
-                    routingContext.response().setStatusCode(HttpResponseStatus.UNAUTHORIZED.code());
-                } else if (failureCause instanceof DecodeException
-                        || failureCause instanceof ValidationException
-                        || failureCause instanceof InvalidTopicException
-                        || failureCause instanceof BodyProcessorException
-                        || failureCause instanceof UnknownMemberIdException
-                        || failureCause instanceof InvalidConsumerGroupException
-                        || failureCause instanceof LeaderNotAvailableException) {
-                    routingContext.response().setStatusCode(HttpResponseStatus.BAD_REQUEST.code());
-                } else if (failureCause instanceof KafkaException) {
-                    // Most of the kafka related exceptions are extended from KafkaException
-                    if (failureCause.getMessage().contains("Failed to find brokers to send")) {
-                        routingContext.response().setStatusCode(HttpResponseStatus.SERVICE_UNAVAILABLE.code());
-                    } else if (failureCause.getMessage().contains("JAAS configuration")) {
-                        routingContext.response().setStatusCode(HttpResponseStatus.UNAUTHORIZED.code());
-                    } else {
-                        log.error("Unknown exception ", failureCause);
-                        routingContext.response().setStatusCode(HttpResponseStatus.INTERNAL_SERVER_ERROR.code());
-                    }
-                } else if (failureCause instanceof RuntimeException) {
-                    RuntimeException iae = (RuntimeException) failureCause;
-                    if (iae.getCause() instanceof GeneralSecurityException) {
-                        failureCause = iae.getCause();
-                        routingContext.response().setStatusCode(HttpResponseStatus.UNAUTHORIZED.code());
-                    } else {
-                        log.error("Unknown exception ", iae.getCause());
-                        routingContext.response().setStatusCode(HttpResponseStatus.INTERNAL_SERVER_ERROR.code());
-                    }
-                } else {
-                    log.error("Unknown exception ", failureCause);
-                    routingContext.response().setStatusCode(HttpResponseStatus.INTERNAL_SERVER_ERROR.code());
-                }
-
-                JsonObject jo = new JsonObject();
-                jo.put("code", routingContext.response().getStatusCode());
-                if (routingContext.response().getStatusCode() == HttpResponseStatus.INTERNAL_SERVER_ERROR.code()) {
-                    jo.put("error_message", HttpResponseStatus.INTERNAL_SERVER_ERROR.reasonPhrase());
-                } else {
-                    jo.put("error_message", failureCause.getMessage());
-                    jo.put("class", failureCause.getClass().getSimpleName());
-                }
-                routingContext.response().end(jo.toBuffer());
-                httpMetrics.getFailedRequestsCounter(routingContext.response().getStatusCode()).increment();
-                requestTimerSample.stop(timer);
-                log.error("{} {}", failureCause.getClass(), failureCause.getMessage());
+                processFailure(res.cause(), routingContext, httpMetrics, timer, requestTimerSample);
             } else {
-                ObjectWriter ow = new ObjectMapper().writer().withDefaultPrettyPrinter();
+                processSuccess(res.result(), routingContext, successResponseStatus, httpMetrics, timer, requestTimerSample);
+            }
+        });
+    }
+
+    static <T> void processSuccess(T result, RoutingContext routingContext, HttpResponseStatus successResponseStatus, HttpMetrics httpMetrics, Timer timer, Timer.Sample requestTimerSample) {
+        routingContext.response().setStatusCode(successResponseStatus.code());
+
+        if (successResponseStatus != HttpResponseStatus.NO_CONTENT && result != null) {
+            if (result instanceof JsonObject) {
+                routingContext.response().end(((JsonObject) result).toBuffer());
+            } else if (result instanceof String) {
+                routingContext.response().end((String) result);
+            } else {
                 String json = null;
+                ObjectWriter ow = new ObjectMapper().writer().withDefaultPrettyPrinter();
+
                 try {
-                    json = ow.writeValueAsString(res.result());
+                    json = ow.writeValueAsString(result);
                 } catch (JsonProcessingException e) {
-                    routingContext.response().setStatusCode(HttpResponseStatus.INTERNAL_SERVER_ERROR.code());
-                    JsonObject jsonObject = new JsonObject();
-                    jsonObject.put("code", routingContext.response().getStatusCode());
-                    jsonObject.put("error", e.getMessage());
-                    routingContext.response().end(jsonObject.toBuffer());
-                    httpMetrics.getFailedRequestsCounter(HttpResponseStatus.INTERNAL_SERVER_ERROR.code()).increment();
-                    requestTimerSample.stop(timer);
+                    errorResponse(e, HttpResponseStatus.INTERNAL_SERVER_ERROR, routingContext, httpMetrics, timer, requestTimerSample);
                     log.error(e);
                     return;
                 }
-                routingContext.response().setStatusCode(successResponseStatus.code());
                 routingContext.response().end(json);
-                httpMetrics.getSucceededRequestsCounter().increment();
-                requestTimerSample.stop(timer);
             }
-        });
+        } else {
+            routingContext.response().end();
+        }
+
+        httpMetrics.getSucceededRequestsCounter().increment();
+        requestTimerSample.stop(timer);
+    }
+
+    static void errorResponse(Throwable error, HttpResponseStatus status, RoutingContext routingContext, HttpMetrics httpMetrics, Timer timer, Timer.Sample requestTimerSample) {
+        final int statusCode = status.code();
+
+        routingContext.response().setStatusCode(statusCode);
+
+        JsonObject responseBody = new JsonObject()
+                .put("code", statusCode);
+
+        if (status == HttpResponseStatus.INTERNAL_SERVER_ERROR) {
+            responseBody.put("error_message", status.reasonPhrase());
+        } else {
+            responseBody.put("error_message", error.getMessage());
+            responseBody.put("class", error.getClass().getSimpleName());
+        }
+
+        routingContext.response().end(responseBody.toBuffer());
+
+        httpMetrics.getFailedRequestsCounter(statusCode).increment();
+        requestTimerSample.stop(timer);
+    }
+
+    static void processFailure(Throwable failureCause, RoutingContext routingContext, HttpMetrics httpMetrics, Timer timer, Timer.Sample requestTimerSample) {
+        HttpResponseStatus status;
+
+        // TODO: Refactor this...
+        if (failureCause instanceof HttpException) {
+            HttpException cause = (HttpException) failureCause;
+            status = HttpResponseStatus.valueOf(cause.getStatusCode());
+        } else if (failureCause instanceof ExceptionInInitializerError) {
+            failureCause = failureCause.getCause();
+            status = HttpResponseStatus.BAD_REQUEST;
+        } else if (failureCause instanceof UnknownTopicOrPartitionException
+                || failureCause instanceof GroupIdNotFoundException) {
+            status = HttpResponseStatus.NOT_FOUND;
+        } else if (failureCause instanceof TimeoutException) {
+            status = HttpResponseStatus.SERVICE_UNAVAILABLE;
+        } else if (failureCause instanceof GroupNotEmptyException) {
+            status = HttpResponseStatus.LOCKED;
+        } else if (failureCause instanceof AuthorizationException) {
+            status = HttpResponseStatus.FORBIDDEN;
+        } else if (failureCause instanceof AuthenticationException
+            || failureCause instanceof TokenExpiredException
+            || (failureCause.getCause() instanceof SaslAuthenticationException
+                    && failureCause.getCause().getMessage().contains("Authentication failed due to an invalid token"))) {
+            status = HttpResponseStatus.UNAUTHORIZED;
+        } else if (failureCause instanceof org.apache.kafka.common.errors.InvalidTopicException
+                || failureCause instanceof InvalidReplicationFactorException
+                || failureCause instanceof BadRequestException) {
+            status = HttpResponseStatus.BAD_REQUEST;
+        } else if (failureCause instanceof TopicExistsException) {
+            status = HttpResponseStatus.CONFLICT;
+        } else if (failureCause instanceof InvalidRequestException
+                || failureCause instanceof InvalidConfigurationException
+                || failureCause instanceof IllegalArgumentException
+                || failureCause instanceof InvalidReplicationFactorException
+                || failureCause instanceof org.apache.kafka.common.errors.InvalidTopicException
+                || failureCause instanceof InvalidPartitionsException) {
+            status = HttpResponseStatus.BAD_REQUEST;
+        } else if (failureCause instanceof IllegalStateException) {
+            status = HttpResponseStatus.UNAUTHORIZED;
+        } else if (failureCause instanceof DecodeException
+                || failureCause instanceof ValidationException
+                || failureCause instanceof InvalidTopicException
+                || failureCause instanceof BodyProcessorException
+                || failureCause instanceof UnknownMemberIdException
+                || failureCause instanceof InvalidConsumerGroupException
+                || failureCause instanceof LeaderNotAvailableException) {
+            status = HttpResponseStatus.BAD_REQUEST;
+        } else if (failureCause instanceof KafkaException) {
+            // Most of the kafka related exceptions are extended from KafkaException
+            if (failureCause.getMessage().contains("Failed to find brokers to send")) {
+                status = HttpResponseStatus.SERVICE_UNAVAILABLE;
+            } else if (failureCause.getMessage().contains("JAAS configuration")) {
+                status = HttpResponseStatus.UNAUTHORIZED;
+            } else {
+                log.error("Unknown exception ", failureCause);
+                status = HttpResponseStatus.INTERNAL_SERVER_ERROR;
+            }
+        } else if (failureCause instanceof RuntimeException) {
+            RuntimeException iae = (RuntimeException) failureCause;
+            if (iae.getCause() instanceof GeneralSecurityException) {
+                failureCause = iae.getCause();
+                status = HttpResponseStatus.UNAUTHORIZED;
+            } else {
+                log.error("Unknown exception ", iae.getCause());
+                status = HttpResponseStatus.INTERNAL_SERVER_ERROR;
+            }
+        } else {
+            log.error("Unknown exception ", failureCause);
+            status = HttpResponseStatus.INTERNAL_SERVER_ERROR;
+        }
+
+        errorResponse(failureCause, status, routingContext, httpMetrics, timer, requestTimerSample);
+
+        log.error("{} {}", failureCause.getClass(), failureCause.getMessage());
     }
 
     public static class TopicComparator implements Comparator<Types.Topic> {

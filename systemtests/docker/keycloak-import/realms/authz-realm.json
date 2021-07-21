@@ -37,6 +37,9 @@
       "name" : "ClusterManager Group",
       "path" : "/ClusterManager Group"
     }, {
+      "name" : "ClusterUser Group",
+      "path" : "/ClusterUser Group"
+    }, {
       "name" : "ClusterManager-cluster2 Group",
       "path" : "/ClusterManager-cluster2 Group"
     }, {
@@ -64,6 +67,24 @@
         "account" : [ "view-profile", "manage-account" ]
       },
       "groups" : [ "/ClusterManager Group" ]
+    }, {
+      "username" : "susan",
+      "enabled" : true,
+      "totp" : false,
+      "emailVerified" : true,
+      "firstName" : "Susan",
+      "email" : "susan@strimzi.io",
+      "credentials" : [ {
+        "type" : "password",
+        "value" : "susan-password"
+      } ],
+      "disableableCredentialTypes" : [ ],
+      "requiredActions" : [ ],
+      "realmRoles" : [ "offline_access", "uma_authorization" ],
+      "clientRoles" : {
+        "account" : [ "view-profile", "manage-account" ]
+      },
+      "groups" : [ "/ClusterUser Group" ]
     }, {
       "username" : "bob",
       "enabled" : true,
@@ -433,7 +454,15 @@
             "type" : "Cluster",
             "ownerManagedAccess" : false,
             "attributes" : { },
-            "uris" : [ ]
+            "uris" : [ ],
+            "scopes": [
+              {
+                "name": "Alter"
+              },
+              {
+                "name": "Describe"
+              }
+            ]
           }
         ],
         "policies": [
@@ -462,6 +491,15 @@
             "decisionStrategy" : "UNANIMOUS",
             "config" : {
               "groups" : "[{\"path\":\"/ClusterManager Group\",\"extendChildren\":false}]"
+            }
+          },
+          {
+            "name" : "ClusterUser Group",
+            "type" : "group",
+            "logic" : "POSITIVE",
+            "decisionStrategy" : "UNANIMOUS",
+            "config" : {
+              "groups" : "[{\"path\":\"/ClusterUser Group\",\"extendChildren\":false}]"
             }
           }, {
             "name" : "ClusterManager of cluster2 Group",

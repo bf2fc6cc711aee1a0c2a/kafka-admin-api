@@ -24,6 +24,7 @@ public class KafkaAdminConfigRetriever {
     private static final String DEFAULT_TLS_VERSION = "TLSv1.3";
 
     public static final String BOOTSTRAP_SERVERS = PREFIX + "BOOTSTRAP_SERVERS";
+    public static final String BASIC_ENABLED = PREFIX + "BASIC_ENABLED";
     public static final String OAUTH_ENABLED = PREFIX + "OAUTH_ENABLED";
     public static final String OAUTH_TRUSTED_CERT = PREFIX + "OAUTH_TRUSTED_CERT";
     public static final String OAUTH_JWKS_ENDPOINT_URI = PREFIX + "OAUTH_JWKS_ENDPOINT_URI";
@@ -34,11 +35,14 @@ public class KafkaAdminConfigRetriever {
     public static final String TLS_KEY = PREFIX + "TLS_KEY";
     public static final String TLS_VERSION = PREFIX + "TLS_VERSION";
 
+    public static final String ACL_RESOURCE_OPERATIONS = PREFIX + "ACL_RESOURCE_OPERATIONS";
 
+    private final boolean basicEnabled;
     private final boolean oauthEnabled;
     private final Map<String, Object> acConfig;
 
     public KafkaAdminConfigRetriever() {
+        basicEnabled = System.getenv(BASIC_ENABLED) != null && Boolean.valueOf(System.getenv(BASIC_ENABLED));
         oauthEnabled = System.getenv(OAUTH_ENABLED) == null || Boolean.valueOf(System.getenv(OAUTH_ENABLED));
         acConfig = envVarsToAdminClientConfig(PREFIX);
         logConfiguration();
@@ -59,6 +63,10 @@ public class KafkaAdminConfigRetriever {
             adminClientConfig.put(CommonClientConfigs.SECURITY_PROTOCOL_CONFIG, "SASL_PLAINTEXT");
             adminClientConfig.put(SaslConfigs.SASL_MECHANISM, OAUTHBEARER);
             adminClientConfig.put(SaslConfigs.SASL_LOGIN_CALLBACK_HANDLER_CLASS, "io.strimzi.kafka.oauth.client.JaasClientOauthLoginCallbackHandler");
+        } else if (basicEnabled) {
+            log.info("SASL/PLAIN from HTTP Basic authentication enabled");
+            adminClientConfig.put(CommonClientConfigs.SECURITY_PROTOCOL_CONFIG, "SASL_PLAINTEXT");
+            adminClientConfig.put(SaslConfigs.SASL_MECHANISM, "PLAIN");
         } else {
             log.info("oAuth disabled");
         }
@@ -75,6 +83,10 @@ public class KafkaAdminConfigRetriever {
         acConfig.entrySet().forEach(entry -> {
             log.info("\t{} = {}", entry.getKey(), entry.getValue());
         });
+    }
+
+    public boolean isBasicEnabled() {
+        return basicEnabled;
     }
 
     public boolean isOauthEnabled() {
@@ -115,6 +127,11 @@ public class KafkaAdminConfigRetriever {
 
     public String getCorsAllowPattern() {
         return System.getenv().getOrDefault("CORS_ALLOW_LIST_REGEX", "(https?:\\/\\/localhost(:\\d*)?)");
+    }
+
+    public String getAclResourceOperations() {
+        String value = System.getenv(ACL_RESOURCE_OPERATIONS);
+        return value != null ? value : "{}";
     }
 }
 

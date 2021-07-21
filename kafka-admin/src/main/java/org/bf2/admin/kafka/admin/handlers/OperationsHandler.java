@@ -12,4 +12,9 @@ public interface OperationsHandler {
     void describeGroup(RoutingContext routingContext);
     void deleteGroup(RoutingContext routingContext);
     void resetGroupOffset(RoutingContext routingContext);
+
+    void getAclResourceOperations(RoutingContext routingContext);
+    void describeAcls(RoutingContext routingContext);
+    void createAcl(RoutingContext routingContext);
+    void deleteAcls(RoutingContext routingContext);
 }

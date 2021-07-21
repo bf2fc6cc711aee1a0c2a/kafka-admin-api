@@ -9,38 +9,47 @@ public class HttpMetrics {
     private static final String FAILED_REQUESTS_COUNTER = "failed_requests";
     private static final String HTTP_STATUS_CODE = "status_code";
 
-    private PrometheusMeterRegistry meterRegistry;
-    private Counter requestsCounter;
-    private Counter openApiCounter;
-    private Counter succeededRequestsCounter;
-    private Counter deleteTopicCounter;
-    private Counter createTopicCounter;
-    private Counter updateTopicCounter;
-    private Counter listTopicsCounter;
-    private Counter describeTopicCounter;
+    private final PrometheusMeterRegistry meterRegistry;
+    private final Counter requestsCounter;
+    private final Counter openApiCounter;
+    private final Counter succeededRequestsCounter;
+    private final Counter deleteTopicCounter;
+    private final Counter createTopicCounter;
+    private final Counter updateTopicCounter;
+    private final Counter listTopicsCounter;
+    private final Counter describeTopicCounter;
 
-    private Counter describeGroupCounter;
-    private Counter resetGroupOffsetCounter;
-    private Counter listGroupsCounter;
-    private Counter deleteGroupCounter;
+    private final Counter describeGroupCounter;
+    private final Counter resetGroupOffsetCounter;
+    private final Counter listGroupsCounter;
+    private final Counter deleteGroupCounter;
 
-    private Timer listTopicRequestTimer;
-    private Timer createTopicRequestTimer;
-    private Timer updateTopicRequestTimer;
-    private Timer deleteTopicRequestTimer;
-    private Timer describeTopicRequestTimer;
-    private Timer openApiRequestTimer;
-    private Timer describeGroupRequestTimer;
-    private Timer listGroupsRequestTimer;
-    private Timer deleteGroupRequestTimer;
-    private Timer resetGroupOffsetRequestTimer;
+    private final Timer listTopicRequestTimer;
+    private final Timer createTopicRequestTimer;
+    private final Timer updateTopicRequestTimer;
+    private final Timer deleteTopicRequestTimer;
+    private final Timer describeTopicRequestTimer;
+    private final Timer openApiRequestTimer;
+    private final Timer describeGroupRequestTimer;
+    private final Timer listGroupsRequestTimer;
+    private final Timer deleteGroupRequestTimer;
+    private final Timer resetGroupOffsetRequestTimer;
+
+    private final Counter getAclResourceOperationsCounter;
+    private final Timer getAclResourceOperationsRequestTimer;
+
+    private final Counter describeAclsCounter;
+    private final Timer describeAclsRequestTimer;
+
+    private final Counter createAclsCounter;
+    private final Timer createAclsRequestTimer;
+
+    private final Counter deleteAclsCounter;
+    private final Timer deleteAclsRequestTimer;
 
     public HttpMetrics() {
         this.meterRegistry = (PrometheusMeterRegistry) BackendRegistries.getDefaultNow();
-        init();
-    }
 
-    private void init() {
         requestsCounter = meterRegistry.counter("requests");
         openApiCounter = meterRegistry.counter("requests_openapi");
         /*
@@ -69,6 +78,18 @@ public class HttpMetrics {
         listGroupsRequestTimer = meterRegistry.timer("list_groups_request_time");
         deleteGroupRequestTimer = meterRegistry.timer("delete_group_request_time");
         resetGroupOffsetRequestTimer = meterRegistry.timer("reset_group_offset_request_time");
+
+        getAclResourceOperationsCounter = meterRegistry.counter("get_acl_resource_operations_requests");
+        getAclResourceOperationsRequestTimer = meterRegistry.timer("get_acl_resource_operations_request_time");
+
+        describeAclsCounter = meterRegistry.counter("describe_acls_requests");
+        describeAclsRequestTimer = meterRegistry.timer("describe_acls_request_time");
+
+        createAclsCounter = meterRegistry.counter("create_acls_requests");
+        createAclsRequestTimer = meterRegistry.timer("create_acls_request_time");
+
+        deleteAclsCounter = meterRegistry.counter("delete_acls_requests");
+        deleteAclsRequestTimer = meterRegistry.timer("delete_acls_request_time");
     }
 
     public PrometheusMeterRegistry getRegistry() {
@@ -166,4 +187,37 @@ public class HttpMetrics {
     public Timer getResetGroupOffsetRequestTimer() {
         return resetGroupOffsetRequestTimer;
     }
+
+    public Counter getGetAclResourceOperationsCounter() {
+        return getAclResourceOperationsCounter;
+    }
+
+    public Timer getGetAclResourceOperationsRequestTimer() {
+        return getAclResourceOperationsRequestTimer;
+    }
+
+    public Counter getDescribeAclsCounter() {
+        return describeAclsCounter;
+    }
+
+    public Timer getDescribeAclsRequestTimer() {
+        return describeAclsRequestTimer;
+    }
+
+    public Counter getCreateAclsCounter() {
+        return createAclsCounter;
+    }
+
+    public Timer getCreateAclsRequestTimer() {
+        return createAclsRequestTimer;
+    }
+
+    public Counter getDeleteAclsCounter() {
+        return deleteAclsCounter;
+    }
+
+    public Timer getDeleteAclsRequestTimer() {
+        return deleteAclsRequestTimer;
+    }
+
 }
