@@ -440,6 +440,11 @@ public class Types {
         public void setOrder(SortDirectionEnum order) {
             this.order = order;
         }
+
+        public OrderByInput() {
+            this.field = "";
+            this.order = SortDirectionEnum.ASC;
+        }
     }
 
     public static class ConsumerGroup {

@@ -29,7 +29,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.BinaryOperator;
-import java.util.function.Function;
+import java.util.function.ToLongFunction;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
@@ -88,8 +88,6 @@ public class ConsumerGroupOperations {
                 Map<TopicPartition, ListOffsetsResultInfo> latestOffsets = composite.resultAt(1);
 
                 Types.OrderByInput blankOrderBy = new Types.OrderByInput();
-                blankOrderBy.setOrder(Types.SortDirectionEnum.ASC);
-                blankOrderBy.setField("");
                 List<Types.ConsumerGroupDescription> list = consumerGroupInfos.stream()
                     .map(e -> getConsumerGroupsDescription(pattern, blankOrderBy, -1, Collections.singletonMap(e.getGroupId(), e.getDescription()), e.getOffsets(), latestOffsets))
                     .flatMap(List::stream)
@@ -411,22 +409,22 @@ public class ConsumerGroupOperations {
             grp.setState(group.getValue().getState().name());
             List<Types.Consumer> sortedList;
 
-            Function<Types.Consumer, Long> fun;
+            ToLongFunction<Types.Consumer> fun;
             if ("lag".equalsIgnoreCase(orderBy.getField())) {
-                fun = consumer -> consumer.getLag();
+                fun = Types.Consumer::getLag;
             } else if ("endOffset".equalsIgnoreCase(orderBy.getField())) {
-                fun = consumer -> consumer.getLogEndOffset();
+                fun = Types.Consumer::getLogEndOffset;
             } else if ("offset".equalsIgnoreCase(orderBy.getField())) {
-                fun = consumer -> consumer.getOffset();
+                fun = Types.Consumer::getOffset;
             } else {
                 // partitions and unknown keys
-                fun = consumer -> (long) consumer.getPartition();
+                fun = Types.Consumer::getPartition;
             }
 
             if (Types.SortDirectionEnum.DESC.equals(orderBy.getOrder())) {
-                sortedList = members.stream().sorted(Comparator.comparingLong(fun::apply).reversed()).collect(Collectors.toList());
+                sortedList = members.stream().sorted(Comparator.comparingLong(fun::applyAsLong).reversed()).collect(Collectors.toList());
             } else {
-                sortedList = members.stream().sorted(Comparator.comparingLong(fun::apply)).collect(Collectors.toList());
+                sortedList = members.stream().sorted(Comparator.comparingLong(fun::applyAsLong)).collect(Collectors.toList());
             }
 
             grp.setConsumers(sortedList);
