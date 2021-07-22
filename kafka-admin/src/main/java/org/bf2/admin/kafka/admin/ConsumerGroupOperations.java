@@ -91,7 +91,7 @@ public class ConsumerGroupOperations {
                 blankOrderBy.setOrder(Types.SortDirectionEnum.ASC);
                 blankOrderBy.setField("");
                 List<Types.ConsumerGroupDescription> list = consumerGroupInfos.stream()
-                    .map(e -> getConsumerGroupsDescription(pattern, blankOrderBy, Collections.singletonMap(e.getGroupId(), e.getDescription()), e.getOffsets(), latestOffsets))
+                    .map(e -> getConsumerGroupsDescription(pattern, blankOrderBy, -1, Collections.singletonMap(e.getGroupId(), e.getDescription()), e.getOffsets(), latestOffsets))
                     .flatMap(List::stream)
                     .filter(i -> i != null)
                     .collect(Collectors.toList());
@@ -306,7 +306,7 @@ public class ConsumerGroupOperations {
         });
     }
 
-    public static void describeGroup(KafkaAdminClient ac, Promise prom, List<String> groupToDescribe, Types.OrderByInput orderBy) {
+    public static void describeGroup(KafkaAdminClient ac, Promise prom, List<String> groupToDescribe, Types.OrderByInput orderBy, int partitionFilter) {
         Promise<Map<String, ConsumerGroupDescription>> describeGroupPromise = Promise.promise();
         ac.describeConsumerGroups(groupToDescribe, describeGroupPromise);
 
@@ -331,7 +331,7 @@ public class ConsumerGroupOperations {
                     Map<TopicPartition, OffsetAndMetadata> cgOffsets = res.result().resultAt(1);
                     Map<TopicPartition, ListOffsetsResultInfo> endOffsets = res.result().resultAt(2);
 
-                    Types.ConsumerGroupDescription groupDescription = getConsumerGroupsDescription(Pattern.compile(".*"), orderBy, cgDescriptions, cgOffsets, endOffsets).get(0);
+                    Types.ConsumerGroupDescription groupDescription = getConsumerGroupsDescription(Pattern.compile(".*"), orderBy, partitionFilter, cgDescriptions, cgOffsets, endOffsets).get(0);
                     if ("dead".equalsIgnoreCase(groupDescription.getState())) {
                         prom.fail(new GroupIdNotFoundException("Group " + groupDescription.getGroupId() + " does not exist"));
                     } else {
@@ -342,7 +342,7 @@ public class ConsumerGroupOperations {
             });
     }
 
-    private static List<Types.ConsumerGroupDescription> getConsumerGroupsDescription(Pattern pattern, Types.OrderByInput orderBy, Map<String, io.vertx.kafka.admin.ConsumerGroupDescription> consumerGroupDescriptionMap,
+    private static List<Types.ConsumerGroupDescription> getConsumerGroupsDescription(Pattern pattern, Types.OrderByInput orderBy, int partitionFilter, Map<String, io.vertx.kafka.admin.ConsumerGroupDescription> consumerGroupDescriptionMap,
                                                                                      Map<TopicPartition, OffsetAndMetadata> topicPartitionOffsetAndMetadataMap,
                                                                                      Map<TopicPartition, ListOffsetsResultInfo> topicPartitionListOffsetsResultInfoMap) {
 
@@ -367,25 +367,27 @@ public class ConsumerGroupOperations {
                     group.getValue().getMembers().stream().forEach(mem -> {
                         if (mem.getAssignment().getTopicPartitions().size() > 0) {
                             Types.Consumer member = getConsumer(topicPartitionOffsetAndMetadataMap, topicPartitionListOffsetsResultInfoMap, group, pa);
+                            if (memberMatchesPartitionFilter(member, partitionFilter)) {
+                                if (mem.getAssignment().getTopicPartitions().contains(pa)) {
+                                    member.setMemberId(mem.getConsumerId());
+                                } else {
+                                    // unassigned partition
+                                    member.setMemberId(null);
+                                }
 
-                            if (mem.getAssignment().getTopicPartitions().contains(pa)) {
-                                member.setMemberId(mem.getConsumerId());
-                            } else {
-                                // unassigned partition
-                                member.setMemberId(null);
-                            }
-
-                            if (members.contains(member)) {
-                                // some member does not consume the partition, so it was flagged as unconsumed
-                                // another member does consume the partition, so we override the member in result
-                                if (member.getMemberId() != null) {
-                                    members.remove(member);
+                                if (members.contains(member)) {
+                                    // some member does not consume the partition, so it was flagged as unconsumed
+                                    // another member does consume the partition, so we override the member in result
+                                    if (member.getMemberId() != null) {
+                                        members.remove(member);
+                                        members.add(member);
+                                    }
+                                } else {
                                     members.add(member);
                                 }
-                            } else {
-                                members.add(member);
                             }
                         } else {
+                            // more consumers than topic partitions - consumer is in the group but is not consuming
                             Types.Consumer member = new Types.Consumer();
                             member.setMemberId(mem.getConsumerId());
                             member.setTopic(null);
@@ -394,7 +396,9 @@ public class ConsumerGroupOperations {
                             member.setLogEndOffset(0);
                             member.setLag(0);
                             member.setOffset(0);
-                            members.add(member);
+                            if (memberMatchesPartitionFilter(member, partitionFilter)) {
+                                members.add(member);
+                            }
                         }
                     });
                 });
@@ -430,6 +434,15 @@ public class ConsumerGroupOperations {
 
         }).collect(Collectors.toList());
 
+    }
+
+    private static boolean memberMatchesPartitionFilter(Types.Consumer member, int partitionFilter) {
+        if (partitionFilter < 0) {
+            // filter deactivated
+            return true;
+        } else {
+            return member.getPartition() == partitionFilter;
+        }
     }
 
     private static Types.Consumer getConsumer(Map<TopicPartition, OffsetAndMetadata> topicPartitionOffsetAndMetadataMap, Map<TopicPartition, ListOffsetsResultInfo> topicPartitionListOffsetsResultInfoMap, Map.Entry<String, ConsumerGroupDescription> group, TopicPartition pa) {

@@ -275,6 +275,13 @@ paths:
               - partition
           in: query
           required: false
+        - name: partitionFilter
+          description: >-
+            Value of partition to include. Value -1 means filter is not active.
+          schema:
+            type: integer
+          in: query
+          required: false
         - examples:
             Consumer group:
               value:

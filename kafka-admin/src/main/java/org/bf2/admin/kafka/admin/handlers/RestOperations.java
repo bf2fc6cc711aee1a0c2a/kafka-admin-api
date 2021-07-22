@@ -297,6 +297,7 @@ public class RestOperations extends CommonHandler implements OperationsHandler {
         String groupToDescribe = routingContext.pathParam("consumerGroupId");
         Types.SortDirectionEnum sortReverse = Types.SortDirectionEnum.fromString(routingContext.queryParams().get("order"));
         String sortKey = routingContext.queryParams().get("orderKey") == null ? "name" : routingContext.queryParams().get("orderKey");
+        int partitionFilter = routingContext.queryParams().get("partitionFilter") == null ? -1 : Integer.parseInt(routingContext.queryParams().get("partitionFilter"));
         Types.OrderByInput orderBy = new Types.OrderByInput();
         orderBy.setField(sortKey);
         orderBy.setOrder(sortReverse);
@@ -315,7 +316,7 @@ public class RestOperations extends CommonHandler implements OperationsHandler {
             if (ac.failed()) {
                 prom.fail(ac.cause());
             } else {
-                ConsumerGroupOperations.describeGroup(ac.result(), prom, Collections.singletonList(groupToDescribe), orderBy);
+                ConsumerGroupOperations.describeGroup(ac.result(), prom, Collections.singletonList(groupToDescribe), orderBy, partitionFilter);
             }
             processResponse(prom, routingContext, HttpResponseStatus.OK, httpMetrics, timer, requestTimerSample);
         });
