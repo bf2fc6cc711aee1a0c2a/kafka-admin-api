@@ -22,6 +22,7 @@ import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -85,8 +86,11 @@ public class ConsumerGroupOperations {
                 List<ConsumerGroupInfo> consumerGroupInfos = composite.resultAt(0);
                 Map<TopicPartition, ListOffsetsResultInfo> latestOffsets = composite.resultAt(1);
 
+                Types.OrderByInput blankOrderBy = new Types.OrderByInput();
+                blankOrderBy.setOrder(Types.SortDirectionEnum.ASC);
+                blankOrderBy.setField("");
                 List<Types.ConsumerGroupDescription> list = consumerGroupInfos.stream()
-                    .map(e -> getConsumerGroupsDescription(pattern, Collections.singletonMap(e.getGroupId(), e.getDescription()), e.getOffsets(), latestOffsets))
+                    .map(e -> getConsumerGroupsDescription(pattern, blankOrderBy, Collections.singletonMap(e.getGroupId(), e.getDescription()), e.getOffsets(), latestOffsets))
                     .flatMap(List::stream)
                     .filter(i -> i != null)
                     .collect(Collectors.toList());
@@ -301,7 +305,7 @@ public class ConsumerGroupOperations {
         });
     }
 
-    public static void describeGroup(KafkaAdminClient ac, Promise prom, List<String> groupToDescribe) {
+    public static void describeGroup(KafkaAdminClient ac, Promise prom, List<String> groupToDescribe, Types.OrderByInput orderBy) {
         Promise<Map<String, ConsumerGroupDescription>> describeGroupPromise = Promise.promise();
         ac.describeConsumerGroups(groupToDescribe, describeGroupPromise);
 
@@ -326,7 +330,7 @@ public class ConsumerGroupOperations {
                     Map<TopicPartition, OffsetAndMetadata> cgOffsets = res.result().resultAt(1);
                     Map<TopicPartition, ListOffsetsResultInfo> endOffsets = res.result().resultAt(2);
 
-                    Types.ConsumerGroupDescription groupDescription = getConsumerGroupsDescription(Pattern.compile(".*"), cgDescriptions, cgOffsets, endOffsets).get(0);
+                    Types.ConsumerGroupDescription groupDescription = getConsumerGroupsDescription(Pattern.compile(".*"), orderBy, cgDescriptions, cgOffsets, endOffsets).get(0);
                     if ("dead".equalsIgnoreCase(groupDescription.getState())) {
                         prom.fail(new GroupIdNotFoundException("Group " + groupDescription.getGroupId() + " does not exist"));
                     } else {
@@ -337,7 +341,7 @@ public class ConsumerGroupOperations {
             });
     }
 
-    private static List<Types.ConsumerGroupDescription> getConsumerGroupsDescription(Pattern pattern, Map<String, io.vertx.kafka.admin.ConsumerGroupDescription> consumerGroupDescriptionMap,
+    private static List<Types.ConsumerGroupDescription> getConsumerGroupsDescription(Pattern pattern, Types.OrderByInput orderBy, Map<String, io.vertx.kafka.admin.ConsumerGroupDescription> consumerGroupDescriptionMap,
                                                                                      Map<TopicPartition, OffsetAndMetadata> topicPartitionOffsetAndMetadataMap,
                                                                                      Map<TopicPartition, ListOffsetsResultInfo> topicPartitionListOffsetsResultInfoMap) {
 
@@ -400,7 +404,35 @@ public class ConsumerGroupOperations {
             }
             grp.setGroupId(group.getValue().getGroupId());
             grp.setState(group.getValue().getState().name());
-            grp.setConsumers(members);
+            List<Types.Consumer> sortedList;
+            if ("lag".equalsIgnoreCase(orderBy.getField())) {
+                if (Types.SortDirectionEnum.DESC.equals(orderBy.getOrder())) {
+                    sortedList = members.stream().sorted(Comparator.comparingLong(Types.Consumer::getLag).reversed()).collect(Collectors.toList());
+                } else {
+                    sortedList = members.stream().sorted(Comparator.comparingLong(Types.Consumer::getLag)).collect(Collectors.toList());
+                }
+            } else if ("endOffset".equalsIgnoreCase(orderBy.getField())) {
+                if (Types.SortDirectionEnum.DESC.equals(orderBy.getOrder())) {
+                    sortedList = members.stream().sorted(Comparator.comparingLong(Types.Consumer::getLogEndOffset).reversed()).collect(Collectors.toList());
+                } else {
+                    sortedList = members.stream().sorted(Comparator.comparingLong(Types.Consumer::getLogEndOffset)).collect(Collectors.toList());
+                }
+            } else if ("offset".equalsIgnoreCase(orderBy.getField())) {
+                if (Types.SortDirectionEnum.DESC.equals(orderBy.getOrder())) {
+                    sortedList = members.stream().sorted(Comparator.comparingLong(Types.Consumer::getOffset).reversed()).collect(Collectors.toList());
+                } else {
+                    sortedList = members.stream().sorted(Comparator.comparingLong(Types.Consumer::getOffset)).collect(Collectors.toList());
+                }
+            } else {
+                // partitions and unknown keys
+                if (Types.SortDirectionEnum.DESC.equals(orderBy.getOrder())) {
+                    sortedList = members.stream().sorted(Comparator.comparingInt(Types.Consumer::getPartition).reversed()).collect(Collectors.toList());
+                } else {
+                    sortedList = members.stream().sorted(Comparator.comparingInt(Types.Consumer::getPartition)).collect(Collectors.toList());
+                }
+            }
+
+            grp.setConsumers(sortedList);
             return grp;
 
         }).collect(Collectors.toList());

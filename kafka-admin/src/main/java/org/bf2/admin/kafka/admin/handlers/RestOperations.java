@@ -295,6 +295,11 @@ public class RestOperations extends CommonHandler implements OperationsHandler {
         Timer.Sample requestTimerSample = Timer.start(httpMetrics.getRegistry());
         Timer timer = httpMetrics.getDescribeGroupRequestTimer();
         String groupToDescribe = routingContext.pathParam("consumerGroupId");
+        Types.SortDirectionEnum sortReverse = Types.SortDirectionEnum.fromString(routingContext.queryParams().get("order"));
+        String sortKey = routingContext.queryParams().get("orderKey") == null ? "name" : routingContext.queryParams().get("orderKey");
+        Types.OrderByInput orderBy = new Types.OrderByInput();
+        orderBy.setField(sortKey);
+        orderBy.setOrder(sortReverse);
         Promise<Types.Topic> prom = Promise.promise();
         if (!internalGroupsAllowed() && groupToDescribe.startsWith("strimzi")) {
             prom.fail(new InvalidConsumerGroupException("ConsumerGroup " + groupToDescribe + " cannot be described."));
@@ -310,7 +315,7 @@ public class RestOperations extends CommonHandler implements OperationsHandler {
             if (ac.failed()) {
                 prom.fail(ac.cause());
             } else {
-                ConsumerGroupOperations.describeGroup(ac.result(), prom, Collections.singletonList(groupToDescribe));
+                ConsumerGroupOperations.describeGroup(ac.result(), prom, Collections.singletonList(groupToDescribe), orderBy);
             }
             processResponse(prom, routingContext, HttpResponseStatus.OK, httpMetrics, timer, requestTimerSample);
         });
