@@ -16,7 +16,6 @@ import org.apache.kafka.common.resource.ResourceType;
 
 import java.util.List;
 import java.util.Objects;
-import java.util.Set;
 
 public class Types {
 
@@ -441,6 +440,11 @@ public class Types {
         public void setOrder(SortDirectionEnum order) {
             this.order = order;
         }
+
+        public OrderByInput() {
+            this.field = "";
+            this.order = SortDirectionEnum.ASC;
+        }
     }
 
     public static class ConsumerGroup {
@@ -456,14 +460,14 @@ public class Types {
     }
 
     public static class ConsumerGroupDescription extends ConsumerGroup {
-        private Set<Consumer> consumers;
+        private List<Consumer> consumers;
         private String state;
 
-        public Set<Consumer> getConsumers() {
+        public List<Consumer> getConsumers() {
             return consumers;
         }
 
-        public void setConsumers(Set<Consumer> consumers) {
+        public void setConsumers(List<Consumer> consumers) {
             this.consumers = consumers;
         }
 

@@ -5,7 +5,7 @@
       <env name="KAFKA_ADMIN_OAUTH_ENABLED" value="false" />
       <env name="KAFKA_ADMIN_INTERNAL_TOPICS_ENABLED" value="true" />
       <env name="KAFKA_ADMIN_REPLICATION_FACTOR" value="1" />
-      <env name="KAFKA_ADMIN_ACL_RESOURCE_OPERATIONS" value='KAFKA_ADMIN_ACL_RESOURCE_OPERATIONS={ "cluster": [ "describe", "alter" ], "group": [ "delete", "describe", "read" ], "topic": [ "alter", "alter_configs", "create", "delete", "describe", "describe_configs", "read", "write" ], "transactional_id": [ "describe", "write" ] }'></env>
+      <env name="KAFKA_ADMIN_ACL_RESOURCE_OPERATIONS" value="{ &quot;cluster&quot;: [ &quot;describe&quot;, &quot;alter&quot; ], &quot;group&quot;: [ &quot;delete&quot;, &quot;describe&quot;, &quot;read&quot; ], &quot;topic&quot;: [ &quot;alter&quot;, &quot;alter_configs&quot;, &quot;create&quot;, &quot;delete&quot;, &quot;describe&quot;, &quot;describe_configs&quot;, &quot;read&quot;, &quot;write&quot; ], &quot;transactional_id&quot;: [ &quot;describe&quot;, &quot;write&quot; ] }" />
     </envs>
     <option name="MAIN_CLASS_NAME" value="org.bf2.admin.Main" />
     <module name="kafka-admin" />

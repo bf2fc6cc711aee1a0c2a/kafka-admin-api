@@ -218,11 +218,7 @@ public class RestOperations extends CommonHandler implements OperationsHandler {
         httpMetrics.getListTopicsCounter().increment();
         httpMetrics.getRequestsCounter().increment();
         String filter = routingContext.queryParams().get("filter");
-        Types.SortDirectionEnum sortReverse = Types.SortDirectionEnum.fromString(routingContext.queryParams().get("order"));
-        String sortKey = routingContext.queryParams().get("orderKey") == null ? "name" : routingContext.queryParams().get("orderKey");
-        Types.OrderByInput orderBy = new Types.OrderByInput();
-        orderBy.setField(sortKey);
-        orderBy.setOrder(sortReverse);
+        Types.OrderByInput orderBy = getOrderByInput(routingContext);
         final Pattern pattern;
         Promise<Types.TopicList> prom = Promise.promise();
         if (filter != null && !filter.isEmpty()) {
@@ -247,6 +243,15 @@ public class RestOperations extends CommonHandler implements OperationsHandler {
         });
     }
 
+    private Types.OrderByInput getOrderByInput(RoutingContext routingContext) {
+        Types.SortDirectionEnum sortReverse = Types.SortDirectionEnum.fromString(routingContext.queryParams().get("order"));
+        String sortKey = routingContext.queryParams().get("orderKey") == null ? "name" : routingContext.queryParams().get("orderKey");
+        Types.OrderByInput orderBy = new Types.OrderByInput();
+        orderBy.setField(sortKey);
+        orderBy.setOrder(sortReverse);
+        return orderBy;
+    }
+
     @Override
     public void listGroups(RoutingContext routingContext) {
         Map<String, Object> acConfig = routingContext.get(ADMIN_CLIENT_CONFIG);
@@ -256,12 +261,7 @@ public class RestOperations extends CommonHandler implements OperationsHandler {
         httpMetrics.getRequestsCounter().increment();
         String topicFilter = routingContext.queryParams().get("topic");
         String consumerGroupIdFilter = routingContext.queryParams().get("group-id-filter") == null ? "" : routingContext.queryParams().get("group-id-filter");
-
-        Types.SortDirectionEnum sortReverse = Types.SortDirectionEnum.fromString(routingContext.queryParams().get("order"));
-        String sortKey = routingContext.queryParams().get("orderKey") == null ? "name" : routingContext.queryParams().get("orderKey");
-        Types.OrderByInput orderBy = new Types.OrderByInput();
-        orderBy.setField(sortKey);
-        orderBy.setOrder(sortReverse);
+        Types.OrderByInput orderBy = getOrderByInput(routingContext);
 
         final Pattern pattern;
         Promise<Types.TopicList> prom = Promise.promise();
@@ -295,6 +295,9 @@ public class RestOperations extends CommonHandler implements OperationsHandler {
         Timer.Sample requestTimerSample = Timer.start(httpMetrics.getRegistry());
         Timer timer = httpMetrics.getDescribeGroupRequestTimer();
         String groupToDescribe = routingContext.pathParam("consumerGroupId");
+        int partitionFilter = routingContext.queryParams().get("partitionFilter") == null ? -1 : Integer.parseInt(routingContext.queryParams().get("partitionFilter"));
+        Types.OrderByInput orderBy = getOrderByInput(routingContext);
+
         Promise<Types.Topic> prom = Promise.promise();
         if (!internalGroupsAllowed() && groupToDescribe.startsWith("strimzi")) {
             prom.fail(new InvalidConsumerGroupException("ConsumerGroup " + groupToDescribe + " cannot be described."));
@@ -310,7 +313,7 @@ public class RestOperations extends CommonHandler implements OperationsHandler {
             if (ac.failed()) {
                 prom.fail(ac.cause());
             } else {
-                ConsumerGroupOperations.describeGroup(ac.result(), prom, Collections.singletonList(groupToDescribe));
+                ConsumerGroupOperations.describeGroup(ac.result(), prom, Collections.singletonList(groupToDescribe), orderBy, partitionFilter);
             }
             processResponse(prom, routingContext, HttpResponseStatus.OK, httpMetrics, timer, requestTimerSample);
         });
