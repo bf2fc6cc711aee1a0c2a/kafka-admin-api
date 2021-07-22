@@ -29,6 +29,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.BinaryOperator;
+import java.util.function.Function;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
@@ -405,31 +406,23 @@ public class ConsumerGroupOperations {
             grp.setGroupId(group.getValue().getGroupId());
             grp.setState(group.getValue().getState().name());
             List<Types.Consumer> sortedList;
+
+            Function<Types.Consumer, Long> fun;
             if ("lag".equalsIgnoreCase(orderBy.getField())) {
-                if (Types.SortDirectionEnum.DESC.equals(orderBy.getOrder())) {
-                    sortedList = members.stream().sorted(Comparator.comparingLong(Types.Consumer::getLag).reversed()).collect(Collectors.toList());
-                } else {
-                    sortedList = members.stream().sorted(Comparator.comparingLong(Types.Consumer::getLag)).collect(Collectors.toList());
-                }
+                fun = consumer -> consumer.getLag();
             } else if ("endOffset".equalsIgnoreCase(orderBy.getField())) {
-                if (Types.SortDirectionEnum.DESC.equals(orderBy.getOrder())) {
-                    sortedList = members.stream().sorted(Comparator.comparingLong(Types.Consumer::getLogEndOffset).reversed()).collect(Collectors.toList());
-                } else {
-                    sortedList = members.stream().sorted(Comparator.comparingLong(Types.Consumer::getLogEndOffset)).collect(Collectors.toList());
-                }
+                fun = consumer -> consumer.getLogEndOffset();
             } else if ("offset".equalsIgnoreCase(orderBy.getField())) {
-                if (Types.SortDirectionEnum.DESC.equals(orderBy.getOrder())) {
-                    sortedList = members.stream().sorted(Comparator.comparingLong(Types.Consumer::getOffset).reversed()).collect(Collectors.toList());
-                } else {
-                    sortedList = members.stream().sorted(Comparator.comparingLong(Types.Consumer::getOffset)).collect(Collectors.toList());
-                }
+                fun = consumer -> consumer.getOffset();
             } else {
                 // partitions and unknown keys
-                if (Types.SortDirectionEnum.DESC.equals(orderBy.getOrder())) {
-                    sortedList = members.stream().sorted(Comparator.comparingInt(Types.Consumer::getPartition).reversed()).collect(Collectors.toList());
-                } else {
-                    sortedList = members.stream().sorted(Comparator.comparingInt(Types.Consumer::getPartition)).collect(Collectors.toList());
-                }
+                fun = consumer -> (long) consumer.getPartition();
+            }
+
+            if (Types.SortDirectionEnum.DESC.equals(orderBy.getOrder())) {
+                sortedList = members.stream().sorted(Comparator.comparingLong(fun::apply).reversed()).collect(Collectors.toList());
+            } else {
+                sortedList = members.stream().sorted(Comparator.comparingLong(fun::apply)).collect(Collectors.toList());
             }
 
             grp.setConsumers(sortedList);
