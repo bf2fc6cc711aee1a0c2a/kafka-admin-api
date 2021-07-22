@@ -42,4 +42,4 @@ jobs:
         if: failure()
         with:
           name: artifacts
-          path: systemtests/target/logs/
+          path: systemtests/target/failsafe-reports/

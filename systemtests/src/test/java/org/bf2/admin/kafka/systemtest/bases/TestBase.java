@@ -13,7 +13,6 @@ import org.apache.kafka.clients.admin.AdminClient;
 import org.apache.kafka.clients.admin.TopicListing;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.bf2.admin.kafka.systemtest.IndicativeSentences;
 import org.bf2.admin.kafka.systemtest.deployment.DeploymentManager;
 import org.bf2.admin.kafka.systemtest.json.ModelDeserializer;
 import org.bf2.admin.kafka.systemtest.listeners.ExtensionContextParameterResolver;
@@ -22,8 +21,8 @@ import org.bf2.admin.kafka.systemtest.listeners.TestExceptionCallbackListener;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.DisplayNameGeneration;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.api.extension.ExtensionContext;
 import org.testcontainers.containers.GenericContainer;
 
 import java.nio.file.Path;
@@ -37,7 +36,6 @@ import java.util.stream.Collectors;
 @ExtendWith(ExtensionContextParameterResolver.class)
 @ExtendWith(TestExceptionCallbackListener.class)
 @ExtendWith(VertxExtension.class)
-@DisplayNameGeneration(IndicativeSentences.class)
 public class TestBase {
     protected static final Logger LOGGER = LogManager.getLogger(TestBase.class);
 
@@ -57,11 +55,16 @@ public class TestBase {
     }
 
     @BeforeEach
-    void setup() {
-        kafkaContainer = deployments.getKafkaContainer();
-        adminContainer = deployments.getAdminContainer();
-        externalBootstrap = deployments.getExternalBootstrapServers();
-        publishedAdminPort = deployments.getAdminServerPort();
+    void setup(ExtensionContext context, VertxTestContext vertxContext) {
+        try {
+            kafkaContainer = deployments.getKafkaContainer();
+            adminContainer = deployments.getAdminContainer();
+            externalBootstrap = deployments.getExternalBootstrapServers();
+            publishedAdminPort = deployments.getAdminServerPort();
+            vertxContext.completeNow();
+        } catch (Exception e) {
+            vertxContext.failNow(e);
+        }
     }
 
     @AfterEach

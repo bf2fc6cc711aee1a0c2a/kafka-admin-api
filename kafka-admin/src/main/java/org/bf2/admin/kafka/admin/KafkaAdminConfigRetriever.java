@@ -31,6 +31,8 @@ public class KafkaAdminConfigRetriever {
     private static final String DEFAULT_TLS_VERSION = "TLSv1.3";
 
     public static final String BOOTSTRAP_SERVERS = PREFIX + "BOOTSTRAP_SERVERS";
+    public static final String API_TIMEOUT_MS_CONFIG = PREFIX + "API_TIMEOUT_MS_CONFIG";
+    public static final String REQUEST_TIMEOUT_MS_CONFIG = PREFIX + "REQUEST_TIMEOUT_MS_CONFIG";
     public static final String BASIC_ENABLED = PREFIX + "BASIC_ENABLED";
     public static final String OAUTH_ENABLED = PREFIX + "OAUTH_ENABLED";
     public static final String OAUTH_TRUSTED_CERT = PREFIX + "OAUTH_TRUSTED_CERT";
@@ -108,8 +110,8 @@ public class KafkaAdminConfigRetriever {
 
         // admin client
         adminClientConfig.put(AdminClientConfig.METADATA_MAX_AGE_CONFIG, "30000");
-        adminClientConfig.put(AdminClientConfig.REQUEST_TIMEOUT_MS_CONFIG, "10000");
-        adminClientConfig.put(AdminClientConfig.DEFAULT_API_TIMEOUT_MS_CONFIG, "30000");
+        adminClientConfig.put(AdminClientConfig.REQUEST_TIMEOUT_MS_CONFIG, System.getenv().getOrDefault(REQUEST_TIMEOUT_MS_CONFIG, "10000"));
+        adminClientConfig.put(AdminClientConfig.DEFAULT_API_TIMEOUT_MS_CONFIG, System.getenv().getOrDefault(API_TIMEOUT_MS_CONFIG, "30000"));
 
         return adminClientConfig;
     }

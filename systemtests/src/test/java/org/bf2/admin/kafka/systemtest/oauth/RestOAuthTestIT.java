@@ -10,9 +10,12 @@ import org.apache.kafka.clients.admin.TopicDescription;
 import org.apache.kafka.common.config.ConfigResource;
 import org.bf2.admin.kafka.admin.model.Types;
 import org.bf2.admin.kafka.systemtest.bases.OauthTestBase;
+import org.bf2.admin.kafka.systemtest.deployment.DeploymentManager.UserType;
 import org.bf2.admin.kafka.systemtest.enums.ReturnCodes;
+import org.bf2.admin.kafka.systemtest.json.TokenModel;
 import org.bf2.admin.kafka.systemtest.utils.DynamicWait;
 import org.bf2.admin.kafka.systemtest.utils.RequestUtils;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtensionContext;
 
@@ -31,6 +34,15 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class RestOAuthTestIT extends OauthTestBase {
+
+    static TokenModel initialToken;
+    static long initialTokenExpiresAt;
+
+    @BeforeAll
+    static void getToken(Vertx vertx) {
+        initialToken = deployments.getTokenNow(vertx, UserType.OWNER);
+        initialTokenExpiresAt = System.currentTimeMillis() + (initialToken.getExpire() * 1000);
+    }
 
     @Test
     public void testListWithValidToken(Vertx vertx, VertxTestContext testContext) throws Exception {
@@ -118,10 +130,14 @@ public class RestOAuthTestIT extends OauthTestBase {
     @Test
     public void testListWithExpiredToken(Vertx vertx, VertxTestContext testContext) throws InterruptedException {
         // Wait for token to expire
-        Thread.sleep(120_000);
+        long sleepDuration = initialTokenExpiresAt - System.currentTimeMillis();
+
+        if (sleepDuration > 0) {
+            Thread.sleep(sleepDuration);
+        }
         HttpClient client = createHttpClient(vertx);
         client.request(HttpMethod.GET, publishedAdminPort, "localhost", "/rest/topics")
-                .compose(req -> req.putHeader("Authorization", "Bearer " + token).send()
+                .compose(req -> req.putHeader("Authorization", "Bearer " + initialToken.getAccessToken()).send()
                         .onSuccess(response -> testContext.verify(() -> {
                             assertThat(response.statusCode()).isEqualTo(ReturnCodes.UNAUTHORIZED.code);
                             assertStrictTransportSecurityEnabled(response, testContext);
