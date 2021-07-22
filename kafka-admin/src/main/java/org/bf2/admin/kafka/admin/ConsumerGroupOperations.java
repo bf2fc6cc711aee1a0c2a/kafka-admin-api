@@ -422,9 +422,9 @@ public class ConsumerGroupOperations {
             }
 
             if (Types.SortDirectionEnum.DESC.equals(orderBy.getOrder())) {
-                sortedList = members.stream().sorted(Comparator.comparingLong(fun::applyAsLong).reversed()).collect(Collectors.toList());
+                sortedList = members.stream().sorted(Comparator.comparingLong(fun).reversed()).collect(Collectors.toList());
             } else {
-                sortedList = members.stream().sorted(Comparator.comparingLong(fun::applyAsLong)).collect(Collectors.toList());
+                sortedList = members.stream().sorted(Comparator.comparingLong(fun)).collect(Collectors.toList());
             }
 
             grp.setConsumers(sortedList);
