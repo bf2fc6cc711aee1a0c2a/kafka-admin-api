@@ -82,19 +82,27 @@ paths:
           description: List of topics matching the users query paramters.
         '400':
           content:
-            application/json: {}
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
           description: Unable to retreive topics.
         '401':
           content:
-            application/json: {}
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
           description: 'Unauthorized, unable to retrive topics.'
         '500':
           content:
-            application/json: {}
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
           description: Internal server error.
         '503':
           content:
-            application/json: {}
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
           description: Unable to connect to the Kafka cluster.
       operationId: getTopics
       summary: List of topics
@@ -161,19 +169,27 @@ paths:
           description: Kafka topic details.
         '401':
           content:
-            application/json: {}
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
           description: 'Unauthorized, unable to retrieve topics.'
         '404':
           content:
-            application/json: {}
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
           description: Topic not found.
         '500':
           content:
-            application/json: {}
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
           description: Internal server error.
         '503':
           content:
-            application/json: {}
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
           description: Unable to connect to the Kafka cluster.
       operationId: getTopic
       summary: Retrieves the topic with the specified name.
@@ -323,25 +339,35 @@ paths:
           description: Consumer group details.
         '401':
           content:
-            application/json: {}
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
           description: >-
             Unauthorized, request has not been applied because it lacks valid authentication
             credentials.
         '403':
           content:
-            application/json: {}
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
           description: User is forbidden this view this consumer group.
         '404':
           content:
-            application/json: {}
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
           description: Consumer group not found.
         '500':
           content:
-            application/json: {}
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
           description: Internal server error.
         '503':
           content:
-            application/json: {}
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
           description: Unable to connect to the Kafka cluster.
       operationId: getConsumerGroupById
       summary: Get a single consumer group by its unique ID.
@@ -359,29 +385,41 @@ paths:
           description: The consumer group was deleted successfully.
         '401':
           content:
-            application/json: {}
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
           description: >-
             Unauthorized, request has not been applied because it lacks valid authentication
             credentials.
         '403':
           content:
-            application/json: {}
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
           description: Forbidden to delete this consumer group.
         '404':
           content:
-            application/json: {}
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
           description: The consumer group does not exist.
         '423':
           content:
-            application/json: {}
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
           description: User cannot delete consumer group with active members.
         '500':
           content:
-            application/json: {}
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
           description: Internal Server Error.
         '503':
           content:
-            application/json: {}
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
           description: Unable to connect to the Kafka cluster.
       operationId: deleteConsumerGroupById
       summary: Delete a consumer group.
@@ -486,27 +524,37 @@ paths:
           description: List of consumer groups matching the request parameters.
         '400':
           content:
-            application/json: {}
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
           description: >-
             The server cannot or will not process the request due to something that is perceived
             to be a client error such as malformed request syntax.
         '401':
           content:
-            application/json: {}
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
           description: >-
             Unauthorized, request has not been applied because it lacks valid authentication
             credentials.
         '403':
           content:
-            application/json: {}
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
           description: User is forbidden to retrieve the list of consumer groups.
         '500':
           content:
-            application/json: {}
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
           description: An internal server error occurred.
         '503':
           content:
-            application/json: {}
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
           description: Unable to connect to the Kafka cluster.
       operationId: getConsumerGroups
       summary: List of consumer groups in the Kafka instance.
@@ -550,25 +598,35 @@ paths:
           description: The consumer group to reset the offset does have active consumers.
         '401':
           content:
-            application/json: {}
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
           description: >-
             Unauthorized, request has not been applied because it lacks valid authentication
             credentials.
         '403':
           content:
-            application/json: {}
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
           description: Forbidden to delete this consumer group.
         '404':
           content:
-            application/json: {}
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
           description: Specified topic or its partition does not exist.
         '500':
           content:
-            application/json: {}
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
           description: Internal Server Error.
         '503':
           content:
-            application/json: {}
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
           description: Unable to connect to the Kafka cluster.
       operationId: resetConsumerGroupOffset
       summary: Reset the offset for a consumer group.
