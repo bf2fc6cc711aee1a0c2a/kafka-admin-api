@@ -1398,7 +1398,7 @@ components:
            schema:
              $ref: '#/components/schemas/Error'
     Conflict:
-      # Status 403
+      # Status 409
       description: The resource already exists.
       content:
          application/json:
