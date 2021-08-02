@@ -24,3 +24,6 @@ release.properties
 **/docker/certificates/c*
 **/docker/certificates/k*
 **/docker/certificates/.srl
+
+CEKit installation
+/.cekit/
