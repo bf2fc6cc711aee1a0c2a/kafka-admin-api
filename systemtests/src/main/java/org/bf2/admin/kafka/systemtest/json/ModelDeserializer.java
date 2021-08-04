@@ -10,6 +10,7 @@ import org.bf2.admin.kafka.admin.model.Types;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -69,7 +70,7 @@ public class ModelDeserializer {
     public List<Types.TopicPartitionResetResult> getResetResult(Buffer responseBuffer) {
         List<Types.TopicPartitionResetResult> res = null;
         try {
-            res = MAPPER.readValue(responseBuffer.toString(), new TypeReference<List<Types.TopicPartitionResetResult>>() { });
+            res = MAPPER.readValue(responseBuffer.toString(), new TypeReference<Types.PagedResponse<Types.TopicPartitionResetResult>>() { }).getItems();
         } catch (JsonProcessingException e) {
             return Collections.emptyList();
         }
@@ -84,5 +85,14 @@ public class ModelDeserializer {
             e.printStackTrace();
         }
         return groupsDesc;
+    }
+
+    public Map<String, Object> getError(Buffer responseBuffer) {
+        try {
+            return MAPPER.readValue(responseBuffer.toString(), new TypeReference<Map<String, Object>>() { });
+        } catch (JsonProcessingException e) {
+            e.printStackTrace();
+            return Collections.emptyMap();
+        }
     }
 }

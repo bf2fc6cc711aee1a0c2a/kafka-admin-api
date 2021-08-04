@@ -495,7 +495,13 @@ public class Types {
             PageRequest allResults = new PageRequest();
             allResults.setPage(1);
             allResults.setSize(items.size());
-            return forPage(allResults, items);
+
+            return forPage(allResults, items).map(response -> {
+                // Remove paging information when returning a full result set
+                response.setPage(null);
+                response.setSize(null);
+                return response;
+            });
         }
 
         public static <I> Future<PagedResponse<I>> forPage(PageRequest pageRequest, List<I> items) {

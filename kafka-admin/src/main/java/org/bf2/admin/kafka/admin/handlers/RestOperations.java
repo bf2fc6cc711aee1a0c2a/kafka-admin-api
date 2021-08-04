@@ -358,7 +358,7 @@ public class RestOperations extends CommonHandler implements OperationsHandler {
         Timer.Sample requestTimerSample = Timer.start(httpMetrics.getRegistry());
         String groupToReset = routingContext.pathParam("consumerGroupId");
 
-        Promise<List<TopicPartitionResetResult>> prom = Promise.promise();
+        Promise<PagedResponse<TopicPartitionResetResult>> prom = Promise.promise();
         if (!internalGroupsAllowed() && groupToReset.startsWith("strimzi")) {
             prom.fail(new InvalidConsumerGroupException("ConsumerGroup " + groupToReset + " cannot be reset."));
             processResponse(prom, routingContext, HttpResponseStatus.BAD_REQUEST, httpMetrics, timer, requestTimerSample);
