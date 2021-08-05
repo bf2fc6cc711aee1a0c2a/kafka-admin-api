@@ -37,7 +37,7 @@ public class LogCollector {
         Path logPath = TestUtils.getLogPath(Environment.LOG_DIR.resolve("failedTest").toString(), testContext);
         Files.createDirectories(logPath);
         LOGGER.info("Saving container logs to {}", logPath.toString());
-        List<Container> containers = dockerClient.listContainersCmd().withLabelFilter(Collections.singletonMap("test-ident", testContext.getUniqueId())).exec();
+        List<Container> containers = dockerClient.listContainersCmd().withLabelFilter(Collections.singletonMap("test-ident", Environment.TEST_CONTAINER_LABEL)).exec();
 
         for (Container container : containers) {
             DockerLogCallback dockerLogCallback = new DockerLogCallback();

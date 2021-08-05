@@ -12,6 +12,7 @@ public class Environment {
         }};
     private static final String LOG_DIR_ENV = "LOG_DIR";
     private static final DateTimeFormatter DATE_FORMAT = DateTimeFormatter.ofPattern("yyyy-MM-dd_HH-mm");
+    public static final String TEST_CONTAINER_LABEL = "systemtest";
 
     public static final String SUITE_ROOT = System.getProperty("user.dir");
     public static final Path LOG_DIR = (System.getenv(LOG_DIR_ENV) == null ?
