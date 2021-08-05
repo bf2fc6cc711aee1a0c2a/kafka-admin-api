@@ -11,6 +11,7 @@ import io.vertx.core.http.HttpMethod;
 import org.apache.kafka.clients.admin.AdminClient;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.bf2.admin.kafka.systemtest.Environment;
 import org.bf2.admin.kafka.systemtest.json.TokenModel;
 import org.bf2.admin.kafka.systemtest.utils.ClientsConfig;
 import org.bf2.admin.kafka.systemtest.utils.RequestUtils;
@@ -27,6 +28,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Base64;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
@@ -251,6 +253,7 @@ public class DeploymentManager {
         }
 
         KafkaAdminServerContainer container = new KafkaAdminServerContainer()
+                .withLabels(Collections.singletonMap("test-ident", Environment.TEST_CONTAINER_LABEL))
                 .withNetwork(testNetwork)
                 .withExposedPorts(oauthEnabled ? 8443 : 8080, 9990)
                 .withEnv(envMap)
@@ -278,6 +281,7 @@ public class DeploymentManager {
         LOGGER.info("Deploying keycloak container");
 
         GenericContainer<?> container = new GenericContainer<>("kafka-admin-keycloak")
+                .withLabels(Collections.singletonMap("test-ident", Environment.TEST_CONTAINER_LABEL))
                 .withNetwork(testNetwork)
                 .withNetworkAliases("keycloak")
                 .withExposedPorts(8080)
@@ -298,6 +302,7 @@ public class DeploymentManager {
         LOGGER.info("Deploying Kafka container");
 
         var container = new KeycloakSecuredKafkaContainer()
+                .withLabels(Collections.singletonMap("test-ident", Environment.TEST_CONTAINER_LABEL))
                 .withNetwork(testNetwork)
                 .withNetworkAliases(KAFKA_ALIAS);
 
@@ -316,6 +321,7 @@ public class DeploymentManager {
         }
 
         var container = new StrimziPlainKafkaContainer("0.23.0-kafka-2.7.0")
+                    .withLabels(Collections.singletonMap("test-ident", Environment.TEST_CONTAINER_LABEL))
                     .withNetwork(testNetwork)
                     .withNetworkAliases(KAFKA_ALIAS);
 
