@@ -16,6 +16,7 @@ import org.apache.kafka.common.resource.ResourceType;
 
 import java.util.List;
 import java.util.Objects;
+import java.util.function.UnaryOperator;
 
 public class Types {
 
@@ -441,9 +442,13 @@ public class Types {
             this.order = order;
         }
 
+        public OrderByInput(String field, SortDirectionEnum order) {
+            this.field = field;
+            this.order = order;
+        }
+
         public OrderByInput() {
-            this.field = "";
-            this.order = SortDirectionEnum.ASC;
+            this("", SortDirectionEnum.ASC);
         }
     }
 
@@ -678,6 +683,15 @@ public class Types {
     }
 
     public static class AclBinding {
+        public static final String PROP_RESOURCE_TYPE = "resourceType";
+        public static final String PROP_RESOURCE_NAME = "resourceName";
+        public static final String PROP_PATTERN_TYPE = "patternType";
+        public static final String PROP_PRINCIPAL = "principal";
+        public static final String PROP_OPERATION = "operation";
+        public static final String PROP_PERMISSION = "permission";
+
+        public static final OrderByInput DEFAULT_ORDER = new OrderByInput(PROP_PERMISSION, SortDirectionEnum.DESC);
+
         private String resourceType;
         private String resourceName;
         private String patternType;
@@ -685,16 +699,20 @@ public class Types {
         private String operation;
         private String permission;
 
-        public static AclBinding fromQueryParams(io.vertx.core.MultiMap params) {
+        private static AclBinding fromSource(UnaryOperator<String> source) {
             var binding = new AclBinding();
-            binding.setResourceType(Objects.requireNonNullElse(params.get("resourceType"), "ANY"));
-            binding.setResourceName(params.get("resourceName"));
-            binding.setPatternType(Objects.requireNonNullElse(params.get("patternType"), "ANY"));
-            binding.setPrincipal(Objects.requireNonNullElse(params.get("principal"), ""));
-            binding.setOperation(Objects.requireNonNullElse(params.get("operation"), "ANY"));
-            binding.setPermission(Objects.requireNonNullElse(params.get("permission"), "ANY"));
+            binding.setResourceType(Objects.requireNonNullElse(source.apply(PROP_RESOURCE_TYPE), "ANY"));
+            binding.setResourceName(source.apply(PROP_RESOURCE_NAME));
+            binding.setPatternType(Objects.requireNonNullElse(source.apply(PROP_PATTERN_TYPE), "ANY"));
+            binding.setPrincipal(Objects.requireNonNullElse(source.apply(PROP_PRINCIPAL), ""));
+            binding.setOperation(Objects.requireNonNullElse(source.apply(PROP_OPERATION), "ANY"));
+            binding.setPermission(Objects.requireNonNullElse(source.apply(PROP_PERMISSION), "ANY"));
 
             return binding;
+        }
+
+        public static AclBinding fromQueryParams(io.vertx.core.MultiMap params) {
+            return fromSource(params::get);
         }
 
         public static AclBinding fromKafkaBinding(org.apache.kafka.common.acl.AclBinding kafkaBinding) {
@@ -707,6 +725,10 @@ public class Types {
             binding.setPermission(kafkaBinding.entry().permissionType().toString());
 
             return binding;
+        }
+
+        public static AclBinding fromJsonObject(io.vertx.core.json.JsonObject jsonBinding) {
+            return fromSource(jsonBinding::getString);
         }
 
         public org.apache.kafka.common.acl.AclBinding toKafkaBinding() {

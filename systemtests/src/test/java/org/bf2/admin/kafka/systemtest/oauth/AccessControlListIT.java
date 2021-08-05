@@ -16,6 +16,7 @@ import org.apache.kafka.common.acl.AclPermissionType;
 import org.apache.kafka.common.resource.PatternType;
 import org.apache.kafka.common.resource.ResourceType;
 import org.bf2.admin.kafka.admin.AccessControlOperations;
+import org.bf2.admin.kafka.admin.model.Types;
 import org.bf2.admin.kafka.systemtest.bases.OauthTestBase;
 import org.bf2.admin.kafka.systemtest.deployment.DeploymentManager.UserType;
 import org.bf2.admin.kafka.systemtest.enums.ReturnCodes;
@@ -24,10 +25,16 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
+import java.util.UUID;
+import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -36,6 +43,9 @@ class AccessControlListIT extends OauthTestBase {
 
     static final String PARAMETERIZED_TEST_NAME =
             ParameterizedTest.DISPLAY_NAME_PLACEHOLDER + "-" + ParameterizedTest.DEFAULT_DISPLAY_NAME;
+
+    static final String SORT_ASC = "asc";
+    static final String SORT_DESC = "desc";
 
     @AfterEach
     void cleanup(Vertx vertx, VertxTestContext testContext) {
@@ -57,7 +67,7 @@ class AccessControlListIT extends OauthTestBase {
         Checkpoint statusVerified = testContext.checkpoint();
 
         getAcls(vertx, testContext, statusVerified, userType, Map.of(), expectedStatus)
-            .onComplete(testContext.succeedingThenComplete());
+            .onFailure(testContext::failNow);
     }
 
     @ParameterizedTest(name = PARAMETERIZED_TEST_NAME)
@@ -92,10 +102,11 @@ class AccessControlListIT extends OauthTestBase {
                     assertTrue(bindings.stream().anyMatch(newBinding::equals), () ->
                         "Response " + bindings + " did not contain " + newBinding);
                     responseBodyVerified.flag();
-                }));
+                }))
+                .onFailure(testContext::failNow);
         } else {
             responseBodyVerified.flag();
-            response.onComplete(testContext.succeedingThenComplete());
+            response.onFailure(testContext::failNow);
         }
     }
 
@@ -119,7 +130,7 @@ class AccessControlListIT extends OauthTestBase {
                 assertEquals(AccessControlOperations.INVALID_ACL_RESOURCE_OPERATION, response.getString("error_message"));
                 responseBodyVerified.flag();
             }))
-            .onComplete(testContext.succeedingThenComplete());
+            .onFailure(testContext::failNow);
     }
 
     @Test
@@ -144,7 +155,7 @@ class AccessControlListIT extends OauthTestBase {
                     "Response " + bindings + " did not contain one of " + newBindings);
                 responseBodyVerified.flag();
             }))
-            .onComplete(testContext.succeedingThenComplete());
+            .onFailure(testContext::failNow);
     }
 
     @Test
@@ -167,7 +178,7 @@ class AccessControlListIT extends OauthTestBase {
                     "Response " + bindings + " did not contain " + binding2);
                 responseBodyVerified.flag();
             }))
-            .onComplete(testContext.succeedingThenComplete());
+            .onFailure(testContext::failNow);
     }
 
     @Test
@@ -204,7 +215,104 @@ class AccessControlListIT extends OauthTestBase {
                     "Response " + bindings + " were not all DENY");
                 responseBodyVerified.flag();
             }))
-            .onComplete(testContext.succeedingThenComplete());
+            .onFailure(testContext::failNow);
+    }
+
+    @ParameterizedTest(name = PARAMETERIZED_TEST_NAME)
+    @CsvSource({
+        Types.AclBinding.PROP_PERMISSION + "," + SORT_ASC,
+        Types.AclBinding.PROP_PERMISSION + "," + SORT_DESC,
+        Types.AclBinding.PROP_RESOURCE_TYPE + "," + SORT_ASC,
+        Types.AclBinding.PROP_RESOURCE_TYPE + "," + SORT_DESC,
+        Types.AclBinding.PROP_PATTERN_TYPE + "," + SORT_ASC,
+        Types.AclBinding.PROP_PATTERN_TYPE + "," + SORT_DESC,
+        Types.AclBinding.PROP_OPERATION + "," + SORT_ASC,
+        Types.AclBinding.PROP_OPERATION + "," + SORT_DESC,
+        Types.AclBinding.PROP_PRINCIPAL + "," + SORT_ASC,
+        Types.AclBinding.PROP_PRINCIPAL + "," + SORT_DESC,
+        Types.AclBinding.PROP_RESOURCE_NAME + "," + SORT_ASC,
+        Types.AclBinding.PROP_RESOURCE_NAME + "," + SORT_DESC,
+    })
+    void testGetAclsOrderByProperies(String orderKey, String order, Vertx vertx, VertxTestContext testContext) {
+        JsonObject allowedResourceOperations = new JsonObject(CONFIG.getProperty("systemtests.kafka.admin.acl.resource-operations"));
+
+        List<JsonObject> newBindings = Stream.of(new JsonObject())
+            .flatMap(binding -> join(binding, Types.AclBinding.PROP_PERMISSION, AclPermissionType.ALLOW, AclPermissionType.DENY))
+            .flatMap(binding -> join(binding, Types.AclBinding.PROP_RESOURCE_TYPE, ResourceType.TOPIC, ResourceType.GROUP, ResourceType.CLUSTER, ResourceType.TRANSACTIONAL_ID))
+            .flatMap(binding -> join(binding, Types.AclBinding.PROP_PATTERN_TYPE, PatternType.LITERAL, PatternType.PREFIXED))
+            .flatMap(binding -> join(binding, Types.AclBinding.PROP_OPERATION, AclOperation.READ,
+                                     AclOperation.ALL, AclOperation.ALTER, AclOperation.DELETE,
+                                     AclOperation.CREATE, AclOperation.ALTER_CONFIGS,
+                                     AclOperation.DESCRIBE, AclOperation.DESCRIBE_CONFIGS, AclOperation.WRITE))
+            .flatMap(binding -> join(binding, Types.AclBinding.PROP_PRINCIPAL, "User:{uuid}"))
+            .flatMap(binding -> join(binding, Types.AclBinding.PROP_RESOURCE_NAME, "resource-{uuid}"))
+            .filter(binding -> {
+                JsonArray operations = allowedResourceOperations.getJsonArray(binding.getString(Types.AclBinding.PROP_RESOURCE_TYPE).toLowerCase(Locale.US));
+                return operations.contains(binding.getString(Types.AclBinding.PROP_OPERATION).toLowerCase(Locale.US));
+            })
+            .map(binding -> {
+                if (ResourceType.CLUSTER.name().equals(binding.getString(Types.AclBinding.PROP_RESOURCE_TYPE))) {
+                    // Only value allowed is "kafka-cluster"
+                    binding.put(Types.AclBinding.PROP_RESOURCE_NAME, "kafka-cluster");
+                }
+                return binding;
+            })
+            .distinct()
+            .collect(Collectors.toList());
+
+        List<String> expectedValues = newBindings.stream()
+                .map(JsonObject.class::cast)
+                .map(b -> b.getString(orderKey))
+                .collect(Collectors.toList());
+
+        Collections.sort(expectedValues);
+
+        if (SORT_DESC.equals(order)) {
+            Collections.reverse(expectedValues);
+        }
+
+        Checkpoint statusVerified = testContext.checkpoint();
+        Checkpoint responseBodyVerified = testContext.checkpoint();
+
+        final int expectedTotal = newBindings.size();
+        final int pageSize = expectedTotal + 1;
+        final var queryParams = Map.of("page", "1", "size", String.valueOf(pageSize), "orderKey", orderKey, "order", order);
+
+        /*
+         * Due to the number of ACLs created for this case (> 200), using the
+         * bulk API directly is necessary.
+         */
+        kafkaClient.createAcls(newBindings.stream()
+                               .map(Types.AclBinding::fromJsonObject)
+                               .map(Types.AclBinding::toKafkaBinding)
+                               .collect(Collectors.toList()))
+            .all()
+            .whenComplete((result, error) -> {
+                if (error != null) {
+                    testContext.failNow(error);
+                } else {
+                    getAcls(vertx, testContext, statusVerified, UserType.OWNER, queryParams)
+                        .compose(HttpClientResponse::body)
+                        .map(buffer -> new JsonObject(buffer))
+                        .map(response -> testContext.verify(() -> {
+                            assertEquals(expectedTotal, response.getInteger("total"));
+                            assertEquals(pageSize, response.getInteger("size"));
+                            assertEquals(1, response.getInteger("page"));
+
+                            JsonArray bindings = response.getJsonArray("items");
+                            assertEquals(expectedTotal, bindings.size());
+
+                            List<String> responseValues = bindings.stream()
+                                    .map(JsonObject.class::cast)
+                                    .map(b -> b.getString(orderKey))
+                                    .collect(Collectors.toList());
+
+                            assertEquals(expectedValues, responseValues, "Unexpected response order");
+                            responseBodyVerified.flag();
+                        }))
+                        .onFailure(testContext::failNow);
+                }
+            });
     }
 
     // Utilities
@@ -278,7 +386,13 @@ class AccessControlListIT extends OauthTestBase {
             Promise<HttpClientResponse> promise = Promise.promise();
 
             testContext.verify(() -> {
-                assertEquals(expectedStatus.code, rsp.statusCode());
+                assertEquals(expectedStatus.code, rsp.statusCode(), () -> {
+                    try {
+                        return "Unexpected status; body=" + rsp.body().toCompletionStage().toCompletableFuture().get().toString();
+                    } catch (InterruptedException | ExecutionException e) {
+                        throw new RuntimeException(e);
+                    }
+                });
                 statusVerified.flag();
             });
 
@@ -299,12 +413,29 @@ class AccessControlListIT extends OauthTestBase {
                           AclOperation operation,
                           AclPermissionType permission) {
         return new JsonObject()
-                .put("resourceType", resourceType.name())
-                .put("resourceName", resourceName)
-                .put("patternType", patternType.name())
-                .put("principal", principal)
-                .put("operation", operation.name())
-                .put("permission", permission.name());
+                .put(Types.AclBinding.PROP_RESOURCE_TYPE, resourceType.name())
+                .put(Types.AclBinding.PROP_RESOURCE_NAME, resourceName)
+                .put(Types.AclBinding.PROP_PATTERN_TYPE, patternType.name())
+                .put(Types.AclBinding.PROP_PRINCIPAL, principal)
+                .put(Types.AclBinding.PROP_OPERATION, operation.name())
+                .put(Types.AclBinding.PROP_PERMISSION, permission.name());
     }
 
+    Stream<JsonObject> join(JsonObject base, String newKey, Object... values) {
+        List<JsonObject> results = new ArrayList<>(values.length);
+
+        for (Object value : values) {
+            JsonObject copy = base.copy();
+            String newValue = value.toString();
+
+            if (newValue != null && newValue.contains("{uuid}")) {
+                newValue = newValue.replace("{uuid}", UUID.randomUUID().toString());
+            }
+
+            copy.put(newKey, newValue);
+            results.add(copy);
+        }
+
+        return results.stream();
+    }
 }
