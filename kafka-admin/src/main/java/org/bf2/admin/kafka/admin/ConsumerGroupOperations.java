@@ -201,12 +201,14 @@ public class ConsumerGroupOperations {
         }
 
         // get the set of partitions we want to reset
-        CompositeFuture.join(promises).compose(nothing -> {
-            return getTopicPartitions(ac, parameters.getGroupId(), topicPartitionsToReset);
-        }).map(topicPartitions -> {
-            topicPartitionsToReset.forEach(topicPartition ->
-                validatePartitionResettable(topicPartitions, topicPartition));
-            return null;
+        CompositeFuture.join(promises).compose(i -> {
+            if (i.failed()) {
+                return Future.failedFuture(i.cause());
+            } else {
+                return Future.succeededFuture();
+            }
+        }).compose(nothing -> {
+            return validatePartitionsResettable(ac, parameters.getGroupId(), topicPartitionsToReset);
         }).compose(nothing -> {
             Map<TopicPartition, OffsetSpec> partitionsToFetchOffset = new HashMap<>();
             topicPartitionsToReset.forEach(topicPartition -> {
@@ -320,7 +322,7 @@ public class ConsumerGroupOperations {
         });
     }
 
-    static Future<Map<TopicPartition, List<MemberDescription>>> getTopicPartitions(KafkaAdminClient ac, String groupId, Set<TopicPartition> topicPartitionsToReset) {
+    static Future<Void> validatePartitionsResettable(KafkaAdminClient ac, String groupId, Set<TopicPartition> topicPartitionsToReset) {
         Map<TopicPartition, List<MemberDescription>> topicPartitions = new ConcurrentHashMap<>();
 
         List<String> requestedTopics = topicPartitionsToReset
@@ -383,7 +385,11 @@ public class ConsumerGroupOperations {
             .onFailure(groupDescribe::fail);
 
         return CompositeFuture.all(topicDescribe.future(), groupDescribe.future())
-                .map(topicPartitions);
+                .map(nothing -> {
+                    topicPartitionsToReset.forEach(topicPartition ->
+                        validatePartitionResettable(topicPartitions, topicPartition));
+                    return null;
+                });
     }
 
     static List<MemberDescription> addTopicPartition(List<MemberDescription> members, MemberDescription newMember) {
