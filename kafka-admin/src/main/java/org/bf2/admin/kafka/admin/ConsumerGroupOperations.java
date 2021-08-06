@@ -1,21 +1,23 @@
 package org.bf2.admin.kafka.admin;
 
 import io.vertx.core.CompositeFuture;
-import org.bf2.admin.kafka.admin.model.Types;
-import org.bf2.admin.kafka.admin.handlers.CommonHandler;
 import io.vertx.core.Future;
 import io.vertx.core.Promise;
 import io.vertx.kafka.admin.ConsumerGroupDescription;
 import io.vertx.kafka.admin.ConsumerGroupListing;
 import io.vertx.kafka.admin.KafkaAdminClient;
 import io.vertx.kafka.admin.ListOffsetsResultInfo;
+import io.vertx.kafka.admin.MemberDescription;
 import io.vertx.kafka.admin.OffsetSpec;
 import io.vertx.kafka.client.common.TopicPartition;
 import io.vertx.kafka.client.consumer.OffsetAndMetadata;
 import org.apache.kafka.common.errors.GroupIdNotFoundException;
 import org.apache.kafka.common.errors.InvalidRequestException;
+import org.apache.kafka.common.errors.UnknownTopicOrPartitionException;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.bf2.admin.kafka.admin.handlers.CommonHandler;
+import org.bf2.admin.kafka.admin.model.Types;
 
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
@@ -28,6 +30,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.BinaryOperator;
 import java.util.function.ToLongFunction;
 import java.util.regex.Pattern;
@@ -150,12 +153,16 @@ public class ConsumerGroupOperations {
     }
 
     @SuppressWarnings({"checkstyle:JavaNCSS", "checkstyle:MethodLength"})
-    public static void resetGroupOffset(KafkaAdminClient ac, Types.ConsumerGroupOffsetResetParameters parameters, Promise<List<Types.TopicPartitionResetResult>> prom) {
-        Set<TopicPartition> topicPartitionsToReset = new HashSet<>();
-        List<Future> promises = new ArrayList<>();
+    public static void resetGroupOffset(KafkaAdminClient ac, Types.ConsumerGroupOffsetResetParameters parameters, Promise<Types.PagedResponse<Types.TopicPartitionResetResult>> prom) {
+
         if (!"latest".equals(parameters.getOffset()) && !"earliest".equals(parameters.getOffset()) && parameters.getValue() == null) {
             throw new InvalidRequestException("Value has to be set when " + parameters.getOffset() + " offset is used.");
         }
+
+        Set<TopicPartition> topicPartitionsToReset = new HashSet<>();
+
+        @SuppressWarnings("rawtypes") // CompositeFuture#join requires raw type
+        List<Future> promises = new ArrayList<>();
 
         if (parameters.getTopics() == null || parameters.getTopics().isEmpty()) {
             // reset everything
@@ -192,6 +199,7 @@ public class ConsumerGroupOperations {
                 }
             });
         }
+
         // get the set of partitions we want to reset
         CompositeFuture.join(promises).compose(i -> {
             if (i.failed()) {
@@ -199,7 +207,9 @@ public class ConsumerGroupOperations {
             } else {
                 return Future.succeededFuture();
             }
-        }).compose(i -> {
+        }).compose(nothing -> {
+            return validatePartitionsResettable(ac, parameters.getGroupId(), topicPartitionsToReset);
+        }).compose(nothing -> {
             Map<TopicPartition, OffsetSpec> partitionsToFetchOffset = new HashMap<>();
             topicPartitionsToReset.forEach(topicPartition -> {
                 OffsetSpec offsetSpec;
@@ -277,21 +287,29 @@ public class ConsumerGroupOperations {
             });
             return promise.future();
         }).compose(i -> {
-            Promise<List<Types.TopicPartitionResetResult>> promise = Promise.promise();
-            List<Types.TopicPartitionResetResult> result = new ArrayList<>();
+            Promise<Types.PagedResponse<Types.TopicPartitionResetResult>> promise = Promise.promise();
+
             ac.listConsumerGroupOffsets(parameters.getGroupId(), res -> {
                 if (res.failed()) {
                     promise.fail(res.cause());
                     return;
                 }
-                res.result().forEach((tp, offsetAndMetadata) -> {
-                    Types.TopicPartitionResetResult reset = new Types.TopicPartitionResetResult();
-                    reset.setTopic(tp.getTopic());
-                    reset.setPartition(tp.getPartition());
-                    reset.setOffset(offsetAndMetadata.getOffset());
-                    result.add(reset);
-                });
-                promise.complete(result);
+
+                var result = res.result()
+                        .entrySet()
+                        .stream()
+                        .map(entry -> {
+                            Types.TopicPartitionResetResult reset = new Types.TopicPartitionResetResult();
+                            reset.setTopic(entry.getKey().getTopic());
+                            reset.setPartition(entry.getKey().getPartition());
+                            reset.setOffset(entry.getValue().getOffset());
+                            return reset;
+                        })
+                        .collect(Collectors.toList());
+
+                Types.PagedResponse.forItems(result)
+                    .onSuccess(promise::complete)
+                    .onFailure(promise::fail);
             });
             return promise.future();
         }).onComplete(res -> {
@@ -302,6 +320,110 @@ public class ConsumerGroupOperations {
             }
             ac.close();
         });
+    }
+
+    static Future<Void> validatePartitionsResettable(KafkaAdminClient ac, String groupId, Set<TopicPartition> topicPartitionsToReset) {
+        Map<TopicPartition, List<MemberDescription>> topicPartitions = new ConcurrentHashMap<>();
+
+        List<String> requestedTopics = topicPartitionsToReset
+                .stream()
+                .map(TopicPartition::getTopic)
+                .collect(Collectors.toList());
+
+        Promise<Void> topicDescribe = Promise.promise();
+
+        if (requestedTopics.isEmpty()) {
+            topicDescribe.complete();
+        } else {
+            ac.describeTopics(requestedTopics)
+                .onSuccess(describedTopics -> {
+                    describedTopics.entrySet()
+                        .stream()
+                        .flatMap(entry ->
+                            entry.getValue()
+                                .getPartitions()
+                                .stream()
+                                .map(part -> new TopicPartition(entry.getKey(), part.getPartition())))
+                        .forEach(topicPartition ->
+                            topicPartitions.compute(topicPartition, (key, value) -> addTopicPartition(value, null)));
+
+                    topicDescribe.complete();
+                })
+                .onFailure(error -> {
+                    if (error instanceof UnknownTopicOrPartitionException) {
+                        topicDescribe.fail(new IllegalArgumentException("Request contained an unknown topic"));
+                    } else {
+                        topicDescribe.fail(error);
+                    }
+                });
+        }
+
+        Promise<Void> groupDescribe = Promise.promise();
+
+        ac.describeConsumerGroups(List.of(groupId))
+            .onSuccess(descriptions -> {
+                /*
+                 * Find all topic partitions in the group that are actively
+                 * being consumed by a client.
+                 */
+                descriptions.values()
+                    .stream()
+                    .flatMap(description -> description.getMembers().stream())
+                    .filter(member -> member.getClientId() != null)
+                    .flatMap(member ->
+                        member.getAssignment()
+                             .getTopicPartitions()
+                             .stream()
+                             .map(part -> Map.entry(part, member)))
+                    .forEach(entry -> {
+                        MemberDescription member = entry.getValue();
+                        topicPartitions.compute(entry.getKey(), (key, value) -> addTopicPartition(value, member));
+                    });
+
+                groupDescribe.complete();
+            })
+            .onFailure(groupDescribe::fail);
+
+        return CompositeFuture.all(topicDescribe.future(), groupDescribe.future())
+                .map(nothing -> {
+                    topicPartitionsToReset.forEach(topicPartition ->
+                        validatePartitionResettable(topicPartitions, topicPartition));
+                    return null;
+                });
+    }
+
+    static List<MemberDescription> addTopicPartition(List<MemberDescription> members, MemberDescription newMember) {
+        if (members == null) {
+            members = new ArrayList<>();
+        }
+
+        if (newMember != null) {
+            members.add(newMember);
+        }
+
+        return members;
+    }
+
+    static void validatePartitionResettable(Map<TopicPartition, List<MemberDescription>> topicClients, TopicPartition topicPartition) {
+        if (!topicClients.containsKey(topicPartition)) {
+            throw new IllegalArgumentException(String.format("Topic %s, partition %d is not valid",
+                                                          topicPartition.getTopic(),
+                                                          topicPartition.getPartition()));
+        } else if (!topicClients.get(topicPartition).isEmpty()) {
+            /*
+             * Reject the request if any of the topic partitions
+             * being reset is also being consumed by a client.
+             */
+            String clients = topicClients.get(topicPartition)
+                .stream()
+                .map(member -> String.format("{ memberId: %s, clientId: %s }", member.getConsumerId(), member.getClientId()))
+                .collect(Collectors.joining(", "));
+
+            throw new IllegalArgumentException(String.format("Topic %s, partition %d has connected clients: [%s]",
+                                                             topicPartition.getTopic(),
+                                                             topicPartition.getPartition(),
+                                                             clients));
+        }
     }
 
     public static void describeGroup(KafkaAdminClient ac, Promise prom, List<String> groupToDescribe, Types.OrderByInput orderBy, int partitionFilter) {

@@ -1,8 +1,11 @@
 package org.bf2.admin.kafka.systemtest.oauth;
 
+import io.vertx.core.Future;
+import io.vertx.core.Promise;
 import io.vertx.core.Vertx;
 import io.vertx.core.http.HttpClientResponse;
 import io.vertx.core.http.HttpMethod;
+import io.vertx.junit5.Checkpoint;
 import io.vertx.junit5.VertxTestContext;
 import io.vertx.kafka.client.common.TopicPartition;
 import io.vertx.kafka.client.consumer.KafkaConsumer;
@@ -17,6 +20,8 @@ import org.bf2.admin.kafka.systemtest.json.PartitionsModel;
 import org.bf2.admin.kafka.systemtest.utils.AsyncMessaging;
 import org.bf2.admin.kafka.systemtest.utils.ClientsConfig;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 
 import java.time.Duration;
 import java.time.LocalDateTime;
@@ -33,7 +38,92 @@ import java.util.concurrent.TimeUnit;
 import static org.assertj.core.api.Java6Assertions.assertThat;
 
 
-public class PartitionsOffsetOauthIT extends OauthTestBase {
+class PartitionsOffsetOauthIT extends OauthTestBase {
+
+    @Test
+    void testResetOffsetToStartWithOpenClient(Vertx vertx, VertxTestContext testContext) throws InterruptedException {
+        final String topicName = UUID.randomUUID().toString();
+        final String groupID = UUID.randomUUID().toString();
+        final Checkpoint statusCheck = testContext.checkpoint();
+        final Checkpoint contentCheck = testContext.checkpoint();
+
+        io.vertx.kafka.admin.KafkaAdminClient.create(vertx, kafkaClient)
+            .createTopics(List.of(new io.vertx.kafka.admin.NewTopic(topicName, 1, (short) 1)))
+            .map(nothing -> KafkaConsumer.<String, String>create(vertx, ClientsConfig.getConsumerConfigOauth(externalBootstrap, groupID, token)))
+            .map(consumer -> consumeMessages(vertx, consumer, topicName, 10, true))
+            .compose(consumptionPromise -> produceMessages(vertx, consumptionPromise, topicName, 10))
+            .map(nothing -> createHttpClient(vertx))
+            .compose(client -> client.request(HttpMethod.POST, publishedAdminPort, "localhost", "/rest/consumer-groups/" + groupID + "/reset-offset"))
+            .map(req -> req.putHeader("content-type", "application/json"))
+            .map(req -> req.putHeader("Authorization", "Bearer " + token))
+            .compose(req -> {
+                List<PartitionsModel> partList = Collections.singletonList(new PartitionsModel(topicName, new ArrayList<>()));
+                OffsetModel model = new OffsetModel("earliest", "", partList);
+                return req.send(MODEL_DESERIALIZER.serializeBody(model));
+            })
+            .map(response -> {
+                if (response.statusCode() != ReturnCodes.FAILED_REQUEST.code) {
+                    testContext.failNow("Status code " + response.statusCode() + " is not correct");
+                }
+                statusCheck.flag();
+                return response;
+            })
+            .compose(HttpClientResponse::body)
+            .map(MODEL_DESERIALIZER::getError)
+            .onComplete(testContext.succeeding(error -> testContext.verify(() -> {
+                assertThat(error).hasSize(3);
+                assertThat(error).containsEntry("code", ReturnCodes.FAILED_REQUEST.code);
+                assertThat(error.get("error_message").toString()).matches(".*connected clients.*");
+                contentCheck.flag();
+            })));
+    }
+
+    @ParameterizedTest
+    @CsvSource(delimiter = '|', value = {
+        "topic1 | topicBad | 1 | .*Request contained an unknown topic.* | false",
+        "topic1 | topic1   | 5 | .*Topic topic1%s, partition 5 is not valid.* | true",
+    })
+    void testResetOffsetToStartWithInvalidTopicPartition(String topicPrefix, String topicResetPrefix, int resetPartition, String messagePattern, boolean format, Vertx vertx, VertxTestContext testContext)
+            throws InterruptedException {
+
+        final String topicUUID = UUID.randomUUID().toString();
+        final String topicName = topicPrefix + topicUUID;
+        final String topicResetName = topicResetPrefix + topicUUID;
+        final String groupID = UUID.randomUUID().toString();
+        final Checkpoint statusCheck = testContext.checkpoint();
+        final Checkpoint contentCheck = testContext.checkpoint();
+
+        io.vertx.kafka.admin.KafkaAdminClient.create(vertx, kafkaClient)
+            .createTopics(List.of(new io.vertx.kafka.admin.NewTopic(topicName, 3, (short) 1)))
+            .map(nothing -> KafkaConsumer.<String, String>create(vertx, ClientsConfig.getConsumerConfigOauth(externalBootstrap, groupID, token)))
+            .map(consumer -> consumeMessages(vertx, consumer, topicName, 10, false))
+            .compose(consumptionPromise -> produceMessages(vertx, consumptionPromise, topicName, 10))
+            .map(nothing -> createHttpClient(vertx))
+            .compose(client -> client.request(HttpMethod.POST, publishedAdminPort, "localhost", "/rest/consumer-groups/" + groupID + "/reset-offset"))
+            .map(req -> req.putHeader("content-type", "application/json"))
+            .map(req -> req.putHeader("Authorization", "Bearer " + token))
+            .compose(req -> {
+                OffsetModel model = new OffsetModel("earliest", "", List.of(new PartitionsModel(topicResetName, List.of(resetPartition))));
+                return req.send(MODEL_DESERIALIZER.serializeBody(model));
+            })
+            .map(response -> {
+                if (response.statusCode() != ReturnCodes.FAILED_REQUEST.code) {
+                    testContext.failNow("Status code " + response.statusCode() + " is not correct");
+                }
+                statusCheck.flag();
+                return response;
+            })
+            .compose(HttpClientResponse::body)
+            .map(MODEL_DESERIALIZER::getError)
+            .onFailure(testContext::failNow)
+            .onComplete(testContext.succeeding(error -> testContext.verify(() -> {
+                assertThat(error).hasSize(3);
+                assertThat(error).containsEntry("code", ReturnCodes.FAILED_REQUEST.code);
+                String expectedMessage = format ? String.format(messagePattern, topicUUID) : messagePattern;
+                assertThat(error.get("error_message").toString()).matches(expectedMessage);
+                contentCheck.flag();
+            })));
+    }
 
     @Test
     void testResetOffsetToStartAuthorized(Vertx vertx, VertxTestContext testContext) throws InterruptedException {
@@ -57,6 +147,7 @@ public class PartitionsOffsetOauthIT extends OauthTestBase {
                         .send(MODEL_DESERIALIZER.serializeBody(model)).onSuccess(response -> {
                             if (response.statusCode() !=  ReturnCodes.SUCCESS.code) {
                                 testContext.failNow("Status code " + response.statusCode() + " is not correct");
+                                cd2.countDown();
                             }
                             assertStrictTransportSecurityEnabled(response, testContext);
                         }).onFailure(testContext::failNow).compose(HttpClientResponse::body))
@@ -129,6 +220,7 @@ public class PartitionsOffsetOauthIT extends OauthTestBase {
                         .send(MODEL_DESERIALIZER.serializeBody(model)).onSuccess(response -> {
                             if (response.statusCode() !=  ReturnCodes.SUCCESS.code) {
                                 testContext.failNow("Status code " + response.statusCode() + " is not correct");
+                                cd2.countDown();
                             }
                             assertStrictTransportSecurityEnabled(response, testContext);
                         }).onFailure(testContext::failNow).compose(HttpClientResponse::body))
@@ -174,6 +266,7 @@ public class PartitionsOffsetOauthIT extends OauthTestBase {
                         .send(MODEL_DESERIALIZER.serializeBody(model)).onSuccess(response -> {
                             if (response.statusCode() !=  ReturnCodes.SUCCESS.code) {
                                 testContext.failNow("Status code " + response.statusCode() + " is not correct");
+                                cd2.countDown();
                             }
                             assertStrictTransportSecurityEnabled(response, testContext);
                         }).onFailure(testContext::failNow).compose(HttpClientResponse::body))
@@ -228,6 +321,7 @@ public class PartitionsOffsetOauthIT extends OauthTestBase {
                         .send(MODEL_DESERIALIZER.serializeBody(model)).onSuccess(response -> {
                             if (response.statusCode() !=  ReturnCodes.SUCCESS.code) {
                                 testContext.failNow("Status code " + response.statusCode() + " is not correct");
+                                cd2.countDown();
                             }
                             assertStrictTransportSecurityEnabled(response, testContext);
                         }).onFailure(testContext::failNow).compose(HttpClientResponse::body))
@@ -291,6 +385,7 @@ public class PartitionsOffsetOauthIT extends OauthTestBase {
                         .send(MODEL_DESERIALIZER.serializeBody(model)).onSuccess(response -> {
                             if (response.statusCode() !=  ReturnCodes.SUCCESS.code) {
                                 testContext.failNow("Status code " + response.statusCode() + " is not correct");
+                                cd2.countDown();
                             }
                             assertStrictTransportSecurityEnabled(response, testContext);
                         }).onFailure(testContext::failNow).compose(HttpClientResponse::body))
@@ -321,4 +416,30 @@ public class PartitionsOffsetOauthIT extends OauthTestBase {
         consumer2.close();
         testContext.completeNow();
     }
+
+    /* Utilities */
+
+    Promise<Void> consumeMessages(Vertx vertx, KafkaConsumer<String, String> consumer, String topicName, int count, boolean resubscribe) {
+        Promise<Void> promise = Promise.promise();
+
+        AsyncMessaging.consumeMessages(vertx, consumer, topicName, 10)
+            .onSuccess(messages -> {
+                if (resubscribe) {
+                    // Attach the client to the consumer group again
+                    consumer.subscribe(topicName);
+                } else {
+                    consumer.close();
+                }
+                promise.complete();
+            })
+            .onFailure(promise::fail);
+
+        return promise;
+    }
+
+    Future<Void> produceMessages(Vertx vertx, Promise<Void> consumptionPromise, String topicName, int count) {
+        return AsyncMessaging.produceMessages(vertx, externalBootstrap, topicName, 10, token, "X")
+                .compose(nothing -> consumptionPromise.future());
+    }
+
 }
