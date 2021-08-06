@@ -1262,15 +1262,17 @@ components:
         offset: 4
     ResultListPage:
       type: object
+      required:
+        - total
       properties:
         total:
           description: Total number of entries in the full result set
           type: number
         page:
-          description: Current page number
+          description: Current page number (returned for fetch requests)
           type: integer
         size:
-          description: Number of entries per page
+          description: Number of entries per page (returned for fetch requests)
           type: number
     Error:
       description: General error response
