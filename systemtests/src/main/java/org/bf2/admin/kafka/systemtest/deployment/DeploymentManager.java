@@ -11,6 +11,7 @@ import io.vertx.core.http.HttpMethod;
 import org.apache.kafka.clients.admin.AdminClient;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.bf2.admin.kafka.admin.KafkaAdminConfigRetriever;
 import org.bf2.admin.kafka.systemtest.Environment;
 import org.bf2.admin.kafka.systemtest.json.TokenModel;
 import org.bf2.admin.kafka.systemtest.utils.ClientsConfig;
@@ -133,19 +134,7 @@ public class DeploymentManager {
                 .map("RestEndpointInternalIT"::equals)
                 .orElse(false);
 
-            // Obtain the container's IP address on the test bridge network
-            String kafkaIp = ((GenericContainer<?>) kafkaContainer).getContainerInfo()
-                .getNetworkSettings()
-                .getNetworks()
-                .entrySet()
-                .stream()
-                .map(Map.Entry::getValue)
-                .filter(net -> net.getAliases().contains(KAFKA_ALIAS))
-                .findFirst()
-                .map(ContainerNetwork::getIpAddress)
-                .orElseThrow();
-
-            adminContainer = deployAdminContainer(kafkaIp + ":9093", allowInternal);
+            adminContainer = deployAdminContainer(kafkaContainer.getInternalBootstrapServers(), allowInternal);
         }
 
         return adminContainer;
@@ -237,6 +226,8 @@ public class DeploymentManager {
         envMap.put("KAFKA_ADMIN_ACL_RESOURCE_OPERATIONS", CONFIG.getProperty("systemtests.kafka.admin.acl.resource-operations"));
 
         if (oauthEnabled) {
+            envMap.put(KafkaAdminConfigRetriever.BROKER_TLS_ENABLED, "true");
+            envMap.put(KafkaAdminConfigRetriever.BROKER_TRUSTED_CERT, encodeTLSConfig("ca.crt"));
             envMap.put("KAFKA_ADMIN_TLS_CERT", encodeTLSConfig("admin-tls-chain.crt"));
             envMap.put("KAFKA_ADMIN_TLS_KEY", encodeTLSConfig("admin-tls.key"));
             envMap.put("KAFKA_ADMIN_OAUTH_JWKS_ENDPOINT_URI", "http://keycloak:8080/auth/realms/kafka-authz/protocol/openid-connect/certs");
@@ -303,7 +294,7 @@ public class DeploymentManager {
     private KafkaContainer<?> deployKafka() {
         LOGGER.info("Deploying Kafka container");
 
-        var container = new KeycloakSecuredKafkaContainer()
+        var container = new KeycloakSecuredKafkaContainer(KAFKA_ALIAS)
                 .withLabels(Collections.singletonMap("test-ident", Environment.TEST_CONTAINER_LABEL))
                 .withNetwork(testNetwork)
                 .withNetworkAliases(KAFKA_ALIAS);
@@ -319,6 +310,21 @@ public class DeploymentManager {
                 implements KafkaContainer<StrimziKafkaContainer> {
             StrimziPlainKafkaContainer(String version) {
                 super(version);
+            }
+
+            @Override
+            public String getInternalBootstrapServers() {
+                // Obtain the container's IP address on the test bridge network
+                return getContainerInfo()
+                        .getNetworkSettings()
+                        .getNetworks()
+                        .entrySet()
+                        .stream()
+                        .map(Map.Entry::getValue)
+                        .filter(net -> net.getAliases().contains(KAFKA_ALIAS))
+                        .findFirst()
+                        .map(ContainerNetwork::getIpAddress)
+                        .orElseThrow() + ":9093";
             }
         }
 
