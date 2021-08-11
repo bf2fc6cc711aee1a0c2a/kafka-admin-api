@@ -34,6 +34,8 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ExecutionException;
 
+import static org.bf2.admin.kafka.systemtest.Environment.CONFIG;
+
 @SuppressWarnings("resource")
 public class DeploymentManager {
 
@@ -232,7 +234,7 @@ public class DeploymentManager {
         envMap.put("KAFKA_ADMIN_OAUTH_ENABLED", Boolean.toString(oauthEnabled));
         envMap.put("KAFKA_ADMIN_INTERNAL_TOPICS_ENABLED", Boolean.toString(internal));
         envMap.put("KAFKA_ADMIN_REPLICATION_FACTOR", "1");
-        envMap.put("KAFKA_ADMIN_ACL_RESOURCE_OPERATIONS", "{ \"cluster\": [ \"describe\", \"alter\" ], \"group\": [ \"all\", \"delete\", \"describe\", \"read\" ], \"topic\": [ \"all\", \"alter\", \"alter_configs\", \"create\", \"delete\", \"describe\", \"describe_configs\", \"read\", \"write\" ], \"transactional_id\": [ \"all\", \"describe\", \"write\" ] }");
+        envMap.put("KAFKA_ADMIN_ACL_RESOURCE_OPERATIONS", CONFIG.getProperty("systemtests.kafka.admin.acl.resource-operations"));
 
         if (oauthEnabled) {
             envMap.put("KAFKA_ADMIN_TLS_CERT", encodeTLSConfig("admin-tls-chain.crt"));

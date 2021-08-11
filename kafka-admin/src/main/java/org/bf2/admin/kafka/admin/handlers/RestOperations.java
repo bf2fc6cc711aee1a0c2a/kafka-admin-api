@@ -243,13 +243,25 @@ public class RestOperations extends CommonHandler implements OperationsHandler {
         });
     }
 
-    private Types.OrderByInput getOrderByInput(RoutingContext routingContext) {
-        Types.SortDirectionEnum sortReverse = Types.SortDirectionEnum.fromString(routingContext.queryParams().get("order"));
-        String sortKey = routingContext.queryParams().get("orderKey") == null ? "name" : routingContext.queryParams().get("orderKey");
+    private Types.OrderByInput getOrderByInput(RoutingContext routingContext, Types.OrderByInput defaultOrderBy) {
+        final String paramOrderKey = routingContext.queryParams().get("orderKey");
+        final String paramOrder = routingContext.queryParams().get("order");
+
+        if (paramOrderKey == null && paramOrder == null) {
+            return defaultOrderBy;
+        }
+
+        Types.SortDirectionEnum sortReverse = paramOrder == null ? defaultOrderBy.getOrder() : Types.SortDirectionEnum.fromString(paramOrder);
+        String sortKey = paramOrderKey == null ? defaultOrderBy.getField() : paramOrderKey;
+
         Types.OrderByInput orderBy = new Types.OrderByInput();
         orderBy.setField(sortKey);
         orderBy.setOrder(sortReverse);
         return orderBy;
+    }
+
+    private Types.OrderByInput getOrderByInput(RoutingContext routingContext) {
+        return getOrderByInput(routingContext, new Types.OrderByInput("name", Types.SortDirectionEnum.ASC));
     }
 
     @Override
@@ -262,6 +274,9 @@ public class RestOperations extends CommonHandler implements OperationsHandler {
         String topicFilter = routingContext.queryParams().get("topic");
         String consumerGroupIdFilter = routingContext.queryParams().get("group-id-filter") == null ? "" : routingContext.queryParams().get("group-id-filter");
         Types.OrderByInput orderBy = getOrderByInput(routingContext);
+        if (log.isDebugEnabled()) {
+            log.debug("listGroups orderBy: field: {}, order: {}; queryParams: {}", orderBy.getField(), orderBy.getOrder(), routingContext.queryParams());
+        }
 
         final Pattern pattern;
         Promise<Types.TopicList> prom = Promise.promise();
@@ -415,7 +430,7 @@ public class RestOperations extends CommonHandler implements OperationsHandler {
 
         try {
             var filter = Types.AclBinding.fromQueryParams(routingContext.queryParams());
-            aclOperations.getAcls(client, promise, filter, parsePageRequest(routingContext));
+            aclOperations.getAcls(client, promise, filter, parsePageRequest(routingContext), getOrderByInput(routingContext, Types.AclBinding.DEFAULT_ORDER));
         } catch (Exception e) {
             promise.fail(e);
         } finally {

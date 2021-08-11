@@ -8,19 +8,21 @@ import io.vertx.core.Promise;
 import org.apache.kafka.clients.admin.Admin;
 import org.apache.kafka.common.KafkaFuture;
 import org.apache.kafka.common.acl.AclBinding;
-import org.apache.kafka.common.acl.AclPermissionType;
 import org.apache.kafka.common.security.auth.KafkaPrincipal;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.bf2.admin.kafka.admin.model.Types;
 import org.bf2.admin.kafka.admin.model.Types.PagedResponse;
+import org.bf2.admin.kafka.admin.model.Types.SortDirectionEnum;
 
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 public class AccessControlOperations {
@@ -79,7 +81,8 @@ public class AccessControlOperations {
     public void getAcls(Admin client,
                         Promise<Types.PagedResponse<Types.AclBinding>> promise,
                         Types.AclBinding filter,
-                        Types.PageRequest pageRequest) {
+                        Types.PageRequest pageRequest,
+                        Types.OrderByInput sortOrder) {
 
         var pendingResults = new ArrayList<KafkaFuture<Collection<AclBinding>>>(2);
 
@@ -93,7 +96,7 @@ public class AccessControlOperations {
 
         KafkaFuture.allOf(pendingResults.toArray(KafkaFuture[]::new))
             .whenComplete((nothing, error) ->
-                collectBindings(pendingResults, error)
+                collectBindings(pendingResults, sortOrder, error)
                     .onFailure(promise::fail)
                     .onSuccess(bindings ->
                         PagedResponse.forPage(pageRequest, bindings)
@@ -132,7 +135,7 @@ public class AccessControlOperations {
         return promise.future();
     }
 
-    static Future<List<Types.AclBinding>> collectBindings(List<KafkaFuture<Collection<AclBinding>>> pendingResults, Throwable error) {
+    static Future<List<Types.AclBinding>> collectBindings(List<KafkaFuture<Collection<AclBinding>>> pendingResults, Types.OrderByInput sortOrder, Throwable error) {
         Promise<List<Types.AclBinding>> promise = Promise.promise();
 
         if (error == null) {
@@ -149,7 +152,7 @@ public class AccessControlOperations {
                     }
                 })
                 .flatMap(Collection::stream)
-                .sorted(AccessControlOperations::denyFirst)
+                .sorted(getComparator(sortOrder))
                 .map(Types.AclBinding::fromKafkaBinding)
                 .collect(Collectors.toList()));
         } else {
@@ -159,14 +162,37 @@ public class AccessControlOperations {
         return promise.future();
     }
 
-    static int denyFirst(AclBinding b1, AclBinding b2) {
-        AclPermissionType p1 = b1.entry().permissionType();
-        AclPermissionType p2 = b2.entry().permissionType();
+    static Comparator<AclBinding> getComparator(Types.OrderByInput sortOrder) {
+        Function<AclBinding, String> extractor;
 
-        if (p1 == p2) {
-            return 0;
+        switch (sortOrder.getField()) {
+            case Types.AclBinding.PROP_RESOURCE_NAME:
+                extractor = binding -> binding.pattern().name();
+                break;
+            case Types.AclBinding.PROP_RESOURCE_TYPE:
+                extractor = binding -> binding.pattern().resourceType().name();
+                break;
+            case Types.AclBinding.PROP_PATTERN_TYPE:
+                extractor = binding -> binding.pattern().patternType().name();
+                break;
+            case Types.AclBinding.PROP_PRINCIPAL:
+                extractor = binding -> binding.entry().principal();
+                break;
+            case Types.AclBinding.PROP_OPERATION:
+                extractor = binding -> binding.entry().operation().name();
+                break;
+            case Types.AclBinding.PROP_PERMISSION:
+            default:
+                extractor = binding -> binding.entry().permissionType().name();
+                break;
         }
 
-        return p1 == AclPermissionType.DENY ? -1 : 1;
+        Comparator<AclBinding> comparator = Comparator.comparing(extractor);
+
+        if (sortOrder.getOrder() == SortDirectionEnum.DESC) {
+            comparator = comparator.reversed();
+        }
+
+        return comparator;
     }
 }
