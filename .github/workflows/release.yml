@@ -45,7 +45,7 @@ jobs:
       - name: Build and Push Image
         run: |
           # Use `target/checkout` as the Docker build PATH, Maven release:perform has generated the release artifacts in that location
-          docker build -t ${{secrets.IMAGE_REPO_HOSTNAME}}/${{secrets.IMAGE_REPO_NAMESPACE}}/kafka-admin-api:${{steps.metadata.outputs.current-version}} --build-arg kafka_admin_api_version=${{steps.metadata.outputs.current-version}} target/checkout
+          docker build -t ${{secrets.IMAGE_REPO_HOSTNAME}}/${{secrets.IMAGE_REPO_NAMESPACE}}/kafka-admin-api:${{steps.metadata.outputs.current-version}} --build-arg kafka_admin_api_version=${{steps.metadata.outputs.current-version}} target/checkout/kafka-admin -f target/checkout/kafka-admin/src/main/docker/Dockerfile
           docker login -u="${{secrets.IMAGE_REPO_USERNAME}}" -p="${{secrets.IMAGE_REPO_PASSWORD}}" ${{secrets.IMAGE_REPO_HOSTNAME}}
           docker push ${{secrets.IMAGE_REPO_HOSTNAME}}/${{secrets.IMAGE_REPO_NAMESPACE}}/kafka-admin-api:${{steps.metadata.outputs.current-version}}
 
