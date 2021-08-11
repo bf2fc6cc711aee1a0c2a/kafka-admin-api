@@ -26,12 +26,8 @@ import org.junit.jupiter.api.DisplayNameGeneration;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.testcontainers.containers.GenericContainer;
 
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.UncheckedIOException;
 import java.nio.file.Path;
 import java.time.Duration;
-import java.util.Properties;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
@@ -44,17 +40,6 @@ import java.util.stream.Collectors;
 @DisplayNameGeneration(IndicativeSentences.class)
 public class TestBase {
     protected static final Logger LOGGER = LogManager.getLogger(TestBase.class);
-
-    protected static final Properties CONFIG = new Properties();
-
-    static {
-        try (InputStream stream = TestBase.class.getResourceAsStream("/systemtests-config.properties")) {
-            CONFIG.load(stream);
-        } catch (IOException e) {
-            throw new UncheckedIOException(e);
-        }
-
-    }
 
     protected static final ModelDeserializer MODEL_DESERIALIZER = new ModelDeserializer();
     protected static DeploymentManager deployments;

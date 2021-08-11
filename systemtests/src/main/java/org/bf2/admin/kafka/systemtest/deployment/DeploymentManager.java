@@ -23,7 +23,6 @@ import org.testcontainers.containers.wait.strategy.Wait;
 import org.testcontainers.lifecycle.Startable;
 
 import java.io.IOException;
-import java.io.InputStream;
 import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -32,9 +31,10 @@ import java.util.Base64;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Properties;
 import java.util.UUID;
 import java.util.concurrent.ExecutionException;
+
+import static org.bf2.admin.kafka.systemtest.Environment.CONFIG;
 
 @SuppressWarnings("resource")
 public class DeploymentManager {
@@ -59,7 +59,6 @@ public class DeploymentManager {
         }
     }
 
-    private final Properties config;
     private ExtensionContext testContext;
     private boolean oauthEnabled;
     private Network testNetwork;
@@ -72,14 +71,6 @@ public class DeploymentManager {
     }
 
     private DeploymentManager(ExtensionContext testContext, boolean oauthEnabled) {
-        this.config = new Properties();
-
-        try (InputStream stream = getClass().getResourceAsStream("/systemtests-config.properties")) {
-            this.config.load(stream);
-        } catch (IOException e) {
-            throw new UncheckedIOException(e);
-        }
-
         this.testContext = testContext;
         this.oauthEnabled = oauthEnabled;
         this.testNetwork = Network.newNetwork();
@@ -243,7 +234,7 @@ public class DeploymentManager {
         envMap.put("KAFKA_ADMIN_OAUTH_ENABLED", Boolean.toString(oauthEnabled));
         envMap.put("KAFKA_ADMIN_INTERNAL_TOPICS_ENABLED", Boolean.toString(internal));
         envMap.put("KAFKA_ADMIN_REPLICATION_FACTOR", "1");
-        envMap.put("KAFKA_ADMIN_ACL_RESOURCE_OPERATIONS", config.getProperty("systemtests.kafka.admin.acl.resource-operations"));
+        envMap.put("KAFKA_ADMIN_ACL_RESOURCE_OPERATIONS", CONFIG.getProperty("systemtests.kafka.admin.acl.resource-operations"));
 
         if (oauthEnabled) {
             envMap.put("KAFKA_ADMIN_TLS_CERT", encodeTLSConfig("admin-tls-chain.crt"));
