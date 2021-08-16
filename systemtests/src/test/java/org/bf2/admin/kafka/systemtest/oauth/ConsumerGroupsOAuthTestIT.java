@@ -28,7 +28,7 @@ class ConsumerGroupsOAuthTestIT extends OauthTestBase {
 
     @Test
     void testConsumerGroupsListAuthorized(Vertx vertx, VertxTestContext testContext) throws Exception {
-        List<String> groupIDS = SyncMessaging.createConsumerGroups(vertx, kafkaClient, 2, externalBootstrap, testContext, token);
+        List<String> groupIDS = SyncMessaging.createConsumerGroups(kafkaClient, 2, externalBootstrap, testContext, token);
 
         HttpClient client = createHttpClient(vertx);
         client.request(HttpMethod.GET, publishedAdminPort, "localhost", "/rest/consumer-groups")
@@ -49,7 +49,7 @@ class ConsumerGroupsOAuthTestIT extends OauthTestBase {
 
     @Test
     void testConsumerGroupsListUnauthorized(Vertx vertx, VertxTestContext testContext) throws Exception {
-        List<String> groupIDS = SyncMessaging.createConsumerGroups(vertx, kafkaClient, 2, externalBootstrap, testContext, token);
+        List<String> groupIDS = SyncMessaging.createConsumerGroups(kafkaClient, 2, externalBootstrap, testContext, token);
         changeTokenToUnauthorized(vertx, testContext);
         HttpClient client = createHttpClient(vertx);
         client.request(HttpMethod.GET, publishedAdminPort, "localhost", "/rest/consumer-groups")
@@ -63,7 +63,7 @@ class ConsumerGroupsOAuthTestIT extends OauthTestBase {
 
     @Test
     void testConsumerGroupsListWithInvalidToken(Vertx vertx, VertxTestContext testContext) throws Exception {
-        List<String> groupIDS = SyncMessaging.createConsumerGroups(vertx, kafkaClient, 1, externalBootstrap, testContext, token);
+        List<String> groupIDS = SyncMessaging.createConsumerGroups(kafkaClient, 1, externalBootstrap, testContext, token);
         kafkaClient.close();
         String invalidToken = new Random().ints(97, 98)
                 .limit(token.length())
@@ -81,7 +81,7 @@ class ConsumerGroupsOAuthTestIT extends OauthTestBase {
 
     @Test
     void testConsumerGroupsDescribeAuthorized(Vertx vertx, VertxTestContext testContext) throws Exception {
-        List<String> groupIDS = SyncMessaging.createConsumerGroups(vertx, kafkaClient, 1, externalBootstrap, testContext, token);
+        List<String> groupIDS = SyncMessaging.createConsumerGroups(kafkaClient, 1, externalBootstrap, testContext, token);
 
         HttpClient client = createHttpClient(vertx);
         client.request(HttpMethod.GET, publishedAdminPort, "localhost", "/rest/consumer-groups/" + groupIDS.get(0))
@@ -104,7 +104,7 @@ class ConsumerGroupsOAuthTestIT extends OauthTestBase {
 
     @Test
     void testConsumerGroupsDescribeUnauthorized(Vertx vertx, VertxTestContext testContext) throws Exception {
-        List<String> groupIDS = SyncMessaging.createConsumerGroups(vertx, kafkaClient, 1, externalBootstrap, testContext, token);
+        List<String> groupIDS = SyncMessaging.createConsumerGroups(kafkaClient, 1, externalBootstrap, testContext, token);
         changeTokenToUnauthorized(vertx, testContext);
         HttpClient client = createHttpClient(vertx);
         client.request(HttpMethod.GET, publishedAdminPort, "localhost", "/rest/consumer-groups/" + groupIDS.get(0))
@@ -118,7 +118,7 @@ class ConsumerGroupsOAuthTestIT extends OauthTestBase {
 
     @Test
     void testDescribeWithInvalidToken(Vertx vertx, VertxTestContext testContext) throws Exception {
-        List<String> groupIDS = SyncMessaging.createConsumerGroups(vertx, kafkaClient, 2, externalBootstrap, testContext, token);
+        List<String> groupIDS = SyncMessaging.createConsumerGroups(kafkaClient, 2, externalBootstrap, testContext, token);
         kafkaClient.close();
         String invalidToken = new Random().ints(97, 98)
                 .limit(token.length())
@@ -136,7 +136,7 @@ class ConsumerGroupsOAuthTestIT extends OauthTestBase {
 
     @Test
     void testConsumerGroupsDeleteAuthorized(Vertx vertx, VertxTestContext testContext) throws Exception {
-        List<String> groupIDS = SyncMessaging.createConsumerGroups(vertx, kafkaClient, 2, externalBootstrap, testContext, token);
+        List<String> groupIDS = SyncMessaging.createConsumerGroups(kafkaClient, 2, externalBootstrap, testContext, token);
 
         HttpClient client = createHttpClient(vertx);
         client.request(HttpMethod.DELETE, publishedAdminPort, "localhost", "/rest/consumer-groups/" + groupIDS.get(0))
@@ -157,7 +157,7 @@ class ConsumerGroupsOAuthTestIT extends OauthTestBase {
 
     @Test
     void testConsumerGroupsDeleteUnauthorized(Vertx vertx, VertxTestContext testContext) throws Exception {
-        List<String> groupIDS = SyncMessaging.createConsumerGroups(vertx, kafkaClient, 2, externalBootstrap, testContext, token);
+        List<String> groupIDS = SyncMessaging.createConsumerGroups(kafkaClient, 2, externalBootstrap, testContext, token);
         changeTokenToUnauthorized(vertx, testContext);
         HttpClient client = createHttpClient(vertx);
         client.request(HttpMethod.DELETE, publishedAdminPort, "localhost", "/rest/consumer-groups/" + groupIDS.get(0))
@@ -177,7 +177,7 @@ class ConsumerGroupsOAuthTestIT extends OauthTestBase {
 
     @Test
     void testDeleteWithInvalidToken(Vertx vertx, VertxTestContext testContext) throws Exception {
-        List<String> groupIDS = SyncMessaging.createConsumerGroups(vertx, kafkaClient, 2, externalBootstrap, testContext, token);
+        List<String> groupIDS = SyncMessaging.createConsumerGroups(kafkaClient, 2, externalBootstrap, testContext, token);
         kafkaClient.close();
         String invalidToken = new Random().ints(97, 98)
                 .limit(token.length())
@@ -192,4 +192,5 @@ class ConsumerGroupsOAuthTestIT extends OauthTestBase {
                         })));
         assertThat(testContext.awaitCompletion(1, TimeUnit.MINUTES)).isTrue();
     }
+
 }

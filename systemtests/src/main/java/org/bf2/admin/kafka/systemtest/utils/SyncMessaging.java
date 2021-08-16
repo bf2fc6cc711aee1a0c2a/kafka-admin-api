@@ -1,7 +1,6 @@
 package org.bf2.admin.kafka.systemtest.utils;
 
 import io.vertx.core.Promise;
-import io.vertx.core.Vertx;
 import io.vertx.junit5.VertxTestContext;
 import org.apache.kafka.clients.admin.AdminClient;
 import org.apache.kafka.clients.admin.NewTopic;
@@ -23,13 +22,13 @@ import java.util.stream.IntStream;
 public class SyncMessaging {
     protected static final Logger LOGGER = LogManager.getLogger(SyncMessaging.class);
 
-    public static List<String> createConsumerGroups(Vertx vertx, AdminClient kafkaClient, int count, String bootstrap, VertxTestContext testContext, String token) throws Exception {
+    public static List<String> createConsumerGroups(AdminClient kafkaClient, int count, String bootstrap, VertxTestContext testContext, String token, String topicPrefix, String groupPrefix) throws Exception {
         Promise<List<String>> promise = Promise.promise();
         List<String> groupIds = Collections.synchronizedList(new ArrayList<>());
 
         List<NewTopic> newTopics = IntStream.range(0, count)
             .mapToObj(index -> {
-                String topicName = UUID.randomUUID().toString();
+                String topicName = topicPrefix + '-' + UUID.randomUUID().toString();
                 return new NewTopic(topicName, 1, (short) 1);
             })
             .collect(Collectors.toList());
@@ -43,7 +42,7 @@ public class SyncMessaging {
                     newTopics.stream()
                         .parallel()
                         .forEach(topic -> {
-                            String groupName = UUID.randomUUID().toString();
+                            String groupName = groupPrefix + '-' + UUID.randomUUID().toString();
                             groupIds.add(groupName);
 
                             Properties props;
@@ -76,12 +75,19 @@ public class SyncMessaging {
                 .get(30, TimeUnit.SECONDS);
     }
 
-    public static List<String> createConsumerGroups(Vertx vertx, AdminClient kafkaClient, int count, String bootstrap, VertxTestContext testContext) throws Exception {
-        return createConsumerGroups(vertx, kafkaClient, count, bootstrap, testContext, null);
+    public static List<String> createConsumerGroups(AdminClient kafkaClient, int count, String bootstrap, VertxTestContext testContext, String token) throws Exception {
+        return createConsumerGroups(kafkaClient, count, bootstrap, testContext, token, "topic", "group");
+    }
+
+    public static List<String> createConsumerGroups(AdminClient kafkaClient, int count, String bootstrap, VertxTestContext testContext, String topicPrefix, String groupPrefix) throws Exception {
+        return createConsumerGroups(kafkaClient, count, bootstrap, testContext, null, topicPrefix, groupPrefix);
+    }
+
+    public static List<String> createConsumerGroups(AdminClient kafkaClient, int count, String bootstrap, VertxTestContext testContext) throws Exception {
+        return createConsumerGroups(kafkaClient, count, bootstrap, testContext, null, "topic", "group");
     }
 
     public static KafkaProducer<String, String> createProducer(String bootstrap) {
-        final KafkaProducer<String, String> producer = new KafkaProducer<String, String>(ClientsConfig.getProducerConfig(bootstrap));
-        return producer;
+        return new KafkaProducer<String, String>(ClientsConfig.getProducerConfig(bootstrap));
     }
 }

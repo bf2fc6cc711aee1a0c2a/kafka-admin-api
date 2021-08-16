@@ -6,6 +6,7 @@ import io.vertx.core.Vertx;
 import io.vertx.core.http.HttpClient;
 import io.vertx.core.http.HttpClientResponse;
 import io.vertx.core.http.HttpMethod;
+import io.vertx.junit5.Checkpoint;
 import io.vertx.junit5.VertxTestContext;
 import io.vertx.kafka.client.consumer.KafkaConsumer;
 import io.vertx.kafka.client.consumer.KafkaConsumerRecords;
@@ -24,10 +25,14 @@ import org.bf2.admin.kafka.systemtest.utils.DynamicWait;
 import org.bf2.admin.kafka.systemtest.utils.SyncMessaging;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtensionContext;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Properties;
 import java.util.UUID;
@@ -46,7 +51,7 @@ class ConsumerGroupsEndpointTestIT extends PlainTestBase {
 
     @Test
     void testListConsumerGroups(Vertx vertx, VertxTestContext testContext, ExtensionContext extensionContext) throws Exception {
-        SyncMessaging.createConsumerGroups(vertx, kafkaClient, 5, deployments.getExternalBootstrapServers(), testContext);
+        SyncMessaging.createConsumerGroups(kafkaClient, 5, deployments.getExternalBootstrapServers(), testContext);
         HttpClient client = createHttpClient(vertx);
         client.request(HttpMethod.GET, publishedAdminPort, "localhost", "/rest/consumer-groups")
                 .compose(req -> req.send().onSuccess(response -> {
@@ -67,7 +72,7 @@ class ConsumerGroupsEndpointTestIT extends PlainTestBase {
 
     @Test
     void testEmptyTopicsOnList(Vertx vertx, VertxTestContext testContext, ExtensionContext extensionContext) throws Exception {
-        SyncMessaging.createConsumerGroups(vertx, kafkaClient, 4, deployments.getExternalBootstrapServers(), testContext);
+        SyncMessaging.createConsumerGroups(kafkaClient, 4, deployments.getExternalBootstrapServers(), testContext);
         String topic = UUID.randomUUID().toString();
         kafkaClient.createTopics(Collections.singletonList(new NewTopic(topic, 3, (short) 1)));
         DynamicWait.waitForTopicsExists(Collections.singletonList(topic), kafkaClient);
@@ -135,7 +140,7 @@ class ConsumerGroupsEndpointTestIT extends PlainTestBase {
 
     @Test
     void testListConsumerGroupsWithSortDesc(Vertx vertx, VertxTestContext testContext, ExtensionContext extensionContext) throws Exception {
-        List<String> grpIds = SyncMessaging.createConsumerGroups(vertx, kafkaClient, 5, deployments.getExternalBootstrapServers(), testContext);
+        List<String> grpIds = SyncMessaging.createConsumerGroups(kafkaClient, 5, deployments.getExternalBootstrapServers(), testContext);
         grpIds.sort(String::compareToIgnoreCase);
         Collections.reverse(grpIds);
         HttpClient client = createHttpClient(vertx);
@@ -156,7 +161,7 @@ class ConsumerGroupsEndpointTestIT extends PlainTestBase {
 
     @Test
     void testListConsumerGroupsWithSortAsc(Vertx vertx, VertxTestContext testContext, ExtensionContext extensionContext) throws Exception {
-        List<String> grpIds = SyncMessaging.createConsumerGroups(vertx, kafkaClient, 5, deployments.getExternalBootstrapServers(), testContext);
+        List<String> grpIds = SyncMessaging.createConsumerGroups(kafkaClient, 5, deployments.getExternalBootstrapServers(), testContext);
 
         grpIds.sort(String::compareToIgnoreCase);
         HttpClient client = createHttpClient(vertx);
@@ -192,7 +197,7 @@ class ConsumerGroupsEndpointTestIT extends PlainTestBase {
 
     @Test
     void testDeleteConsumerGroup(Vertx vertx, VertxTestContext testContext, ExtensionContext extensionContext) throws Exception {
-        List<String> groupdIds = SyncMessaging.createConsumerGroups(vertx, kafkaClient, 5, deployments.getExternalBootstrapServers(), testContext);
+        List<String> groupdIds = SyncMessaging.createConsumerGroups(kafkaClient, 5, deployments.getExternalBootstrapServers(), testContext);
 
         HttpClient client = createHttpClient(vertx);
         client.request(HttpMethod.DELETE, publishedAdminPort, "localhost", "/rest/consumer-groups/" + groupdIds.get(0))
@@ -237,7 +242,7 @@ class ConsumerGroupsEndpointTestIT extends PlainTestBase {
 
     @Test
     void testDeleteConsumerGroupKafkaDown(Vertx vertx, VertxTestContext testContext, ExtensionContext extensionContext) throws Exception {
-        List<String> groupdIds = SyncMessaging.createConsumerGroups(vertx, kafkaClient, 2, deployments.getExternalBootstrapServers(), testContext);
+        List<String> groupdIds = SyncMessaging.createConsumerGroups(kafkaClient, 2, deployments.getExternalBootstrapServers(), testContext);
 
         HttpClient client = createHttpClient(vertx);
         deployments.stopKafkaContainer();
@@ -254,7 +259,7 @@ class ConsumerGroupsEndpointTestIT extends PlainTestBase {
 
     @Test
     void testDescribeConsumerGroup(Vertx vertx, VertxTestContext testContext, ExtensionContext extensionContext) throws Exception {
-        List<String> groupdIds = SyncMessaging.createConsumerGroups(vertx, kafkaClient, 2, deployments.getExternalBootstrapServers(), testContext);
+        List<String> groupdIds = SyncMessaging.createConsumerGroups(kafkaClient, 2, deployments.getExternalBootstrapServers(), testContext);
         HttpClient client = createHttpClient(vertx);
         client.request(HttpMethod.GET, publishedAdminPort, "localhost", "/rest/consumer-groups/" + groupdIds.get(0))
                 .compose(req -> req.send().onSuccess(response -> {
@@ -275,7 +280,7 @@ class ConsumerGroupsEndpointTestIT extends PlainTestBase {
 
     @Test
     void testDescribeConsumerGroupKafkaDown(Vertx vertx, VertxTestContext testContext, ExtensionContext extensionContext) throws Exception {
-        List<String> groupdIds = SyncMessaging.createConsumerGroups(vertx, kafkaClient, 2, deployments.getExternalBootstrapServers(), testContext);
+        List<String> groupdIds = SyncMessaging.createConsumerGroups(kafkaClient, 2, deployments.getExternalBootstrapServers(), testContext);
 
         HttpClient client = createHttpClient(vertx);
         deployments.stopKafkaContainer();
@@ -302,5 +307,63 @@ class ConsumerGroupsEndpointTestIT extends PlainTestBase {
                     }
                 }).onFailure(testContext::failNow));
         assertThat(testContext.awaitCompletion(1, TimeUnit.MINUTES)).isTrue();
+    }
+
+    @ParameterizedTest
+    @CsvSource({
+        "-1,      p1-w,   1",
+        "topic,   GrOuP,  4",
+        "opic,    RoUp,   4",
+        "topic-1, z,      0",
+        ",        grouP2, 2"
+    })
+    void testConsumerGroupsListFilteredWithoutAuthentication(String topicFilter, String groupFilter, int expectedCount, Vertx vertx, VertxTestContext testContext) throws Exception {
+        SyncMessaging.createConsumerGroups(kafkaClient, 1, externalBootstrap, testContext, "topic-1", "group1-W");
+        SyncMessaging.createConsumerGroups(kafkaClient, 1, externalBootstrap, testContext, "topic-1", "group1-X");
+        SyncMessaging.createConsumerGroups(kafkaClient, 1, externalBootstrap, testContext, "topic-2", "group2-Y");
+        SyncMessaging.createConsumerGroups(kafkaClient, 1, externalBootstrap, testContext, "topic-2", "group2-Z");
+
+        List<String> filters = new ArrayList<>(2);
+
+        if (topicFilter != null && !topicFilter.isBlank()) {
+            filters.add("topic=" + topicFilter);
+        }
+
+        if (groupFilter != null && !groupFilter.isBlank()) {
+            filters.add("group-id-filter=" + groupFilter);
+        }
+
+        Checkpoint statusVerified = testContext.checkpoint();
+        Checkpoint responseBodyVerified = testContext.checkpoint();
+
+        createHttpClient(vertx).request(HttpMethod.GET, publishedAdminPort, "localhost", "/rest/consumer-groups?" + String.join("&", filters))
+            .compose(req -> req.send())
+            .map(resp -> {
+                if (resp.statusCode() != ReturnCodes.SUCCESS.code) {
+                    testContext.failNow("Status code not correct");
+                }
+                statusVerified.flag();
+                return resp;
+            })
+            .compose(HttpClientResponse::body)
+            .map(buffer -> MODEL_DESERIALIZER.deserializeResponse(buffer, Types.ConsumerGroupList.class))
+            .map(groups -> testContext.verify(() -> {
+                assertThat(groups.getItems().size()).isEqualTo(expectedCount);
+                groups.getItems()
+                    .stream()
+                    .map(Types.ConsumerGroupDescription::getConsumers)
+                    .flatMap(List::stream)
+                    .forEach(consumer -> {
+                        if (topicFilter != null && !topicFilter.isBlank()) {
+                            assertThat(consumer.getTopic().toLowerCase(Locale.ROOT)).contains(topicFilter.toLowerCase(Locale.ROOT));
+                        }
+                        if (groupFilter != null && !groupFilter.isBlank()) {
+                            assertThat(consumer.getGroupId().toLowerCase(Locale.ROOT)).contains(groupFilter.toLowerCase(Locale.ROOT));
+                        }
+                    });
+
+                responseBodyVerified.flag();
+            }))
+            .onFailure(testContext::failNow);
     }
 }

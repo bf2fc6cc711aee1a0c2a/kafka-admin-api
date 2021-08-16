@@ -38,32 +38,28 @@ import java.util.stream.Collectors;
 
 @SuppressWarnings({"checkstyle:CyclomaticComplexity", "checkstyle:NPathComplexity"})
 public class ConsumerGroupOperations {
+
     protected static final Logger log = LogManager.getLogger(ConsumerGroupOperations.class);
     private static final DateTimeFormatter DATE_TIME_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ssz");
 
-    public static void getGroupList(KafkaAdminClient ac, Promise prom, Pattern pattern, Types.PageRequest pageRequest, final String groupIdPrefix, Types.OrderByInput orderByInput) {
-        Promise<List<ConsumerGroupListing>> listConsumerGroupsFuture = Promise.promise();
+    public static void getGroupList(KafkaAdminClient ac, Promise<Types.ConsumerGroupList> prom, Pattern topicPattern, Pattern groupIdPattern, Types.PageRequest pageRequest, Types.OrderByInput orderByInput) {
+        boolean internalGroupsAllowed = Boolean.parseBoolean(System.getenv("KAFKA_ADMIN_INTERNAL_CONSUMER_GROUPS_ENABLED"));
 
-        ac.listConsumerGroups(listConsumerGroupsFuture);
-        listConsumerGroupsFuture.future()
+        ac.listConsumerGroups()
             .compose(list -> {
-                boolean internalGroupsAllowed = System.getenv("KAFKA_ADMIN_INTERNAL_CONSUMER_GROUPS_ENABLED") == null
-                        ? false : Boolean.valueOf(System.getenv("KAFKA_ADMIN_INTERNAL_CONSUMER_GROUPS_ENABLED"));
-
-                List<String> groupIds = list.stream().map(group -> group.getGroupId())
-                        .filter(groupId -> !internalGroupsAllowed ? !groupId.startsWith("strimzi") : true)
-                        .filter(groupId -> groupId.startsWith(groupIdPrefix))
+                List<String> groupIds = list.stream()
+                        .map(ConsumerGroupListing::getGroupId)
+                        .filter(groupId -> internalGroupsAllowed || !groupId.startsWith("strimzi"))
+                        .filter(groupId -> groupIdPattern.matcher(groupId).find())
                         .collect(Collectors.toList());
-                Promise<Map<String, ConsumerGroupDescription>> describeConsumerGroupsPromise = Promise.promise();
-                ac.describeConsumerGroups(groupIds, describeConsumerGroupsPromise);
-                return describeConsumerGroupsPromise.future();
+
+                return ac.describeConsumerGroups(groupIds);
             })
             .compose(descriptionMap -> {
-                List<Future> futures = descriptionMap.entrySet().stream().map(entry -> {
-                    Promise<Map<TopicPartition, OffsetAndMetadata>> listOffsetsPromise = Promise.promise();
-                    ac.listConsumerGroupOffsets(entry.getKey(), listOffsetsPromise);
-                    return ConsumerGroupInfo.future(entry.getKey(), Future.succeededFuture(descriptionMap), listOffsetsPromise.future());
-                }).collect(Collectors.toList());
+                List<Future> futures = descriptionMap.entrySet()
+                        .stream()
+                        .map(entry -> ConsumerGroupInfo.future(entry.getKey(), Future.succeededFuture(descriptionMap), ac.listConsumerGroupOffsets(entry.getKey())))
+                        .collect(Collectors.toList());
                 return CompositeFuture.join(futures);
             })
             .compose(infos -> {
@@ -81,10 +77,7 @@ public class ConsumerGroupOperations {
                     .filter(topicPartition -> topicPartition != null)
                     .collect(Collectors.toMap(tp -> tp, tp -> OffsetSpec.LATEST));
 
-                Promise<Map<TopicPartition, ListOffsetsResultInfo>> latestOffsetsPromise = Promise.promise();
-                ac.listOffsets(topicPartitionOffsetSpecs, latestOffsetsPromise);
-
-                return CompositeFuture.join(Future.succeededFuture(consumerGroupInfos), latestOffsetsPromise.future());
+                return CompositeFuture.join(Future.succeededFuture(consumerGroupInfos), ac.listOffsets(topicPartitionOffsetSpecs));
             })
             .compose(composite -> {
                 List<ConsumerGroupInfo> consumerGroupInfos = composite.resultAt(0);
@@ -92,7 +85,7 @@ public class ConsumerGroupOperations {
 
                 Types.OrderByInput blankOrderBy = new Types.OrderByInput();
                 List<Types.ConsumerGroupDescription> list = consumerGroupInfos.stream()
-                    .map(e -> getConsumerGroupsDescription(pattern, blankOrderBy, -1, Collections.singletonMap(e.getGroupId(), e.getDescription()), e.getOffsets(), latestOffsets))
+                    .map(e -> getConsumerGroupsDescription(topicPattern, blankOrderBy, -1, Collections.singletonMap(e.getGroupId(), e.getDescription()), e.getOffsets(), latestOffsets))
                     .flatMap(List::stream)
                     .filter(i -> i != null)
                     .collect(Collectors.toList());
@@ -141,7 +134,7 @@ public class ConsumerGroupOperations {
             });
     }
 
-    public static void deleteGroup(KafkaAdminClient ac, List<String> groupsToDelete, Promise prom) {
+    public static void deleteGroup(KafkaAdminClient ac, List<String> groupsToDelete, Promise<List<String>> prom) {
         ac.deleteConsumerGroups(groupsToDelete, res -> {
             if (res.failed()) {
                 prom.fail(res.cause());
@@ -466,14 +459,14 @@ public class ConsumerGroupOperations {
                                                                                      Map<TopicPartition, OffsetAndMetadata> topicPartitionOffsetAndMetadataMap,
                                                                                      Map<TopicPartition, ListOffsetsResultInfo> topicPartitionListOffsetsResultInfoMap) {
 
-        List<TopicPartition> assignedTopicPartitions = topicPartitionOffsetAndMetadataMap.entrySet().stream().map(e -> e.getKey()).filter(topicPartition -> pattern.matcher(topicPartition.getTopic()).matches()).collect(Collectors.toList());
+        List<TopicPartition> assignedTopicPartitions = topicPartitionOffsetAndMetadataMap.entrySet()
+                .stream()
+                .map(Map.Entry::getKey)
+                .filter(topicPartition -> pattern.matcher(topicPartition.getTopic()).find())
+                .collect(Collectors.toList());
+
         return consumerGroupDescriptionMap.entrySet().stream().map(group -> {
             Types.ConsumerGroupDescription grp = new Types.ConsumerGroupDescription();
-
-            if (group.getValue().getState().name().equalsIgnoreCase("empty") && !pattern.pattern().equals(".*")) {
-                // there are no topics to filter by so the consumer group is not listed
-                return null;
-            }
             Set<Types.Consumer> members = new HashSet<>();
 
             if (group.getValue().getMembers().size() == 0) {

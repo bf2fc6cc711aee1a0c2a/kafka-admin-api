@@ -37,6 +37,8 @@ public class RestOperations extends CommonHandler implements OperationsHandler {
      */
     private static final String DEFAULT_NUM_PARTITIONS_MAX = "100";
 
+    private static final Pattern MATCH_ALL = Pattern.compile(".*");
+
     private final HttpMetrics httpMetrics;
     private final AccessControlOperations aclOperations;
     private final ObjectMapper mapper = new ObjectMapper();
@@ -272,26 +274,22 @@ public class RestOperations extends CommonHandler implements OperationsHandler {
         httpMetrics.getListGroupsCounter().increment();
         httpMetrics.getRequestsCounter().increment();
         String topicFilter = routingContext.queryParams().get("topic");
-        String consumerGroupIdFilter = routingContext.queryParams().get("group-id-filter") == null ? "" : routingContext.queryParams().get("group-id-filter");
+        String consumerGroupIdFilter = routingContext.queryParams().get("group-id-filter");
         Types.OrderByInput orderBy = getOrderByInput(routingContext);
         if (log.isDebugEnabled()) {
             log.debug("listGroups orderBy: field: {}, order: {}; queryParams: {}", orderBy.getField(), orderBy.getOrder(), routingContext.queryParams());
         }
 
-        final Pattern pattern;
-        Promise<Types.TopicList> prom = Promise.promise();
-        if (topicFilter != null && !topicFilter.isEmpty()) {
-            pattern = Pattern.compile(topicFilter, Pattern.CASE_INSENSITIVE);
-        } else {
-            pattern = Pattern.compile(".*");
-        }
+        Promise<Types.ConsumerGroupList> prom = Promise.promise();
+        final Pattern topicPattern = filterPattern(topicFilter);
+        final Pattern groupPattern = filterPattern(consumerGroupIdFilter);
 
         createAdminClient(routingContext.vertx(), acConfig).onComplete(ac -> {
             if (ac.failed()) {
                 prom.fail(ac.cause());
             } else {
                 try {
-                    ConsumerGroupOperations.getGroupList(ac.result(), prom, pattern, parsePageRequest(routingContext), consumerGroupIdFilter, orderBy);
+                    ConsumerGroupOperations.getGroupList(ac.result(), prom, topicPattern, groupPattern, parsePageRequest(routingContext), orderBy);
                 } catch (NumberFormatException | InvalidRequestException e) {
                     prom.fail(e);
                     processResponse(prom, routingContext, HttpResponseStatus.BAD_REQUEST, httpMetrics, timer, requestTimerSample);
@@ -558,5 +556,13 @@ public class RestOperations extends CommonHandler implements OperationsHandler {
         }
 
         return pageRequest;
+    }
+
+    private Pattern filterPattern(String filter) {
+        if (filter == null || filter.isBlank()) {
+            return MATCH_ALL;
+        }
+
+        return Pattern.compile(Pattern.quote(filter), Pattern.CASE_INSENSITIVE);
     }
 }
