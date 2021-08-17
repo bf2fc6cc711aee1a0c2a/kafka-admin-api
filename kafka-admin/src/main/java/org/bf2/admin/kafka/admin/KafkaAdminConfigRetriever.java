@@ -11,6 +11,7 @@ import org.apache.logging.log4j.Logger;
 
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
+import java.nio.file.InvalidPathException;
 import java.nio.file.Path;
 import java.util.Base64;
 import java.util.HashMap;
@@ -136,11 +137,15 @@ public class KafkaAdminConfigRetriever {
         String value = System.getenv(BROKER_TRUSTED_CERT);
 
         try {
-            if (Files.isReadable(Path.of(value))) {
-                return Files.readString(Path.of(value));
+            final Path certPath = Path.of(value);
+
+            if (Files.isReadable(certPath)) {
+                return Files.readString(certPath);
             }
+        } catch (InvalidPathException e) {
+            log.debug("Value of {} was not a valid Path: {}", BROKER_TRUSTED_CERT, e.getMessage());
         } catch (Exception e) {
-            log.info("Exception checking if cert config value is a file: {}", e.getMessage());
+            log.warn("Exception loading value of {} as a file: {}", BROKER_TRUSTED_CERT, e.getMessage());
         }
 
         try {
