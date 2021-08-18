@@ -76,6 +76,8 @@ Once all steps above have been completed, you can run the Kafka Admin API. The s
 | KAFKA_ADMIN_OAUTH_JWKS_ENDPOINT_URI | Endpoint serving JWKS to be use to verify JWT access tokens. *required when `KAFKA_ADMIN_OAUTH_ENABLED` is used* |
 | KAFKA_ADMIN_OAUTH_VALID_ISSUER_URI | Optional issuer that, when provided, must match the issuer (`iss` claim) present in JWTs. Only valid if OAuth and JWKS endpoint are enabled. |
 | KAFKA_ADMIN_OAUTH_TOKEN_ENDPOINT_URI | Optional token endpoint that will be published in the OpenAPI document describing the REST service. Only valid if OAuth and JWKS endpoint are enabled. |
+| KAFKA_ADMIN_BROKER_TLS_ENABLED | Enables TLS for connections to the Kafka broker(s). |
+| KAFKA_ADMIN_BROKER_TRUSTED_CERT | Certificate in PEM format used for Kafka broker trust. The value may be either a path to a file containing the certificate *or* text of the certificate. |
 | KAFKA_ADMIN_TLS_CERT | TLS encryption certificate in PEM format. The value may be either a path to a file containing the certificate *or* text of the certificate. |
 | KAFKA_ADMIN_TLS_KEY | TLS encryption private key in PEM format. The value may be either a path to a file containing the key *or* text of the key. *required when `KAFKA_ADMIN_TLS_CERT` is used* |
 | KAFKA_ADMIN_TLS_VERSION | A comma-separated list of TLS versions to support for TLS/HTTPS endpoints. E.g. `TLSv1.3,TLSv1.2`. Default value if not specified is `TLSv1.3` |

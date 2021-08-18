@@ -31,7 +31,6 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
-import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
@@ -387,13 +386,7 @@ class AccessControlListIT extends OauthTestBase {
             Promise<HttpClientResponse> promise = Promise.promise();
 
             testContext.verify(() -> {
-                assertEquals(expectedStatus.code, rsp.statusCode(), () -> {
-                    try {
-                        return "Unexpected status; body=" + rsp.body().toCompletionStage().toCompletableFuture().get().toString();
-                    } catch (InterruptedException | ExecutionException e) {
-                        throw new RuntimeException(e);
-                    }
-                });
+                assertEquals(expectedStatus.code, rsp.statusCode());
                 statusVerified.flag();
             });
 

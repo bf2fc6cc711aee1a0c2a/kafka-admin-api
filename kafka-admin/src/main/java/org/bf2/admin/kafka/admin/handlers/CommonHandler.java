@@ -29,6 +29,7 @@ import org.apache.kafka.common.errors.InvalidReplicationFactorException;
 import org.apache.kafka.common.errors.InvalidRequestException;
 import org.apache.kafka.common.errors.LeaderNotAvailableException;
 import org.apache.kafka.common.errors.SaslAuthenticationException;
+import org.apache.kafka.common.errors.SslAuthenticationException;
 import org.apache.kafka.common.errors.TimeoutException;
 import org.apache.kafka.common.errors.TopicExistsException;
 import org.apache.kafka.common.errors.UnknownMemberIdException;
@@ -189,6 +190,9 @@ public class CommonHandler {
             status = HttpResponseStatus.NOT_FOUND;
         } else if (failureCause instanceof TimeoutException) {
             status = HttpResponseStatus.SERVICE_UNAVAILABLE;
+        } else if (failureCause instanceof SslAuthenticationException) {
+            log.error("SSL exception", failureCause);
+            status = HttpResponseStatus.INTERNAL_SERVER_ERROR;
         } else if (failureCause instanceof GroupNotEmptyException) {
             status = HttpResponseStatus.LOCKED;
         } else if (failureCause instanceof AuthorizationException) {
