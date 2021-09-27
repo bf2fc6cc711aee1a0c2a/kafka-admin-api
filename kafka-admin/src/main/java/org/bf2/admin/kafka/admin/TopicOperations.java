@@ -82,6 +82,7 @@ public class TopicOperations {
 
     private static Promise<Types.Topic> getTopicDescAndConf(KafkaAdminClient ac, String topicToDescribe) {
         Promise<Types.Topic> result = Promise.promise();
+        Types.Topic tmp = new Types.Topic();
         ConfigResource resource = new ConfigResource(org.apache.kafka.common.config.ConfigResource.Type.TOPIC, topicToDescribe);
 
         ac.describeTopics(Collections.singletonList(topicToDescribe))
@@ -89,13 +90,18 @@ public class TopicOperations {
                 io.vertx.kafka.admin.TopicDescription topicDesc = topics.get(topicToDescribe);
                 return Future.succeededFuture(getTopicDesc(topicDesc));
             })
-            .compose(topic ->
-                ac.describeConfigs(Collections.singletonList(resource))
-                    .compose(topics -> {
-                        Config cfg = topics.get(resource);
-                        topic.setConfig(getTopicConf(cfg));
-                        return Future.succeededFuture(topic);
-                    }))
+            .compose(topic -> {
+                tmp.setName(topic.getName());
+                tmp.setIsInternal(topic.getIsInternal());
+                tmp.setPartitions(topic.getPartitions());
+                return Future.succeededFuture();
+            })
+            .compose(kkk -> ac.describeConfigs(Collections.singletonList(resource))
+            .compose(topics -> {
+                Config cfg = topics.get(resource);
+                tmp.setConfig(getTopicConf(cfg));
+                return Future.succeededFuture(tmp);
+            }))
             .onComplete(f -> {
                 if (f.succeeded()) {
                     result.complete(f.result());
