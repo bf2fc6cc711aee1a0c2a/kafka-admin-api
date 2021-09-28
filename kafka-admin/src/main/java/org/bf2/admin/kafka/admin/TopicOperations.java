@@ -81,32 +81,33 @@ public class TopicOperations {
     }
 
     private static Promise<Types.Topic> getTopicDescAndConf(KafkaAdminClient ac, String topicToDescribe) {
-        Promise result = Promise.promise();
-        Promise<Map<String, io.vertx.kafka.admin.TopicDescription>> describeTopicsPromise = Promise.promise();
-        Promise<Map<ConfigResource, Config>> describeTopicConfigPromise = Promise.promise();
+        Promise<Types.Topic> result = Promise.promise();
+        Types.Topic tmp = new Types.Topic();
+        ConfigResource resource = new ConfigResource(org.apache.kafka.common.config.ConfigResource.Type.TOPIC, topicToDescribe);
 
-        ac.describeTopics(Collections.singletonList(topicToDescribe), describeTopicsPromise);
-
-        describeTopicsPromise.future().onFailure(
-            fail -> {
-                result.fail(fail);
-                return;
-            }).<Types.Topic>compose(topics -> {
+        ac.describeTopics(Collections.singletonList(topicToDescribe))
+            .compose(topics -> {
                 io.vertx.kafka.admin.TopicDescription topicDesc = topics.get(topicToDescribe);
                 return Future.succeededFuture(getTopicDesc(topicDesc));
-            }).onComplete(topic -> {
-                Types.Topic t = topic.result();
-                ConfigResource resource = new ConfigResource(org.apache.kafka.common.config.ConfigResource.Type.TOPIC, topicToDescribe);
-                ac.describeConfigs(Collections.singletonList(resource), describeTopicConfigPromise);
-                describeTopicConfigPromise.future().onComplete(topics -> {
-                    if (topics.failed()) {
-                        result.fail(topics.cause());
-                    } else {
-                        Config cfg = topics.result().get(resource);
-                        t.setConfig(getTopicConf(cfg));
-                        result.complete(t);
-                    }
-                });
+            })
+            .compose(topic -> {
+                tmp.setName(topic.getName());
+                tmp.setIsInternal(topic.getIsInternal());
+                tmp.setPartitions(topic.getPartitions());
+                return Future.succeededFuture();
+            })
+            .compose(kkk -> ac.describeConfigs(Collections.singletonList(resource))
+            .compose(topics -> {
+                Config cfg = topics.get(resource);
+                tmp.setConfig(getTopicConf(cfg));
+                return Future.succeededFuture(tmp);
+            }))
+            .onComplete(f -> {
+                if (f.succeeded()) {
+                    result.complete(f.result());
+                } else {
+                    result.fail(f.cause());
+                }
             });
         return result;
     }
