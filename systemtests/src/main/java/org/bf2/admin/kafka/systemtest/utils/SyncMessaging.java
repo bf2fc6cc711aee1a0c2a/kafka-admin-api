@@ -55,7 +55,7 @@ public class SyncMessaging {
 
                             try (var consumer = new KafkaConsumer<>(props)) {
                                 consumer.subscribe(List.of(topic.name()));
-                                consumer.poll(Duration.ofSeconds(1));
+                                consumer.poll(Duration.ofSeconds(4));
                             }
 
                             LOGGER.info("Created group {} on topic {}", groupName, topic.name());
