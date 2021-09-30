@@ -53,6 +53,8 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.function.Consumer;
+import javax.enterprise.context.ApplicationScoped;
+import javax.inject.Inject;
 
 /**
  * The main Kafka Admin API Server class. It is a Vert.x {@link io.vertx.core.Verticle} and it starts
@@ -63,6 +65,7 @@ import java.util.function.Consumer;
  * accessed by users of the admin server and are exposed using TLS on port 8443 or in clear text on port
  * 8080 if no certificate is provided.
  */
+@ApplicationScoped
 public class AdminServer extends AbstractVerticle {
 
     private static final Logger LOGGER = LogManager.getLogger(AdminServer.class);
@@ -76,7 +79,9 @@ public class AdminServer extends AbstractVerticle {
     private static final Decoder BASE64_DECODER = Base64.getDecoder();
 
     private final KafkaAdminConfigRetriever config = new KafkaAdminConfigRetriever();
-    private final HttpMetrics httpMetrics = new HttpMetrics();
+
+    @Inject
+    HttpMetrics httpMetrics;
 
     @Override
     public void start(final Promise<Void> startServer) {

@@ -1,55 +1,60 @@
 package org.bf2.admin.kafka.admin;
 
+import javax.enterprise.context.ApplicationScoped;
+import javax.enterprise.event.Observes;
+import javax.inject.Inject;
+
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.Timer;
 import io.micrometer.prometheus.PrometheusMeterRegistry;
-import io.vertx.micrometer.backends.BackendRegistries;
+import io.quarkus.runtime.StartupEvent;
 
+@ApplicationScoped
 public class HttpMetrics {
     private static final String FAILED_REQUESTS_COUNTER = "failed_requests";
     private static final String HTTP_STATUS_CODE = "status_code";
 
-    private final PrometheusMeterRegistry meterRegistry;
-    private final Counter requestsCounter;
-    private final Counter openApiCounter;
-    private final Counter succeededRequestsCounter;
-    private final Counter deleteTopicCounter;
-    private final Counter createTopicCounter;
-    private final Counter updateTopicCounter;
-    private final Counter listTopicsCounter;
-    private final Counter describeTopicCounter;
+    @Inject
+    PrometheusMeterRegistry meterRegistry;
 
-    private final Counter describeGroupCounter;
-    private final Counter resetGroupOffsetCounter;
-    private final Counter listGroupsCounter;
-    private final Counter deleteGroupCounter;
+    private Counter requestsCounter;
+    private Counter openApiCounter;
+    private Counter succeededRequestsCounter;
+    private Counter deleteTopicCounter;
+    private Counter createTopicCounter;
+    private Counter updateTopicCounter;
+    private Counter listTopicsCounter;
+    private Counter describeTopicCounter;
 
-    private final Timer listTopicRequestTimer;
-    private final Timer createTopicRequestTimer;
-    private final Timer updateTopicRequestTimer;
-    private final Timer deleteTopicRequestTimer;
-    private final Timer describeTopicRequestTimer;
-    private final Timer openApiRequestTimer;
-    private final Timer describeGroupRequestTimer;
-    private final Timer listGroupsRequestTimer;
-    private final Timer deleteGroupRequestTimer;
-    private final Timer resetGroupOffsetRequestTimer;
+    private Counter describeGroupCounter;
+    private Counter resetGroupOffsetCounter;
+    private Counter listGroupsCounter;
+    private Counter deleteGroupCounter;
 
-    private final Counter getAclResourceOperationsCounter;
-    private final Timer getAclResourceOperationsRequestTimer;
+    private Timer listTopicRequestTimer;
+    private Timer createTopicRequestTimer;
+    private Timer updateTopicRequestTimer;
+    private Timer deleteTopicRequestTimer;
+    private Timer describeTopicRequestTimer;
+    private Timer openApiRequestTimer;
+    private Timer describeGroupRequestTimer;
+    private Timer listGroupsRequestTimer;
+    private Timer deleteGroupRequestTimer;
+    private Timer resetGroupOffsetRequestTimer;
 
-    private final Counter describeAclsCounter;
-    private final Timer describeAclsRequestTimer;
+    private Counter getAclResourceOperationsCounter;
+    private Timer getAclResourceOperationsRequestTimer;
 
-    private final Counter createAclsCounter;
-    private final Timer createAclsRequestTimer;
+    private Counter describeAclsCounter;
+    private Timer describeAclsRequestTimer;
 
-    private final Counter deleteAclsCounter;
-    private final Timer deleteAclsRequestTimer;
+    private Counter createAclsCounter;
+    private Timer createAclsRequestTimer;
 
-    public HttpMetrics() {
-        this.meterRegistry = (PrometheusMeterRegistry) BackendRegistries.getDefaultNow();
+    private Counter deleteAclsCounter;
+    private Timer deleteAclsRequestTimer;
 
+    public void init(@Observes StartupEvent event) {
         requestsCounter = meterRegistry.counter("requests");
         openApiCounter = meterRegistry.counter("requests_openapi");
         /*
