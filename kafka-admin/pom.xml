@@ -33,9 +33,9 @@
                 <!-- to be resolved in Dockerfile -->
                 <docker.app.file>app-files/${project.artifactId}-${project.version}-all.tar.gz</docker.app.file>
                 <!-- Docker repository and Dockerfile type -->
-                <docker.repo>${docker-repository}</docker.repo>
+                <docker.repo>test</docker.repo>
                 <build.type>jvm</build.type>
-                <docker.tag>${docker-tag}</docker.tag>
+                <docker.tag>latest</docker.tag>
             </properties>
             <build>
                 <plugins>
