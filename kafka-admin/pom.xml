@@ -33,9 +33,9 @@
                 <!-- to be resolved in Dockerfile -->
                 <docker.app.file>app-files/${project.artifactId}-${project.version}-all.tar.gz</docker.app.file>
                 <!-- Docker repository and Dockerfile type -->
-                <docker.repo>bf2</docker.repo>
+                <docker.repo>${docker-repository}</docker.repo>
                 <build.type>jvm</build.type>
-                <docker.tag>latest</docker.tag>
+                <docker.tag>${docker-tag}</docker.tag>
             </properties>
             <build>
                 <plugins>
@@ -99,7 +99,7 @@
                                 <configuration>
                                     <images>
                                         <image>
-                                            <name>docker.io/${docker.repo}/kafka-admin:${project.version}</name>
+                                            <name>quay.io/${docker.repo}/kafka-admin:${docker.tag}</name>
                                             <build>
                                                 <contextDir>${project.build.directory}/docker</contextDir>
                                                 <dockerFile>${project.build.directory}/docker/Dockerfile.${build.type}</dockerFile>
