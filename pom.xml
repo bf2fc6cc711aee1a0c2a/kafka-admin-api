@@ -141,6 +141,8 @@
                                 <ignoredDependency>io.quarkus:quarkus-vertx</ignoredDependency>
                                 <ignoredDependency>io.quarkus:quarkus-micrometer-registry-prometheus</ignoredDependency>
                                 <ignoredDependency>io.quarkus:quarkus-kafka-client</ignoredDependency>
+                                <ignoredDependency>io.quarkus:quarkus-container-image-jib</ignoredDependency>
+                                <ignoredDependency>io.quarkus:quarkus-container-image-docker</ignoredDependency>
                                 <ignoredDependency>io.strimzi:kafka-oauth-client</ignoredDependency>
                                 <ignoredDependency>org.jboss.logmanager:log4j2-jboss-logmanager</ignoredDependency>
                                 <ignoredDependency>org.jboss.logmanager:jboss-logmanager-embedded</ignoredDependency>
