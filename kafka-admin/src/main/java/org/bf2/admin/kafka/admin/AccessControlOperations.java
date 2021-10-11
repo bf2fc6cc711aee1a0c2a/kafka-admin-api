@@ -19,6 +19,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -41,6 +42,18 @@ public class AccessControlOperations {
         new TypeReference<>() {
             // Intentionally blank
         };
+
+    private static final Map<String, Function<AclBinding, String>> SORT_KEYS = new LinkedHashMap<>();
+
+    static {
+        // Entries added in order of default column sorting priority
+        SORT_KEYS.put(Types.AclBinding.PROP_PERMISSION, binding -> binding.entry().permissionType().name());
+        SORT_KEYS.put(Types.AclBinding.PROP_PRINCIPAL, binding -> binding.entry().principal());
+        SORT_KEYS.put(Types.AclBinding.PROP_RESOURCE_TYPE, binding -> binding.pattern().resourceType().name());
+        SORT_KEYS.put(Types.AclBinding.PROP_RESOURCE_NAME, binding -> binding.pattern().name());
+        SORT_KEYS.put(Types.AclBinding.PROP_PATTERN_TYPE, binding -> binding.pattern().patternType().name());
+        SORT_KEYS.put(Types.AclBinding.PROP_OPERATION, binding -> binding.entry().operation().name());
+    }
 
     private final Map<String, List<String>> resourceOperations;
 
@@ -163,34 +176,21 @@ public class AccessControlOperations {
     }
 
     static Comparator<AclBinding> getComparator(Types.OrderByInput sortOrder) {
-        Function<AclBinding, String> extractor;
+        Map<String, Function<AclBinding, String>> sortKeys = new LinkedHashMap<>(SORT_KEYS);
+        Comparator<AclBinding> comparator;
 
-        switch (sortOrder.getField()) {
-            case Types.AclBinding.PROP_RESOURCE_NAME:
-                extractor = binding -> binding.pattern().name();
-                break;
-            case Types.AclBinding.PROP_RESOURCE_TYPE:
-                extractor = binding -> binding.pattern().resourceType().name();
-                break;
-            case Types.AclBinding.PROP_PATTERN_TYPE:
-                extractor = binding -> binding.pattern().patternType().name();
-                break;
-            case Types.AclBinding.PROP_PRINCIPAL:
-                extractor = binding -> binding.entry().principal();
-                break;
-            case Types.AclBinding.PROP_OPERATION:
-                extractor = binding -> binding.entry().operation().name();
-                break;
-            case Types.AclBinding.PROP_PERMISSION:
-            default:
-                extractor = binding -> binding.entry().permissionType().name();
-                break;
+        if (sortKeys.containsKey(sortOrder.getField())) {
+            comparator = Comparator.comparing(sortKeys.remove(sortOrder.getField()));
+        } else {
+            comparator = Comparator.comparing(sortKeys.remove(Types.AclBinding.PROP_PERMISSION));
         }
-
-        Comparator<AclBinding> comparator = Comparator.comparing(extractor);
 
         if (sortOrder.getOrder() == SortDirectionEnum.DESC) {
             comparator = comparator.reversed();
+        }
+
+        for (Map.Entry<String, Function<AclBinding, String>> entry : sortKeys.entrySet()) {
+            comparator = comparator.thenComparing(entry.getValue());
         }
 
         return comparator;
