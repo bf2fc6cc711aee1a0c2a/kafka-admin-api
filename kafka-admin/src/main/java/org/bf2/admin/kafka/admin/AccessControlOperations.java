@@ -43,16 +43,18 @@ public class AccessControlOperations {
             // Intentionally blank
         };
 
-    private static final Map<String, Function<AclBinding, String>> SORT_KEYS = new LinkedHashMap<>();
+    public static final Map<String, Function<AclBinding, String>> SORT_KEYS;
 
     static {
+        Map<String, Function<AclBinding, String>> sortKeys = new LinkedHashMap<>();
         // Entries added in order of default column sorting priority
-        SORT_KEYS.put(Types.AclBinding.PROP_PERMISSION, binding -> binding.entry().permissionType().name());
-        SORT_KEYS.put(Types.AclBinding.PROP_PRINCIPAL, binding -> binding.entry().principal());
-        SORT_KEYS.put(Types.AclBinding.PROP_RESOURCE_TYPE, binding -> binding.pattern().resourceType().name());
-        SORT_KEYS.put(Types.AclBinding.PROP_RESOURCE_NAME, binding -> binding.pattern().name());
-        SORT_KEYS.put(Types.AclBinding.PROP_PATTERN_TYPE, binding -> binding.pattern().patternType().name());
-        SORT_KEYS.put(Types.AclBinding.PROP_OPERATION, binding -> binding.entry().operation().name());
+        sortKeys.put(Types.AclBinding.PROP_PERMISSION, binding -> binding.entry().permissionType().name());
+        sortKeys.put(Types.AclBinding.PROP_PRINCIPAL, binding -> binding.entry().principal());
+        sortKeys.put(Types.AclBinding.PROP_RESOURCE_TYPE, binding -> binding.pattern().resourceType().name());
+        sortKeys.put(Types.AclBinding.PROP_RESOURCE_NAME, binding -> binding.pattern().name());
+        sortKeys.put(Types.AclBinding.PROP_PATTERN_TYPE, binding -> binding.pattern().patternType().name());
+        sortKeys.put(Types.AclBinding.PROP_OPERATION, binding -> binding.entry().operation().name());
+        SORT_KEYS = Collections.unmodifiableMap(sortKeys);
     }
 
     private final Map<String, List<String>> resourceOperations;
