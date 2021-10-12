@@ -74,12 +74,6 @@ public class RestOperations extends CommonHandler implements OperationsHandler {
                 return;
             }
 
-            if (!internalTopicsAllowed() && inputTopic.getName().startsWith("__")) {
-                prom.fail(new InvalidTopicException("Topic " + inputTopic.getName() + " cannot be created"));
-                processResponse(prom, routingContext, HttpResponseStatus.BAD_REQUEST, httpMetrics, timer, requestTimerSample);
-                return;
-            }
-
             int maxPartitions = getNumPartitionsMax();
 
             if (!numPartitionsValid(inputTopic.getSettings(), maxPartitions)) {
@@ -114,11 +108,6 @@ public class RestOperations extends CommonHandler implements OperationsHandler {
             processResponse(prom, routingContext, HttpResponseStatus.BAD_REQUEST, httpMetrics, timer, requestTimerSample);
             return;
         }
-        if (!internalTopicsAllowed() && topicToDescribe.startsWith("__")) {
-            prom.fail(new InvalidTopicException("Topic " + topicToDescribe + " cannot be described"));
-            processResponse(prom, routingContext, HttpResponseStatus.BAD_REQUEST, httpMetrics, timer, requestTimerSample);
-            return;
-        }
 
         createAdminClient(routingContext.vertx(), acConfig).onComplete(ac -> {
             if (ac.failed()) {
@@ -142,12 +131,6 @@ public class RestOperations extends CommonHandler implements OperationsHandler {
         String topicToUpdate = routingContext.pathParam("topicName");
         if (topicToUpdate == null || topicToUpdate.isEmpty()) {
             prom.fail(new InvalidTopicException("Topic to update has not been specified."));
-            processResponse(prom, routingContext, HttpResponseStatus.BAD_REQUEST, httpMetrics, timer, requestTimerSample);
-            return;
-        }
-
-        if (!internalTopicsAllowed() && topicToUpdate.startsWith("__")) {
-            prom.fail(new InvalidTopicException("Topic " + topicToUpdate + " cannot be updated"));
             processResponse(prom, routingContext, HttpResponseStatus.BAD_REQUEST, httpMetrics, timer, requestTimerSample);
             return;
         }
@@ -196,12 +179,6 @@ public class RestOperations extends CommonHandler implements OperationsHandler {
 
         if (topicToDelete == null || topicToDelete.isEmpty()) {
             prom.fail(new InvalidTopicException("Topic to delete has not been specified."));
-            processResponse(prom, routingContext, HttpResponseStatus.BAD_REQUEST, httpMetrics, timer, requestTimerSample);
-            return;
-        }
-
-        if (!internalTopicsAllowed() && topicToDelete.startsWith("__")) {
-            prom.fail(new InvalidTopicException("Topic " + topicToDelete + " cannot be deleted"));
             processResponse(prom, routingContext, HttpResponseStatus.BAD_REQUEST, httpMetrics, timer, requestTimerSample);
             return;
         }
@@ -316,11 +293,6 @@ public class RestOperations extends CommonHandler implements OperationsHandler {
         Types.OrderByInput orderBy = getOrderByInput(routingContext);
 
         Promise<Types.Topic> prom = Promise.promise();
-        if (!internalGroupsAllowed() && groupToDescribe.startsWith("strimzi")) {
-            prom.fail(new InvalidConsumerGroupException("ConsumerGroup " + groupToDescribe + " cannot be described."));
-            processResponse(prom, routingContext, HttpResponseStatus.BAD_REQUEST, httpMetrics, timer, requestTimerSample);
-            return;
-        }
         if (groupToDescribe == null || groupToDescribe.isEmpty()) {
             prom.fail(new InvalidConsumerGroupException("ConsumerGroup to describe has not been specified."));
             processResponse(prom, routingContext, HttpResponseStatus.BAD_REQUEST, httpMetrics, timer, requestTimerSample);
@@ -345,11 +317,7 @@ public class RestOperations extends CommonHandler implements OperationsHandler {
         Timer timer = httpMetrics.getDeleteGroupRequestTimer();
         String groupToDelete = routingContext.pathParam("consumerGroupId");
         Promise<List<String>> prom = Promise.promise();
-        if (!internalGroupsAllowed() && groupToDelete.startsWith("strimzi")) {
-            prom.fail(new InvalidConsumerGroupException("ConsumerGroup " + groupToDelete + " cannot be deleted"));
-            processResponse(prom, routingContext, HttpResponseStatus.BAD_REQUEST, httpMetrics, timer, requestTimerSample);
-            return;
-        }
+
         if (groupToDelete == null || groupToDelete.isEmpty()) {
             prom.fail(new InvalidConsumerGroupException("ConsumerGroup to delete has not been specified."));
             processResponse(prom, routingContext, HttpResponseStatus.BAD_REQUEST, httpMetrics, timer, requestTimerSample);
@@ -376,11 +344,7 @@ public class RestOperations extends CommonHandler implements OperationsHandler {
         String groupToReset = routingContext.pathParam("consumerGroupId");
 
         Promise<PagedResponse<TopicPartitionResetResult>> prom = Promise.promise();
-        if (!internalGroupsAllowed() && groupToReset.startsWith("strimzi")) {
-            prom.fail(new InvalidConsumerGroupException("ConsumerGroup " + groupToReset + " cannot be reset."));
-            processResponse(prom, routingContext, HttpResponseStatus.BAD_REQUEST, httpMetrics, timer, requestTimerSample);
-            return;
-        }
+
         if (groupToReset == null || groupToReset.isEmpty()) {
             prom.fail(new InvalidConsumerGroupException("ConsumerGroup to reset Offset has not been specified."));
             processResponse(prom, routingContext, HttpResponseStatus.BAD_REQUEST, httpMetrics, timer, requestTimerSample);
@@ -509,15 +473,6 @@ public class RestOperations extends CommonHandler implements OperationsHandler {
         }
 
         processResponse(promise, routingContext, HttpResponseStatus.OK, httpMetrics, timer, requestTimerSample);
-    }
-
-    private boolean internalTopicsAllowed() {
-        return System.getenv("KAFKA_ADMIN_INTERNAL_TOPICS_ENABLED") == null ? false : Boolean.valueOf(System.getenv("KAFKA_ADMIN_INTERNAL_TOPICS_ENABLED"));
-    }
-
-    private boolean internalGroupsAllowed() {
-        return System.getenv("KAFKA_ADMIN_INTERNAL_CONSUMER_GROUPS_ENABLED") == null
-                ? false : Boolean.valueOf(System.getenv("KAFKA_ADMIN_INTERNAL_CONSUMER_GROUPS_ENABLED"));
     }
 
     private boolean numPartitionsValid(Types.NewTopicInput settings, int maxPartitions) {

@@ -16,7 +16,6 @@ import org.bf2.admin.kafka.systemtest.Environment;
 import org.bf2.admin.kafka.systemtest.json.TokenModel;
 import org.bf2.admin.kafka.systemtest.utils.ClientsConfig;
 import org.bf2.admin.kafka.systemtest.utils.RequestUtils;
-import org.junit.jupiter.api.extension.ExtensionContext;
 import org.testcontainers.containers.BindMode;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.Network;
@@ -60,19 +59,17 @@ public class DeploymentManager {
         }
     }
 
-    private ExtensionContext testContext;
     private boolean oauthEnabled;
     private Network testNetwork;
     private GenericContainer<?> keycloakContainer;
     private KafkaContainer<?> kafkaContainer;
     private GenericContainer<?> adminContainer;
 
-    public static DeploymentManager newInstance(ExtensionContext testContext, boolean oauthEnabled) {
-        return new DeploymentManager(testContext, oauthEnabled);
+    public static DeploymentManager newInstance(boolean oauthEnabled) {
+        return new DeploymentManager(oauthEnabled);
     }
 
-    private DeploymentManager(ExtensionContext testContext, boolean oauthEnabled) {
-        this.testContext = testContext;
+    private DeploymentManager(boolean oauthEnabled) {
         this.oauthEnabled = oauthEnabled;
         this.testNetwork = Network.newNetwork();
     }
@@ -129,12 +126,7 @@ public class DeploymentManager {
 
     public GenericContainer<?> getAdminContainer() {
         if (adminContainer == null) {
-            boolean allowInternal = testContext.getTestClass()
-                .map(Class::getSimpleName)
-                .map("RestEndpointInternalIT"::equals)
-                .orElse(false);
-
-            adminContainer = deployAdminContainer(kafkaContainer.getInternalBootstrapServers(), allowInternal);
+            adminContainer = deployAdminContainer(kafkaContainer.getInternalBootstrapServers());
         }
 
         return adminContainer;
@@ -215,13 +207,12 @@ public class DeploymentManager {
         throw new IllegalStateException("Admin server not running");
     }
 
-    private GenericContainer<?> deployAdminContainer(String bootstrap, boolean internal) {
+    private GenericContainer<?> deployAdminContainer(String bootstrap) {
         LOGGER.info("Deploying Kafka Admin API container");
 
         Map<String, String> envMap = new HashMap<>();
         envMap.put("KAFKA_ADMIN_BOOTSTRAP_SERVERS", bootstrap);
         envMap.put("KAFKA_ADMIN_OAUTH_ENABLED", Boolean.toString(oauthEnabled));
-        envMap.put("KAFKA_ADMIN_INTERNAL_TOPICS_ENABLED", Boolean.toString(internal));
         envMap.put("KAFKA_ADMIN_REPLICATION_FACTOR", "1");
         envMap.put("KAFKA_ADMIN_ACL_RESOURCE_OPERATIONS", CONFIG.getProperty("systemtests.kafka.admin.acl.resource-operations"));
 

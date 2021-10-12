@@ -25,10 +25,6 @@ spec:
               value: "my-cluster-kafka-bootstrap:9092"
             - name: KAFKA_ADMIN_OAUTH_ENABLED
               value: "false"
-            - name: KAFKA_ADMIN_INTERNAL_TOPICS_ENABLED
-              value: "false"
-            - name: KAFKA_ADMIN_INTERNAL_CONSUMER_GROUPS_ENABLED
-              value: "false"
             - name: REST_LOG_LEVEL
               value: "INFO"
           resources:

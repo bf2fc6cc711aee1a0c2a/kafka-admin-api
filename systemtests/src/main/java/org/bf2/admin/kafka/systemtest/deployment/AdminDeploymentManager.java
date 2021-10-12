@@ -210,7 +210,6 @@ public class AdminDeploymentManager {
 
         List<String> env = new ArrayList<>(Arrays.asList(String.format("KAFKA_ADMIN_BOOTSTRAP_SERVERS=%s", bootstrap),
                                                          String.format("KAFKA_ADMIN_OAUTH_ENABLED=%s", oauth),
-                                                         String.format("KAFKA_ADMIN_INTERNAL_TOPICS_ENABLED=%s", internal),
                                                          "KAFKA_ADMIN_REPLICATION_FACTOR=1"));
 
         if (oauth) {

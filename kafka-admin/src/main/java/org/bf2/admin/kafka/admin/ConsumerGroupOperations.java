@@ -43,13 +43,10 @@ public class ConsumerGroupOperations {
     private static final DateTimeFormatter DATE_TIME_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ssz");
 
     public static void getGroupList(KafkaAdminClient ac, Promise<Types.ConsumerGroupList> prom, Pattern topicPattern, Pattern groupIdPattern, Types.PageRequest pageRequest, Types.OrderByInput orderByInput) {
-        boolean internalGroupsAllowed = Boolean.parseBoolean(System.getenv("KAFKA_ADMIN_INTERNAL_CONSUMER_GROUPS_ENABLED"));
-
         ac.listConsumerGroups()
             .compose(list -> {
                 List<String> groupIds = list.stream()
                         .map(ConsumerGroupListing::getGroupId)
-                        .filter(groupId -> internalGroupsAllowed || !groupId.startsWith("strimzi"))
                         .filter(groupId -> groupIdPattern.matcher(groupId).find())
                         .collect(Collectors.toList());
 
