@@ -26,7 +26,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 
 import java.util.ArrayList;
-import java.util.Collections;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -260,16 +260,28 @@ class AccessControlListIT extends OauthTestBase {
             .distinct()
             .collect(Collectors.toList());
 
-        List<String> expectedValues = newBindings.stream()
-                .map(JsonObject.class::cast)
-                .map(b -> b.getString(orderKey))
-                .collect(Collectors.toList());
+        List<String> sortKeys = new LinkedList<>(AccessControlOperations.SORT_KEYS.keySet());
+        // Remove the primary sort key, handled as a special case
+        sortKeys.remove(orderKey);
 
-        Collections.sort(expectedValues);
+        List<JsonObject> expectedValues = newBindings.stream()
+            .map(JsonObject.class::cast)
+            .sorted((j1, j2) -> {
+                int result;
 
-        if (SORT_DESC.equals(order)) {
-            Collections.reverse(expectedValues);
-        }
+                if ((result = j1.getString(orderKey).compareTo(j2.getString(orderKey))) != 0) {
+                    return SORT_DESC.equals(order) ? (result * -1) : result;
+                }
+
+                for (String key : sortKeys) {
+                    if ((result = j1.getString(key).compareTo(j2.getString(key))) != 0) {
+                        return result;
+                    }
+                }
+
+                return 0;
+            })
+            .collect(Collectors.toList());
 
         Checkpoint statusVerified = testContext.checkpoint();
         Checkpoint responseBodyVerified = testContext.checkpoint();
@@ -302,9 +314,8 @@ class AccessControlListIT extends OauthTestBase {
                             JsonArray bindings = response.getJsonArray("items");
                             assertEquals(expectedTotal, bindings.size());
 
-                            List<String> responseValues = bindings.stream()
+                            List<JsonObject> responseValues = bindings.stream()
                                     .map(JsonObject.class::cast)
-                                    .map(b -> b.getString(orderKey))
                                     .collect(Collectors.toList());
 
                             assertEquals(expectedValues, responseValues, "Unexpected response order");
