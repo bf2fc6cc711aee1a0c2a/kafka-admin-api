@@ -1,5 +1,6 @@
 package org.bf2.admin.kafka.admin.handlers;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.micrometer.core.instrument.Timer;
 import io.netty.handler.codec.http.HttpResponseStatus;
@@ -8,9 +9,12 @@ import io.vertx.ext.web.RoutingContext;
 import io.vertx.kafka.admin.KafkaAdminClient;
 import org.apache.kafka.clients.admin.AdminClient;
 import org.apache.kafka.common.errors.InvalidRequestException;
+import org.apache.kafka.common.resource.Resource;
+import org.apache.kafka.common.resource.ResourceType;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.bf2.admin.kafka.admin.AccessControlOperations;
+import org.apache.kafka.common.acl.AclOperation;
 import org.bf2.admin.kafka.admin.ConsumerGroupOperations;
 import org.bf2.admin.kafka.admin.HttpMetrics;
 import org.bf2.admin.kafka.admin.InvalidConsumerGroupException;
@@ -22,10 +26,9 @@ import org.bf2.admin.kafka.admin.model.Types.PagedResponse;
 import org.bf2.admin.kafka.admin.model.Types.TopicPartitionResetResult;
 
 import java.io.IOException;
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 public class RestOperations extends CommonHandler implements OperationsHandler {
 
@@ -412,8 +415,49 @@ public class RestOperations extends CommonHandler implements OperationsHandler {
         Timer timer = httpMetrics.getGetAclResourceOperationsRequestTimer();
         Timer.Sample requestTimerSample = Timer.start(httpMetrics.getRegistry());
         Promise<String> promise = Promise.promise();
-        promise.complete(this.kaConfig.getAclResourceOperations());
-        processResponse(promise, routingContext, HttpResponseStatus.OK, httpMetrics, timer, requestTimerSample);
+
+        var resourceTypeMap = new HashMap<String, ResourceType>(){{
+            put("topic", ResourceType.TOPIC);
+            put("cluster", ResourceType.CLUSTER);
+            put("group", ResourceType.GROUP);
+            put("transactional_id", ResourceType.TRANSACTIONAL_ID);
+        }};
+
+        var operationMap = new HashMap<String, AclOperation>(){{
+            put("any", AclOperation.ANY);
+            put("all", AclOperation.ALL);
+            put("describe", AclOperation.DESCRIBE);
+            put("alter", AclOperation.ALTER);
+            put("create", AclOperation.CREATE);
+            put("read", AclOperation.READ);
+            put("write", AclOperation.WRITE);
+            put("delete", AclOperation.DELETE);
+            put("alter_configs", AclOperation.ALTER_CONFIGS);
+            put("describe_configs", AclOperation.DESCRIBE_CONFIGS);
+            put("idempotent_write", AclOperation.IDEMPOTENT_WRITE);
+            put("cluster_action", AclOperation.CLUSTER_ACTION);
+        }};
+
+        // convert the internal resource names and operations and output
+        // the values as they are represented by the ACL resource and operation enum value
+        TreeMap<ResourceType, List<AclOperation>> mappedResourceOperations = new TreeMap<>();
+        var entries = this.aclOperations.getResourceOperations().entrySet();
+        for (Map.Entry<String, List<String>> mapEntry : entries) {
+            var operations = mapEntry.getValue();
+            var mappedOperations = new ArrayList<AclOperation>();
+            for (String operation : operations) {
+                mappedOperations.add(operationMap.get(operation));
+            }
+            mappedResourceOperations.put(resourceTypeMap.get(mapEntry.getKey()), mappedOperations);
+        }
+
+        try {
+            var resourceOperations = new ObjectMapper().writeValueAsString(mappedResourceOperations);
+            promise.complete(resourceOperations);
+            processResponse(promise, routingContext, HttpResponseStatus.OK, httpMetrics, timer, requestTimerSample);
+        } catch (JsonProcessingException e) {
+            promise.fail(e);
+        }
     }
 
     @Override
