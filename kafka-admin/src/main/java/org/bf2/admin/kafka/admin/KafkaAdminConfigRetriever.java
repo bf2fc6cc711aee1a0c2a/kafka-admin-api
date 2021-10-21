@@ -1,6 +1,5 @@
 package org.bf2.admin.kafka.admin;
 
-import io.vertx.core.json.JsonObject;
 import org.apache.kafka.clients.CommonClientConfigs;
 import org.apache.kafka.clients.admin.AdminClientConfig;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
