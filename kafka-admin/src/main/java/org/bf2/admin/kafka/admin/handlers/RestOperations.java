@@ -1,5 +1,6 @@
 package org.bf2.admin.kafka.admin.handlers;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.micrometer.core.instrument.Timer;
 import io.netty.handler.codec.http.HttpResponseStatus;
@@ -22,9 +23,12 @@ import org.bf2.admin.kafka.admin.model.Types.PagedResponse;
 import org.bf2.admin.kafka.admin.model.Types.TopicPartitionResetResult;
 
 import java.io.IOException;
-import java.util.Collections;
 import java.util.List;
+import java.util.ArrayList;
+import java.util.TreeMap;
+import java.util.Locale;
 import java.util.Map;
+import java.util.Collections;
 import java.util.regex.Pattern;
 
 public class RestOperations extends CommonHandler implements OperationsHandler {
@@ -412,8 +416,27 @@ public class RestOperations extends CommonHandler implements OperationsHandler {
         Timer timer = httpMetrics.getGetAclResourceOperationsRequestTimer();
         Timer.Sample requestTimerSample = Timer.start(httpMetrics.getRegistry());
         Promise<String> promise = Promise.promise();
-        promise.complete(this.kaConfig.getAclResourceOperations());
-        processResponse(promise, routingContext, HttpResponseStatus.OK, httpMetrics, timer, requestTimerSample);
+
+        // convert the internal resource names and operations and output
+        // the values as they are represented by the ACL resource and operation enum value
+        TreeMap<String, List<String>> mappedResourceOperations = new TreeMap<>();
+        var entries = this.aclOperations.getResourceOperations().entrySet();
+        for (Map.Entry<String, List<String>> mapEntry : entries) {
+            var operations = mapEntry.getValue();
+            var mappedOperations = new ArrayList<String>();
+            for (String operation : operations) {
+                mappedOperations.add(operation.toUpperCase(Locale.ROOT));
+            }
+            mappedResourceOperations.put(mapEntry.getKey().toUpperCase(Locale.ROOT), mappedOperations);
+        }
+
+        try {
+            var resourceOperations = new ObjectMapper().writeValueAsString(mappedResourceOperations);
+            promise.complete(resourceOperations);
+            processResponse(promise, routingContext, HttpResponseStatus.OK, httpMetrics, timer, requestTimerSample);
+        } catch (JsonProcessingException e) {
+            promise.fail(e);
+        }
     }
 
     @Override
