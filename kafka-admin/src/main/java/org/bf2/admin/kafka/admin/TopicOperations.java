@@ -123,9 +123,9 @@ public class TopicOperations {
         ac.listTopics(describeTopicsNamesPromise);
         describeTopicsNamesPromise.future()
             .compose(topics -> {
-                boolean internalTopicsAllowed = System.getenv("KAFKA_ADMIN_INTERNAL_TOPICS_ENABLED") == null ? false : Boolean.valueOf(System.getenv("KAFKA_ADMIN_INTERNAL_TOPICS_ENABLED"));
-                List<String> filteredList = topics.stream().filter(topicName -> CommonHandler.byName(pattern, prom).test(topicName))
-                        .filter(topicName -> !internalTopicsAllowed ? !topicName.startsWith("__") : true).collect(Collectors.toList());
+                List<String> filteredList = topics.stream()
+                        .filter(topicName -> CommonHandler.byName(pattern, prom).test(topicName))
+                        .collect(Collectors.toList());
                 ac.describeTopics(filteredList, describeTopicsPromise);
                 return describeTopicsPromise.future();
             }).compose(topics -> {

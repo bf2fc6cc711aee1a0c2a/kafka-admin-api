@@ -19,7 +19,7 @@ public class OauthTestBase extends TestBase {
 
     @BeforeAll
     static void initialize(ExtensionContext extensionContext) {
-        deployments = DeploymentManager.newInstance(extensionContext, true);
+        deployments = DeploymentManager.newInstance(true);
         deployments.getKeycloakContainer();
     }
 

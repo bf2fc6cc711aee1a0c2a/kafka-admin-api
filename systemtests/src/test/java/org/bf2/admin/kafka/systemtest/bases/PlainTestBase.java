@@ -16,7 +16,7 @@ public class PlainTestBase extends TestBase {
 
     @BeforeAll
     static void initialize(ExtensionContext extensionContext) {
-        deployments = DeploymentManager.newInstance(extensionContext, false);
+        deployments = DeploymentManager.newInstance(false);
     }
 
     @BeforeEach

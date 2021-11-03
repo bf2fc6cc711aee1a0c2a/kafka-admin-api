@@ -16,7 +16,6 @@
         <assertj.version>3.4.1</assertj.version>
         <hamcrest.version>2.2</hamcrest.version>
         <awaitility.version>4.0.3</awaitility.version>
-        <guava.version>19.0</guava.version>
     </properties>
 
     <dependencies>
@@ -107,11 +106,6 @@
         <dependency>
             <groupId>org.bf2</groupId>
             <artifactId>kafka-admin</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>com.google.guava</groupId>
-            <artifactId>guava</artifactId>
-            <version>${guava.version}</version>
         </dependency>
         <dependency>
             <groupId>org.junit.jupiter</groupId>
