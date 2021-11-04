@@ -80,7 +80,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/@TopicsList'
+                $ref: '#/components/schemas/TopicsList'
           description: >-
             List of topics matching the request query parameters. The topics
             returned are limited to those records the requestor is authorized
