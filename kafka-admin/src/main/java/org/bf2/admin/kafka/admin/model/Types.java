@@ -34,18 +34,27 @@ public class Types {
 
     public static class Partition {
         // ID
-        private Integer partition;
+        private Integer partitionId;
         private List<Node> replicas;
         // InSyncReplicas
         private List<Node> isr;
         private Node leader;
 
         public Integer getPartition() {
-            return partition;
+            return partitionId;
         }
 
         public void setPartition(Integer partition) {
-            this.partition = partition;
+            this.partitionId = partition;
+        }
+
+        @Deprecated(forRemoval = true)
+        /**
+         * @return the unique id for the partition among partitions of the same topic
+         * @deprecated use {@link #getPartition()} instead
+         */
+        public Integer getId() {
+            return partitionId;
         }
 
         public List<Node> getReplicas() {
