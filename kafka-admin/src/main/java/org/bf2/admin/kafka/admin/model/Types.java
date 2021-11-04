@@ -57,6 +57,15 @@ public class Types {
             return partitionId;
         }
 
+        @Deprecated(forRemoval = true)
+        /**
+         * @param id the unique id for the partition among partitions of the same topic
+         * @deprecated use {@link #setPartition(Integer)} instead
+         */
+        public void setId(Integer id) {
+            this.partitionId = id;
+        }
+
         public List<Node> getReplicas() {
             return replicas;
         }
