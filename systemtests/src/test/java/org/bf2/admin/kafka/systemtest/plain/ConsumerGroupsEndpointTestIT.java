@@ -116,23 +116,30 @@ class ConsumerGroupsEndpointTestIT extends PlainTestBase {
         } catch (Exception e) {
             testContext.failNow("Test wait for rebalance");
         }
+
         AtomicInteger parts = new AtomicInteger(0);
-        lastResp.get().getItems().forEach(item -> {
-            if (item.getGroupId().equals("test-group")) {
-                for (Types.Consumer c : item.getConsumers()) {
-                    parts.getAndIncrement();
-                    assertThat(c.getMemberId()).isNull();
-                    int actOffset = records.get().records().records(new TopicPartition(topic, c.getPartition())).size();
-                    assertThat(c.getOffset()).isEqualTo(actOffset);
+
+        testContext.verify(() -> {
+            lastResp.get().getItems().forEach(item -> {
+                if (item.getGroupId().equals("test-group")) {
+                    for (Types.Consumer c : item.getConsumers()) {
+                        parts.getAndIncrement();
+                        assertThat(c.getMemberId()).isNull();
+                        int actOffset = records.get().records().records(new TopicPartition(topic, c.getPartition())).size();
+                        assertThat(c.getOffset()).isEqualTo(actOffset);
+                        assertThat(c.getLag()).isNotNegative();
+                        assertThat(c.getLag()).isEqualTo(c.getLogEndOffset() - c.getOffset());
+                    }
+                } else {
+                    item.getConsumers().forEach(c -> assertThat(c.getMemberId()).isNull());
                 }
-            } else {
-                item.getConsumers().forEach(c -> assertThat(c.getMemberId()).isNull());
-            }
+            });
+            assertThat(parts.get()).isEqualTo(3);
+            List<String> responseGroupIDs = lastResp.get().getItems().stream().map(Types.ConsumerGroup::getGroupId).collect(Collectors.toList());
+            List<String> consumerGroups = kafkaClient.listConsumerGroups().all().get().stream().map(ConsumerGroupListing::groupId).collect(Collectors.toList());
+            assertThat(consumerGroups).hasSameElementsAs(responseGroupIDs);
         });
-        assertThat(parts.get()).isEqualTo(3);
-        List<String> responseGroupIDs = lastResp.get().getItems().stream().map(Types.ConsumerGroup::getGroupId).collect(Collectors.toList());
-        List<String> consumerGroups = kafkaClient.listConsumerGroups().all().get().stream().map(ConsumerGroupListing::groupId).collect(Collectors.toList());
-        assertThat(consumerGroups).hasSameElementsAs(responseGroupIDs);
+
         testContext.completeNow();
 
         assertThat(testContext.awaitCompletion(1, TimeUnit.MINUTES)).isTrue();

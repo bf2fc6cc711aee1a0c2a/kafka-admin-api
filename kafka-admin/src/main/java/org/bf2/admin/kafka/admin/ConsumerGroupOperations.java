@@ -31,7 +31,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.function.BinaryOperator;
 import java.util.function.ToLongFunction;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -67,14 +66,14 @@ public class ConsumerGroupOperations {
                 // is just needed for the non-group-specific `ac.listOffsets` method, so that we
                 // only invoke it once rather than once per group (with potentially a lot of
                 // overlap).
-                Map<TopicPartition, OffsetSpec> topicPartitionOffsetSpecs = consumerGroupInfos.stream()
-                    .map(cgInfo -> getTopicPartitions(Collections.singletonMap(cgInfo.getGroupId(), cgInfo.getDescription())))
-                    .flatMap(List::stream)
-                    .distinct()
-                    .filter(topicPartition -> topicPartition != null)
-                    .collect(Collectors.toMap(tp -> tp, tp -> OffsetSpec.LATEST));
+                var listOffsetOptions = consumerGroupInfos.stream()
+                        .map(ConsumerGroupInfo::getOffsets)
+                        .map(Map::keySet)
+                        .flatMap(Set::stream)
+                        .distinct()
+                        .collect(Collectors.toMap(k -> k, k -> OffsetSpec.LATEST));
 
-                return CompositeFuture.join(Future.succeededFuture(consumerGroupInfos), ac.listOffsets(topicPartitionOffsetSpecs));
+                return CompositeFuture.join(Future.succeededFuture(consumerGroupInfos), ac.listOffsets(listOffsetOptions));
             })
             .compose(composite -> {
                 List<ConsumerGroupInfo> consumerGroupInfos = composite.resultAt(0);
@@ -420,18 +419,16 @@ public class ConsumerGroupOperations {
         Promise<Map<String, ConsumerGroupDescription>> describeGroupPromise = Promise.promise();
         ac.describeConsumerGroups(groupToDescribe, describeGroupPromise);
 
-        describeGroupPromise.future()
-            .compose(descriptions -> {
-                Promise<Map<TopicPartition, OffsetAndMetadata>> groupOffsetsPromise = Promise.promise();
-                ac.listConsumerGroupOffsets(groupToDescribe.get(0), groupOffsetsPromise);
-
-                Promise<Map<TopicPartition, ListOffsetsResultInfo>> listOffsetsEndPromise = Promise.promise();
-                List<TopicPartition> topicPartitions = getTopicPartitions(descriptions);
-                ac.listOffsets(topicPartitions.stream().collect(Collectors.toMap(k -> k, k -> OffsetSpec.LATEST)), listOffsetsEndPromise);
+        CompositeFuture.join(ac.describeConsumerGroups(groupToDescribe),
+                             ac.listConsumerGroupOffsets(groupToDescribe.get(0)))
+            .compose(groupData -> {
+                Map<String, ConsumerGroupDescription> descriptions = groupData.resultAt(0);
+                Map<TopicPartition, OffsetAndMetadata> groupOffsets = groupData.resultAt(1);
+                var listOffsetOptions = groupOffsets.keySet().stream().collect(Collectors.toMap(k -> k, k -> OffsetSpec.LATEST));
 
                 return CompositeFuture.join(Future.succeededFuture(descriptions),
-                                            groupOffsetsPromise.future(),
-                                            listOffsetsEndPromise.future());
+                                            Future.succeededFuture(groupOffsets),
+                                            ac.listOffsets(listOffsetOptions));
             })
             .onComplete(res -> {
                 if (res.failed()) {
@@ -567,18 +564,5 @@ public class ConsumerGroupOperations {
         member.setLogEndOffset(endOffset);
         member.setOffset(currentOffset);
         return member;
-    }
-
-    private static List<TopicPartition> getTopicPartitions(Map<String, io.vertx.kafka.admin.ConsumerGroupDescription> consumerGroupDescriptionMap) {
-        final BinaryOperator<Set<TopicPartition>> setAccum = (result, next) -> {
-            result.addAll(next);
-            return result;
-        };
-
-        return new ArrayList<>(consumerGroupDescriptionMap.values().stream()
-            .map(consumerGroupDescription -> consumerGroupDescription.getMembers().stream()
-                .map(mem -> mem.getAssignment().getTopicPartitions())
-                .reduce(new HashSet<TopicPartition>(), setAccum)
-        ).reduce(new HashSet<TopicPartition>(), setAccum));
     }
 }
