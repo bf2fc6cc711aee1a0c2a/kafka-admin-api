@@ -261,7 +261,7 @@ public class RestOperations extends CommonHandler implements OperationsHandler {
             log.debug("listGroups orderBy: field: {}, order: {}; queryParams: {}", orderBy.getField(), orderBy.getOrder(), routingContext.queryParams());
         }
 
-        Promise<Types.ConsumerGroupList> prom = Promise.promise();
+        Promise<PagedResponse<Types.ConsumerGroupDescription>> prom = Promise.promise();
         final Pattern topicPattern = filterPattern(topicFilter);
         final Pattern groupPattern = filterPattern(consumerGroupIdFilter);
 
@@ -292,7 +292,8 @@ public class RestOperations extends CommonHandler implements OperationsHandler {
         int partitionFilter = routingContext.queryParams().get("partitionFilter") == null ? -1 : Integer.parseInt(routingContext.queryParams().get("partitionFilter"));
         Types.OrderByInput orderBy = getOrderByInput(routingContext);
 
-        Promise<Types.Topic> prom = Promise.promise();
+        Promise<Types.ConsumerGroupDescription> prom = Promise.promise();
+
         if (groupToDescribe == null || groupToDescribe.isEmpty()) {
             prom.fail(new InvalidConsumerGroupException("ConsumerGroup to describe has not been specified."));
             processResponse(prom, routingContext, HttpResponseStatus.BAD_REQUEST, httpMetrics, timer, requestTimerSample);
@@ -302,7 +303,7 @@ public class RestOperations extends CommonHandler implements OperationsHandler {
             if (ac.failed()) {
                 prom.fail(ac.cause());
             } else {
-                ConsumerGroupOperations.describeGroup(ac.result(), prom, Collections.singletonList(groupToDescribe), orderBy, partitionFilter);
+                ConsumerGroupOperations.describeGroup(ac.result(), prom, groupToDescribe, orderBy, partitionFilter);
             }
             processResponse(prom, routingContext, HttpResponseStatus.OK, httpMetrics, timer, requestTimerSample);
         });
