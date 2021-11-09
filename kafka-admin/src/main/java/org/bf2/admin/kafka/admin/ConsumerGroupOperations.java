@@ -18,108 +18,74 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.bf2.admin.kafka.admin.handlers.CommonHandler;
 import org.bf2.admin.kafka.admin.model.Types;
+import org.bf2.admin.kafka.admin.model.Types.PagedResponse;
 
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.function.BinaryOperator;
+import java.util.function.Function;
 import java.util.function.ToLongFunction;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 @SuppressWarnings({"checkstyle:CyclomaticComplexity", "checkstyle:NPathComplexity"})
 public class ConsumerGroupOperations {
 
     protected static final Logger log = LogManager.getLogger(ConsumerGroupOperations.class);
     private static final DateTimeFormatter DATE_TIME_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ssz");
+    private static final Pattern MATCH_ALL = Pattern.compile(".*");
+    private static final Types.OrderByInput BLANK_ORDER = new Types.OrderByInput();
 
-    public static void getGroupList(KafkaAdminClient ac, Promise<Types.ConsumerGroupList> prom, Pattern topicPattern, Pattern groupIdPattern, Types.PageRequest pageRequest, Types.OrderByInput orderByInput) {
+    public static void getGroupList(KafkaAdminClient ac, Promise<PagedResponse<Types.ConsumerGroupDescription>> prom, Pattern topicPattern, Pattern groupIdPattern, Types.PageRequest pageRequest, Types.OrderByInput orderByInput) {
+        // Obtain list of all consumer groups
         ac.listConsumerGroups()
+            .map(groups -> groups.stream()
+                 .map(ConsumerGroupListing::getGroupId)
+                 // Include only those group matching query parameter (or all if not specified)
+                 .filter(groupId -> groupIdPattern.matcher(groupId).find())
+                 .collect(Collectors.toList()))
+            // Obtain description for all selected consumer groups
+            .compose(groupDescriptions -> fetchDescriptions(ac, groupDescriptions, topicPattern, -1, BLANK_ORDER))
+            .map(groupDescriptions -> groupDescriptions
+                 .sorted(Types.SortDirectionEnum.DESC.equals(orderByInput.getOrder()) ?
+                     new CommonHandler.ConsumerGroupComparator(orderByInput.getField()).reversed() :
+                         new CommonHandler.ConsumerGroupComparator(orderByInput.getField()))
+                 .collect(Collectors.<Types.ConsumerGroupDescription>toList()))
             .compose(list -> {
-                List<String> groupIds = list.stream()
-                        .map(ConsumerGroupListing::getGroupId)
-                        .filter(groupId -> groupIdPattern.matcher(groupId).find())
-                        .collect(Collectors.toList());
-
-                return ac.describeConsumerGroups(groupIds);
-            })
-            .compose(descriptionMap -> {
-                List<Future> futures = descriptionMap.entrySet()
-                        .stream()
-                        .map(entry -> ConsumerGroupInfo.future(entry.getKey(), Future.succeededFuture(descriptionMap), ac.listConsumerGroupOffsets(entry.getKey())))
-                        .collect(Collectors.toList());
-                return CompositeFuture.join(futures);
-            })
-            .compose(infos -> {
-                List<ConsumerGroupInfo> consumerGroupInfos = infos.list();
-
-                // Collect a distinct list of all TopicPartitions consumed by all the consumer
-                // groups in the list, then create a map them to `OffsetSpec.LATEST`. This mapping
-                // is just needed for the non-group-specific `ac.listOffsets` method, so that we
-                // only invoke it once rather than once per group (with potentially a lot of
-                // overlap).
-                Map<TopicPartition, OffsetSpec> topicPartitionOffsetSpecs = consumerGroupInfos.stream()
-                    .map(cgInfo -> getTopicPartitions(Collections.singletonMap(cgInfo.getGroupId(), cgInfo.getDescription())))
-                    .flatMap(List::stream)
-                    .distinct()
-                    .filter(topicPartition -> topicPartition != null)
-                    .collect(Collectors.toMap(tp -> tp, tp -> OffsetSpec.LATEST));
-
-                return CompositeFuture.join(Future.succeededFuture(consumerGroupInfos), ac.listOffsets(topicPartitionOffsetSpecs));
-            })
-            .compose(composite -> {
-                List<ConsumerGroupInfo> consumerGroupInfos = composite.resultAt(0);
-                Map<TopicPartition, ListOffsetsResultInfo> latestOffsets = composite.resultAt(1);
-
-                Types.OrderByInput blankOrderBy = new Types.OrderByInput();
-                List<Types.ConsumerGroupDescription> list = consumerGroupInfos.stream()
-                    .map(e -> getConsumerGroupsDescription(topicPattern, blankOrderBy, -1, Collections.singletonMap(e.getGroupId(), e.getDescription()), e.getOffsets(), latestOffsets))
-                    .flatMap(List::stream)
-                    .filter(i -> i != null)
-                    .collect(Collectors.toList());
-
-                if (Types.SortDirectionEnum.DESC.equals(orderByInput.getOrder())) {
-                    list.sort(new CommonHandler.ConsumerGroupComparator(orderByInput.getField()).reversed());
-                } else {
-                    list.sort(new CommonHandler.ConsumerGroupComparator(orderByInput.getField()));
-                }
-
-                Types.ConsumerGroupList response = new Types.ConsumerGroupList();
-                List<Types.ConsumerGroupDescription> croppedList;
                 if (pageRequest.isDeprecatedFormat()) {
                     if (pageRequest.getOffset() > list.size()) {
                         return Future.failedFuture(new InvalidRequestException("Offset (" + pageRequest.getOffset() + ") cannot be greater than consumer group list size (" + list.size() + ")"));
                     }
+
                     int tmpLimit = pageRequest.getLimit();
                     if (tmpLimit == 0) {
                         tmpLimit = list.size();
                     }
-                    croppedList = list.subList(pageRequest.getOffset(), Math.min(pageRequest.getOffset() + tmpLimit, list.size()));
+
+                    var response = new PagedResponse<Types.ConsumerGroupDescription>();
                     response.setLimit(pageRequest.getLimit());
                     response.setOffset(pageRequest.getOffset());
+
+                    var croppedList = list.subList(pageRequest.getOffset(), Math.min(pageRequest.getOffset() + tmpLimit, list.size()));
                     response.setCount(croppedList.size());
-                } else {
-                    if (list.size() > 0 && pageRequest.getSize() * (pageRequest.getPage() - 1) >= list.size()) {
-                        return Future.failedFuture(new InvalidRequestException("Requested pagination incorrect. Beginning of list greater than full list size (" + list.size() + ")"));
-                    }
-                    croppedList = list.subList((pageRequest.getPage() - 1) * pageRequest.getSize(), Math.min(pageRequest.getSize() * pageRequest.getPage(), list.size()));
-                    response.setSize(pageRequest.getSize());
-                    response.setPage(pageRequest.getPage());
-                    response.setTotal(list.size());
+                    response.setItems(croppedList);
+
+                    return Future.succeededFuture(response);
                 }
 
-                response.setItems(croppedList);
-
-                return Future.succeededFuture(response);
+                return PagedResponse.forPage(pageRequest, list);
             })
             .onComplete(finalRes -> {
                 if (finalRes.failed()) {
@@ -416,34 +382,17 @@ public class ConsumerGroupOperations {
         }
     }
 
-    public static void describeGroup(KafkaAdminClient ac, Promise prom, List<String> groupToDescribe, Types.OrderByInput orderBy, int partitionFilter) {
-        Promise<Map<String, ConsumerGroupDescription>> describeGroupPromise = Promise.promise();
-        ac.describeConsumerGroups(groupToDescribe, describeGroupPromise);
-
-        describeGroupPromise.future()
-            .compose(descriptions -> {
-                Promise<Map<TopicPartition, OffsetAndMetadata>> groupOffsetsPromise = Promise.promise();
-                ac.listConsumerGroupOffsets(groupToDescribe.get(0), groupOffsetsPromise);
-
-                Promise<Map<TopicPartition, ListOffsetsResultInfo>> listOffsetsEndPromise = Promise.promise();
-                List<TopicPartition> topicPartitions = getTopicPartitions(descriptions);
-                ac.listOffsets(topicPartitions.stream().collect(Collectors.toMap(k -> k, k -> OffsetSpec.LATEST)), listOffsetsEndPromise);
-
-                return CompositeFuture.join(Future.succeededFuture(descriptions),
-                                            groupOffsetsPromise.future(),
-                                            listOffsetsEndPromise.future());
-            })
+    public static void describeGroup(KafkaAdminClient ac, Promise<Types.ConsumerGroupDescription> prom, String groupToDescribe, Types.OrderByInput orderBy, int partitionFilter) {
+        fetchDescriptions(ac, List.of(groupToDescribe), MATCH_ALL, partitionFilter, orderBy)
+            .map(groupDescriptions -> groupDescriptions.findFirst().orElse(null))
             .onComplete(res -> {
                 if (res.failed()) {
                     prom.fail(res.cause());
                 } else {
-                    Map<String, ConsumerGroupDescription> cgDescriptions = res.result().resultAt(0);
-                    Map<TopicPartition, OffsetAndMetadata> cgOffsets = res.result().resultAt(1);
-                    Map<TopicPartition, ListOffsetsResultInfo> endOffsets = res.result().resultAt(2);
+                    Types.ConsumerGroupDescription groupDescription = res.result();
 
-                    Types.ConsumerGroupDescription groupDescription = getConsumerGroupsDescription(Pattern.compile(".*"), orderBy, partitionFilter, cgDescriptions, cgOffsets, endOffsets).get(0);
-                    if ("dead".equalsIgnoreCase(groupDescription.getState())) {
-                        prom.fail(new GroupIdNotFoundException("Group " + groupDescription.getGroupId() + " does not exist"));
+                    if (groupDescription == null || "dead".equalsIgnoreCase(groupDescription.getState())) {
+                        prom.fail(new GroupIdNotFoundException("Group " + groupToDescribe + " does not exist"));
                     } else {
                         prom.complete(groupDescription);
                     }
@@ -452,31 +401,33 @@ public class ConsumerGroupOperations {
             });
     }
 
-    private static List<Types.ConsumerGroupDescription> getConsumerGroupsDescription(Pattern pattern, Types.OrderByInput orderBy, int partitionFilter, Map<String, io.vertx.kafka.admin.ConsumerGroupDescription> consumerGroupDescriptionMap,
-                                                                                     Map<TopicPartition, OffsetAndMetadata> topicPartitionOffsetAndMetadataMap,
-                                                                                     Map<TopicPartition, ListOffsetsResultInfo> topicPartitionListOffsetsResultInfoMap) {
+    private static List<Types.ConsumerGroupDescription> getConsumerGroupsDescription(Pattern pattern,
+            Types.OrderByInput orderBy,
+            int partitionFilter,
+            Collection<ConsumerGroupDescription> groupDescriptions,
+            Map<TopicPartition, OffsetAndMetadata> groupOffsets,
+            Map<TopicPartition, ListOffsetsResultInfo> topicOffsets) {
 
-        List<TopicPartition> assignedTopicPartitions = topicPartitionOffsetAndMetadataMap.entrySet()
+        List<TopicPartition> assignedTopicPartitions = groupOffsets.entrySet()
                 .stream()
                 .map(Map.Entry::getKey)
                 .filter(topicPartition -> pattern.matcher(topicPartition.getTopic()).find())
                 .collect(Collectors.toList());
 
-        return consumerGroupDescriptionMap.entrySet().stream().map(group -> {
+        return groupDescriptions.stream().map(group -> {
             Types.ConsumerGroupDescription grp = new Types.ConsumerGroupDescription();
             Set<Types.Consumer> members = new HashSet<>();
 
-            if (group.getValue().getMembers().size() == 0) {
+            if (group.getMembers().isEmpty()) {
                 assignedTopicPartitions.forEach(pa -> {
-                    Types.Consumer member = getConsumer(topicPartitionOffsetAndMetadataMap, topicPartitionListOffsetsResultInfoMap, group, pa);
+                    Types.Consumer member = getConsumer(groupOffsets, topicOffsets, group, pa);
                     members.add(member);
                 });
-
             } else {
                 assignedTopicPartitions.forEach(pa -> {
-                    group.getValue().getMembers().stream().forEach(mem -> {
-                        if (mem.getAssignment().getTopicPartitions().size() > 0) {
-                            Types.Consumer member = getConsumer(topicPartitionOffsetAndMetadataMap, topicPartitionListOffsetsResultInfoMap, group, pa);
+                    group.getMembers().stream().forEach(mem -> {
+                        if (!mem.getAssignment().getTopicPartitions().isEmpty()) {
+                            Types.Consumer member = getConsumer(groupOffsets, topicOffsets, group, pa);
                             if (memberMatchesPartitionFilter(member, partitionFilter)) {
                                 if (mem.getAssignment().getTopicPartitions().contains(pa)) {
                                     member.setMemberId(mem.getConsumerId());
@@ -502,7 +453,7 @@ public class ConsumerGroupOperations {
                             member.setMemberId(mem.getConsumerId());
                             member.setTopic(null);
                             member.setPartition(-1);
-                            member.setGroupId(group.getValue().getGroupId());
+                            member.setGroupId(group.getGroupId());
                             member.setLogEndOffset(0);
                             member.setLag(0);
                             member.setOffset(0);
@@ -514,11 +465,11 @@ public class ConsumerGroupOperations {
                 });
             }
 
-            if (!pattern.pattern().equals(".*") && members.size() == 0) {
+            if (!pattern.pattern().equals(MATCH_ALL.pattern()) && members.isEmpty()) {
                 return null;
             }
-            grp.setGroupId(group.getValue().getGroupId());
-            grp.setState(group.getValue().getState().name());
+            grp.setGroupId(group.getGroupId());
+            grp.setState(group.getState().name());
             List<Types.Consumer> sortedList;
 
             ToLongFunction<Types.Consumer> fun;
@@ -555,30 +506,93 @@ public class ConsumerGroupOperations {
         }
     }
 
-    private static Types.Consumer getConsumer(Map<TopicPartition, OffsetAndMetadata> topicPartitionOffsetAndMetadataMap, Map<TopicPartition, ListOffsetsResultInfo> topicPartitionListOffsetsResultInfoMap, Map.Entry<String, ConsumerGroupDescription> group, TopicPartition pa) {
+    private static Types.Consumer getConsumer(Map<TopicPartition, OffsetAndMetadata> groupOffsets,
+            Map<TopicPartition, ListOffsetsResultInfo> topicOffsets,
+            ConsumerGroupDescription group,
+            TopicPartition pa) {
+
         Types.Consumer member = new Types.Consumer();
         member.setTopic(pa.getTopic());
         member.setPartition(pa.getPartition());
-        member.setGroupId(group.getValue().getGroupId());
-        long currentOffset = topicPartitionOffsetAndMetadataMap.get(pa) == null ? 0 : topicPartitionOffsetAndMetadataMap.get(pa).getOffset();
-        long endOffset = topicPartitionListOffsetsResultInfoMap.get(pa) == null ? 0 : topicPartitionListOffsetsResultInfoMap.get(pa).getOffset();
-        long lag = endOffset - currentOffset;
+        member.setGroupId(group.getGroupId());
+        long offset = groupOffsets.get(pa) == null ? 0 : groupOffsets.get(pa).getOffset();
+        long logEndOffset = topicOffsets.get(pa) == null ? 0 : topicOffsets.get(pa).getOffset();
+        long lag = logEndOffset - offset;
         member.setLag(lag);
-        member.setLogEndOffset(endOffset);
-        member.setOffset(currentOffset);
+        member.setLogEndOffset(logEndOffset);
+        member.setOffset(offset);
         return member;
     }
 
-    private static List<TopicPartition> getTopicPartitions(Map<String, io.vertx.kafka.admin.ConsumerGroupDescription> consumerGroupDescriptionMap) {
-        final BinaryOperator<Set<TopicPartition>> setAccum = (result, next) -> {
-            result.addAll(next);
-            return result;
-        };
+    /**
+     * Obtains a future stream of {@link Types.ConsumerGroupDescription}s. Using the provided
+     * groupIds list, the following information is fetched for each consumer group:
+     *
+     * <ul>
+     * <li>Consumer group description (using {@link KafkaAdminClient#describeConsumerGroups(List)})
+     * <li>Current consumer group offsets (using {@link KafkaAdminClient#listConsumerGroupOffsets(String)})
+     * </ul>
+     *
+     * The unique set of {@link TopicPartition}s for the listed consumer groups will then be used to
+     * obtain the current topic offsets using {@link KafkaAdminClient#listOffsets(Map)}).
+     *
+     * Results will be filtered according to the provided topicPattern and partitionFilter. Sorting
+     * of each consumer group's members will be performed based on the provided memberOrder.
+     *
+     * @param ac Kafka client
+     * @param groupIds the groups to describe
+     * @param topicPattern regular expression pattern to limit results to matching topics
+     * @param partitionFilter partition number to limit results to a specific partition
+     * @param memberOrder consumer group member sorting
+     * @return future stream of {@link Types.ConsumerGroupDescription}
+     */
+    @SuppressWarnings("rawtypes")
+    static Future<Stream<Types.ConsumerGroupDescription>> fetchDescriptions(KafkaAdminClient ac,
+                                                                     List<String> groupIds,
+                                                                     Pattern topicPattern,
+                                                                     int partitionFilter,
+                                                                     Types.OrderByInput memberOrder) {
 
-        return new ArrayList<>(consumerGroupDescriptionMap.values().stream()
-            .map(consumerGroupDescription -> consumerGroupDescription.getMembers().stream()
-                .map(mem -> mem.getAssignment().getTopicPartitions())
-                .reduce(new HashSet<TopicPartition>(), setAccum)
-        ).reduce(new HashSet<TopicPartition>(), setAccum));
+        List<ConsumerGroupInfo> consumerGroupInfos = new ArrayList<>(groupIds.size());
+
+        return ac.describeConsumerGroups(groupIds)
+            .map(Map::entrySet)
+            .map(descriptions -> descriptions.stream()
+                 // Fetch the offsets for consumer groups
+                 .map(entry -> ac.listConsumerGroupOffsets(entry.getKey()).map(offsets -> new ConsumerGroupInfo(entry.getValue(), offsets)))
+                 .collect(Collectors.<Future>toList()))
+            .compose(CompositeFuture::join)
+            .map(CompositeFuture::<ConsumerGroupInfo>list)
+            .compose(groupInfos -> {
+                consumerGroupInfos.addAll(groupInfos);
+                // Fetch the topic offsets for all partitions in the selected consumer groups
+                return ac.listOffsets(toListLatestOffsetMap(groupInfos));
+            })
+            .map(latestOffsets -> consumerGroupInfos.stream()
+                 .map(e -> getConsumerGroupsDescription(topicPattern, memberOrder, partitionFilter, List.of(e.getDescription()), e.getOffsets(), latestOffsets))
+                 .flatMap(List::stream)
+                 .filter(Objects::nonNull));
+    }
+
+    /**
+     * Transform the offsets for all {@link TopicPartition}s from the given list
+     * of {@link ConsumerGroupInfo} to a map with each unique
+     * {@link TopicPartition} and all values set to {@link OffsetSpec#LATEST}.
+     *
+     * Used to fetch the latest offsets for all {@link TopicPartition}s
+     * included in the listed consumer groups.
+     *
+     * @param consumerGroupInfos
+     *            list of {@link ConsumerGroupInfo}s for mapping
+     * @return map of all {@link TopicPartition}s from the provided consumer
+     *         groups with values set to {@link OffsetSpec#LATEST}
+     */
+    static Map<TopicPartition, OffsetSpec> toListLatestOffsetMap(List<ConsumerGroupInfo> consumerGroupInfos) {
+        return consumerGroupInfos.stream()
+            .map(ConsumerGroupInfo::getOffsets)
+            .flatMap(offsets -> offsets.keySet().stream())
+            .distinct()
+            .filter(Objects::nonNull)
+            .collect(Collectors.toMap(Function.identity(), partition -> OffsetSpec.LATEST));
     }
 }
