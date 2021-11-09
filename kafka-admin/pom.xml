@@ -45,10 +45,12 @@
                 <docker.registry>quay.io</docker.registry>
                 <docker.repo>test</docker.repo>
                 <docker.tag>latest</docker.tag>
+                <docker.push>false</docker.push>
                 <quarkus.container-image.build>true</quarkus.container-image.build>
                 <quarkus.container-image.registry>${docker.registry}</quarkus.container-image.registry>
                 <quarkus.container-image.group>${docker.repo}</quarkus.container-image.group>
                 <quarkus.container-image.tag>${docker.tag}</quarkus.container-image.tag>
+                <quarkus.container-image.push>${docker.push}</quarkus.container-image.push>
             </properties>
             <dependencies>
                 <dependency>
