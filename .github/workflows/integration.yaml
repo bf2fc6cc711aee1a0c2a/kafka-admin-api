@@ -8,6 +8,9 @@ on:
 jobs:
   integration:
     runs-on: ubuntu-latest
+    env:
+      VALIDATION_PROXY_PORT: 55061
+      ADMIN_API_URL: http://localhost:5555
     steps:
       - name: Checkout
         uses: actions/checkout@v2

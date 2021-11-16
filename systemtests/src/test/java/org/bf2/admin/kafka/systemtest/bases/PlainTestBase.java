@@ -22,6 +22,16 @@ public class PlainTestBase extends TestBase {
     @BeforeEach
     void setup(Vertx vertx) throws InterruptedException, ExecutionException {
         this.kafkaClient = deployments.createKafkaAdmin();
+
+        var validationProxyPortEnv = System.getProperty("validationProxyPort");
+        if (validationProxyPortEnv != null && !validationProxyPortEnv.equals("")) {
+            try {
+                this.publishedAdminPort = Integer.parseInt(validationProxyPortEnv);
+            } catch (Exception ex) {
+                // don't do anything - default port is already set
+            }
+        }
+
         deleteAllTopics();
     }
 

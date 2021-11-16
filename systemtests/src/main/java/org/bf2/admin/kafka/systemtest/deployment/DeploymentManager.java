@@ -18,6 +18,7 @@ import org.bf2.admin.kafka.systemtest.utils.ClientsConfig;
 import org.bf2.admin.kafka.systemtest.utils.RequestUtils;
 import org.slf4j.LoggerFactory;
 import org.testcontainers.containers.BindMode;
+import org.testcontainers.containers.FixedHostPortGenericContainer;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.Network;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
@@ -254,7 +255,7 @@ public class DeploymentManager {
             envMap.put("KAFKA_ADMIN_OAUTH_TOKEN_ENDPOINT_URI", "http://keycloak:8080/auth/realms/kafka-authz/protocol/openid-connect/token");
         }
 
-        class KafkaAdminServerContainer extends GenericContainer<KafkaAdminServerContainer> {
+        class KafkaAdminServerContainer extends FixedHostPortGenericContainer<KafkaAdminServerContainer> {
             KafkaAdminServerContainer() {
                 super("kafka-admin");
             }
@@ -270,6 +271,7 @@ public class DeploymentManager {
                 .withCreateContainerCmdModifier(cmd -> cmd.withName(name("admin-server")))
                 .withNetwork(testNetwork)
                 .withExposedPorts(oauthEnabled ? 8443 : 8080, 9990)
+                .withFixedExposedPort(5555, 8080)
                 .withEnv(envMap)
                 .waitingFor(Wait.forHttp("/health/status").forPort(9990));
 
@@ -278,6 +280,7 @@ public class DeploymentManager {
         if (configuredDebugPort != null) {
             container.addExposedPort(configuredDebugPort);
             container.addFixedExposedPort(configuredDebugPort, configuredDebugPort);
+            container.addFixedExposedPort(5555, 8080);
             container.addEnv("KAFKA_ADMIN_DEBUG", String.format("-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:%d", configuredDebugPort));
         }
 

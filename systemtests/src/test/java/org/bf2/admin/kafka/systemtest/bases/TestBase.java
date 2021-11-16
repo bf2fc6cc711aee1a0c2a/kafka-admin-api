@@ -7,6 +7,7 @@ import io.vertx.core.buffer.Buffer;
 import io.vertx.core.http.HttpClient;
 import io.vertx.core.http.HttpClientOptions;
 import io.vertx.core.http.HttpClientResponse;
+import io.vertx.core.json.JsonObject;
 import io.vertx.core.net.PemTrustOptions;
 import io.vertx.junit5.VertxExtension;
 import io.vertx.junit5.VertxTestContext;
@@ -15,6 +16,7 @@ import org.apache.kafka.clients.admin.TopicListing;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.bf2.admin.kafka.systemtest.deployment.DeploymentManager;
+import org.bf2.admin.kafka.systemtest.exceptions.ContractViolationException;
 import org.bf2.admin.kafka.systemtest.json.ModelDeserializer;
 import org.bf2.admin.kafka.systemtest.listeners.ExtensionContextParameterResolver;
 import org.bf2.admin.kafka.systemtest.listeners.TestCallbackListener;
@@ -35,7 +37,6 @@ import java.time.Duration;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
-
 
 @ExtendWith(TestCallbackListener.class)
 @ExtendWith(ExtensionContextParameterResolver.class)
@@ -136,6 +137,22 @@ public class TestBase {
             options.setPemTrustOptions(new PemTrustOptions().addCertValue(caCert));
         }
         return vertx.createHttpClient(options);
+    }
+
+    // Fail test if the response violates the OpenAPI contract
+    protected void assertContractViolationError(HttpClientResponse response, VertxTestContext testContext) {
+        response.body().onComplete(ar -> {
+            if (ar.succeeded()) {
+                JsonObject responseObj = ar.result().toJsonObject();
+                String type = responseObj.getString("type");
+                if (type != null && type.startsWith("https://stoplight.io/prism/errors")) {
+                    String title = responseObj.getString("title");
+                    String validation = responseObj.getString("validation");
+                    String message = String.format("%s: %s", title, validation);
+                    testContext.failNow(new ContractViolationException(message));
+                }
+            }
+        });
     }
 
     protected void assertStrictTransportSecurity(HttpClientResponse response, VertxTestContext testContext, boolean secureTransport) {
