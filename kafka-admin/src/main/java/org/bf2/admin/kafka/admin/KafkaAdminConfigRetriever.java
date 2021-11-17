@@ -192,7 +192,6 @@ public class KafkaAdminConfigRetriever {
 
     public String getAclResourceOperations() {
         String value = System.getenv(ACL_RESOURCE_OPERATIONS);
-
         return value != null ? value : "{}";
     }
 }
