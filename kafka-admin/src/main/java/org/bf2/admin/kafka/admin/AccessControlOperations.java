@@ -76,10 +76,6 @@ public class AccessControlOperations {
         }
     }
 
-    public Map<String, List<String>> getResourceOperations() {
-        return this.resourceOperations;
-    }
-
     public void createAcl(Admin client, Promise<Void> promise, Types.AclBinding binding) {
         if (!validAclBinding(binding)) {
             promise.fail(new IllegalArgumentException(INVALID_ACL_RESOURCE_OPERATION));

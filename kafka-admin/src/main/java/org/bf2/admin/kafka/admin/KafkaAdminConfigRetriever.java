@@ -1,6 +1,5 @@
 package org.bf2.admin.kafka.admin;
 
-import io.vertx.core.json.JsonObject;
 import org.apache.kafka.clients.CommonClientConfigs;
 import org.apache.kafka.clients.admin.AdminClientConfig;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
@@ -193,7 +192,6 @@ public class KafkaAdminConfigRetriever {
 
     public String getAclResourceOperations() {
         String value = System.getenv(ACL_RESOURCE_OPERATIONS);
-
         return value != null ? value : "{}";
     }
 }
