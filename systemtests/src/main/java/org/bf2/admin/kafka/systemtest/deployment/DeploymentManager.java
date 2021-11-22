@@ -23,6 +23,7 @@ import org.testcontainers.containers.Network;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.containers.wait.strategy.Wait;
 import org.testcontainers.lifecycle.Startable;
+import org.testcontainers.utility.MountableFile;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -32,6 +33,7 @@ import java.nio.file.Path;
 import java.util.Base64;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ExecutionException;
@@ -61,8 +63,9 @@ public class DeploymentManager {
         }
     }
 
-    private boolean oauthEnabled;
-    private Network testNetwork;
+    private final boolean oauthEnabled;
+    private final Network testNetwork;
+
     private GenericContainer<?> keycloakContainer;
     private KafkaContainer<?> kafkaContainer;
     private GenericContainer<?> adminContainer;
@@ -287,20 +290,37 @@ public class DeploymentManager {
     public GenericContainer<?> deployKeycloak() {
         LOGGER.info("Deploying keycloak container");
 
-        GenericContainer<?> container = new GenericContainer<>("kafka-admin-keycloak")
+        GenericContainer<?> container = new GenericContainer<>("quay.io/keycloak/keycloak:14.0.0")
                 .withLabels(Collections.singletonMap("test-ident", Environment.TEST_CONTAINER_LABEL))
                 .withLogConsumer(new Slf4jLogConsumer(LoggerFactory.getLogger("systemtests.keycloak"), true))
                 .withCreateContainerCmdModifier(cmd -> cmd.withName(name("keycloak")))
                 .withNetwork(testNetwork)
                 .withNetworkAliases("keycloak")
                 .withExposedPorts(8080)
+                .withEnv(Map.of("KEYCLOAK_USER", "admin",
+                        "KEYCLOAK_PASSWORD", "admin",
+                        "PROXY_ADDRESS_FORWARDING", "true"))
+                .withCopyFileToContainer(MountableFile.forClasspathResource("/keycloak/scripts/keycloak-ssl.cli"),
+                        "/opt/jboss/keycloak/keycloak-ssl.cli")
+                .withCopyFileToContainer(MountableFile.forClasspathResource("/keycloak.server.keystore.p12"),
+                        "/opt/jboss/keycloak/standalone/configuration/certs/keycloak.server.keystore.p12")
+                .withCommand("-Dkeycloak.profile.feature.upload_scripts=enabled")
                 .waitingFor(Wait.forHttp("/auth/realms/demo"));
 
         LOGGER.info("Deploying keycloak_import container");
 
-        new GenericContainer<>("kafka-admin-keycloak-import")
+        new GenericContainer<>("quay.io/keycloak/keycloak:14.0.0")
                 .withCreateContainerCmdModifier(cmd -> cmd.withName(name("keycloak-import")))
+                .withCreateContainerCmdModifier(cmd -> cmd.withEntrypoint(List.of("")))
                 .withNetwork(testNetwork)
+                .withEnv(Map.of("KEYCLOAK_HOST", "keycloak"))
+                .withCopyFileToContainer(MountableFile.forClasspathResource("/keycloak-import/realms/authz-realm.json"),
+                        "/opt/jboss/realms/authz-realm.json")
+                .withCopyFileToContainer(MountableFile.forClasspathResource("/keycloak-import/realms/demo-realm.json"),
+                        "/opt/jboss/realms/demo-realm.json")
+                .withCopyFileToContainer(MountableFile.forClasspathResource("/keycloak-import/start.sh", 0755),
+                        "/opt/jboss/start.sh")
+                .withCommand("/opt/jboss/start.sh")
                 .start();
 
         LOGGER.info("Waiting for keycloak container");

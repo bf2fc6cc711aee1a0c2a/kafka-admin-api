@@ -35,7 +35,7 @@ jobs:
 
       - name: "Integration tests"
         run: |
-          mvn clean verify -pl systemtests --no-transfer-progress
+          mvn verify -pl systemtests --no-transfer-progress
 
       - name: Archive results
         uses: actions/upload-artifact@v2

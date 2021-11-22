@@ -12,8 +12,8 @@
     <properties>
         <junit.platform.version>1.5.2</junit.platform.version>
         <strimzi-test-container.version>0.23.0</strimzi-test-container.version>
-        <testcontainers.version>1.15.1</testcontainers.version>
-        <docker-java.version>3.2.7</docker-java.version>
+        <testcontainers.version>1.16.2</testcontainers.version>
+        <docker-java.version>3.2.12</docker-java.version>
         <assertj.version>3.4.1</assertj.version>
         <hamcrest.version>2.2</hamcrest.version>
         <awaitility.version>4.0.3</awaitility.version>
