@@ -30,6 +30,7 @@ import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Duration;
 import java.util.Base64;
 import java.util.Collections;
 import java.util.HashMap;
@@ -305,7 +306,7 @@ public class DeploymentManager {
                 .withCopyFileToContainer(MountableFile.forClasspathResource("/keycloak.server.keystore.p12"),
                         "/opt/jboss/keycloak/standalone/configuration/certs/keycloak.server.keystore.p12")
                 .withCommand("-Dkeycloak.profile.feature.upload_scripts=enabled")
-                .waitingFor(Wait.forHttp("/auth/realms/demo"));
+                .waitingFor(Wait.forHttp("/auth/realms/demo").withStartupTimeout(Duration.ofMinutes(5)));
 
         LOGGER.info("Deploying keycloak_import container");
 
