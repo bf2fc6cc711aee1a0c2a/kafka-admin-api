@@ -1,6 +1,8 @@
 package org.bf2.admin.kafka.systemtest.bases;
 
+import io.vertx.core.Future;
 import io.vertx.core.Vertx;
+import io.vertx.core.http.HttpClientRequest;
 import io.vertx.junit5.VertxTestContext;
 import org.bf2.admin.kafka.systemtest.TestTag;
 import org.bf2.admin.kafka.systemtest.deployment.DeploymentManager;
@@ -34,4 +36,12 @@ public class OauthTestBase extends TestBase {
         this.token = deployments.getAccessTokenNow(vertx, UserType.OTHER);
     }
 
+    protected HttpClientRequest setDefaultAuthorization(HttpClientRequest request) {
+        return request.putHeader("Authorization", "Bearer " + this.token);
+    }
+
+    protected Future<HttpClientRequest> setAuthorization(HttpClientRequest request, Vertx vertx, UserType type) {
+        return deployments.getAccessToken(vertx, type)
+            .map(token -> request.putHeader("Authorization", "Bearer " + token));
+    }
 }

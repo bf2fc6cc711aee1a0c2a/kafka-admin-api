@@ -4,6 +4,7 @@ import io.vertx.core.Vertx;
 import io.vertx.core.http.HttpClient;
 import io.vertx.core.http.HttpClientResponse;
 import io.vertx.core.http.HttpMethod;
+import io.vertx.junit5.Checkpoint;
 import io.vertx.junit5.VertxTestContext;
 import org.apache.kafka.clients.admin.NewTopic;
 import org.apache.kafka.clients.admin.TopicDescription;
@@ -31,6 +32,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class RestOAuthTestIT extends OauthTestBase {
@@ -172,22 +174,28 @@ public class RestOAuthTestIT extends OauthTestBase {
 
     @Test
     void testDescribeSingleTopicUnauthorized(Vertx vertx, VertxTestContext testContext) throws Exception {
-        final String topicName = UUID.randomUUID().toString();
-        kafkaClient.createTopics(Collections.singletonList(
-                new NewTopic(topicName, 2, (short) 1)
-        ));
-        DynamicWait.waitForTopicExists(topicName, kafkaClient);
-        changeTokenToUnauthorized(vertx, testContext);
+        final Checkpoint createStatusVerified = testContext.checkpoint();
+        final Checkpoint describeStatusVerified = testContext.checkpoint();
+        final Types.NewTopic topic = RequestUtils.getTopicObject(2);
 
-        String queryReq = "/rest/topics/" + topicName;
-        createHttpClient(vertx).request(HttpMethod.GET, publishedAdminPort, "localhost", queryReq)
-                .compose(req -> req.putHeader("Authorization", "Bearer " + token).send()
-                        .onSuccess(response -> testContext.verify(() -> {
-                            assertThat(response.statusCode()).isEqualTo(ReturnCodes.FORBIDDEN.code);
-                            assertStrictTransportSecurityEnabled(response, testContext);
-                            testContext.completeNow();
-                        })));
-        assertThat(testContext.awaitCompletion(1, TimeUnit.MINUTES)).isTrue();
+        createHttpClient(vertx).request(HttpMethod.POST, publishedAdminPort, "localhost", "/rest/topics")
+            .map(super::setDefaultAuthorization)
+            .map(req -> req.putHeader("content-type", "application/json"))
+            .compose(req -> req.send(MODEL_DESERIALIZER.serializeBody(topic)))
+            .map(rsp -> testContext.verify(() -> {
+                assertEquals(ReturnCodes.TOPIC_CREATED.code, rsp.statusCode());
+                createStatusVerified.flag();
+            }))
+            .compose(nothing -> createHttpClient(vertx).request(HttpMethod.GET, publishedAdminPort, "localhost", "/rest/topics/" + topic.getName()))
+            .compose(req -> setAuthorization(req, vertx, UserType.OTHER))
+            .compose(req -> req.send())
+            .map(rsp -> testContext.verify(() -> {
+                assertEquals(ReturnCodes.FORBIDDEN.code, rsp.statusCode());
+                describeStatusVerified.flag();
+            }))
+            .onFailure(e -> {
+                testContext.failNow(e);
+            });
     }
 
     @Test
