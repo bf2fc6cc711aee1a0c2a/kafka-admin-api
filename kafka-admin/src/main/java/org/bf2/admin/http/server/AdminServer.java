@@ -17,6 +17,7 @@ import io.vertx.core.json.JsonObject;
 import io.vertx.core.json.pointer.JsonPointer;
 import io.vertx.core.net.PemKeyCertOptions;
 import io.vertx.core.net.PemTrustOptions;
+import io.vertx.core.net.SocketAddress;
 import io.vertx.ext.auth.JWTOptions;
 import io.vertx.ext.auth.User;
 import io.vertx.ext.auth.oauth2.OAuth2Auth;
@@ -335,15 +336,20 @@ public class AdminServer extends AbstractVerticle {
 
     private Future<Void> startResourcesHttpServer(Router router) {
         Promise<Void> promise = Promise.promise();
+        final String domainSocket = config.getDomainSocket();
         final String tlsCert = config.getTlsCertificate();
         final HttpServer server;
-        final int listenerPort;
-        final String portType;
+        final SocketAddress listenerSocket;
+        final String listenerType;
 
-        if (tlsCert == null) {
+        if (domainSocket != null) {
+            listenerSocket = SocketAddress.domainSocketAddress(domainSocket);
             server = vertx.createHttpServer();
-            listenerPort = HTTP_PORT;
-            portType = "plain HTTP";
+            listenerType = "domain socket " + domainSocket;
+        } else if (tlsCert == null) {
+            server = vertx.createHttpServer();
+            listenerSocket = SocketAddress.inetSocketAddress(HTTP_PORT, "0.0.0.0");
+            listenerType = "plain HTTP port " + HTTP_PORT;
         } else {
             Set<String> tlsVersions = config.getTlsVersions();
             String tlsKey = config.getTlsKey();
@@ -360,13 +366,13 @@ public class AdminServer extends AbstractVerticle {
                                             .setEnabledSecureTransportProtocols(tlsVersions)
                                             .setPemKeyCertOptions(certOptions));
 
-            listenerPort = HTTPS_PORT;
-            portType = "secure HTTPS";
+            listenerSocket = SocketAddress.inetSocketAddress(HTTPS_PORT, "0.0.0.0");
+            listenerType = "secure HTTPS port " + HTTPS_PORT;
         }
 
-        server.requestHandler(router).listen(listenerPort)
+        server.requestHandler(router).listen(listenerSocket)
             .onSuccess(httpServer -> {
-                LOGGER.info("Admin Server is listening on {} port {}", portType, listenerPort);
+                LOGGER.info("Admin Server is listening on {}", listenerType);
                 promise.complete();
             })
             .onFailure(cause -> {

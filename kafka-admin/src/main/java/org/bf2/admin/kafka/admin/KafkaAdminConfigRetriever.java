@@ -41,6 +41,8 @@ public class KafkaAdminConfigRetriever {
     public static final String BROKER_TLS_ENABLED = PREFIX + "BROKER_TLS_ENABLED";
     public static final String BROKER_TRUSTED_CERT = PREFIX + "BROKER_TRUSTED_CERT";
 
+    public static final String DOMAIN_SOCKET = PREFIX + "DOMAIN_SOCKET";
+
     public static final String TLS_CERT = PREFIX + "TLS_CERT";
     public static final String TLS_KEY = PREFIX + "TLS_KEY";
     public static final String TLS_VERSION = PREFIX + "TLS_VERSION";
@@ -172,6 +174,10 @@ public class KafkaAdminConfigRetriever {
 
     public String getOauthTokenEndpointUri() {
         return System.getenv(OAUTH_TOKEN_ENDPOINT_URI);
+    }
+
+    public String getDomainSocket() {
+        return System.getenv(DOMAIN_SOCKET);
     }
 
     public String getTlsCertificate() {
