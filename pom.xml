@@ -176,6 +176,8 @@
                             <failOnWarning>true</failOnWarning>
                             <ignoredDependencies>
                                 <ignoredDependency>io.strimzi:kafka-oauth-client</ignoredDependency>
+                                <ignoredDependency>io.netty:netty-transport-native-epoll</ignoredDependency>
+                                <ignoredDependency>io.netty:netty-transport-native-kqueue</ignoredDependency>
                                 <ignoredDependency>org.apache.logging.log4j:log4j-core</ignoredDependency>
                                 <ignoredDependency>org.apache.logging.log4j:log4j-slf4j-impl</ignoredDependency>
                                 <!-- Oauth kafka test dependencies -->

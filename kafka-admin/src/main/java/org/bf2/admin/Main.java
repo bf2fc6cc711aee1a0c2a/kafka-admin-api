@@ -26,6 +26,7 @@ public class Main {
         LOGGER.info("AdminServer is starting.");
 
         VertxOptions options = new VertxOptions()
+                .setPreferNativeTransport(true)
                 .setMetricsOptions(
                     new MicrometerMetricsOptions()
                         .setPrometheusOptions(new VertxPrometheusOptions().setEnabled(true))
