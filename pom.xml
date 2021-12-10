@@ -21,7 +21,7 @@
 
         <!-- Dependency Versions -->
         <vertx.version>4.1.0</vertx.version>
-        <log4j.version>2.14.1</log4j.version>
+        <log4j.version>2.15.0</log4j.version>
         <kafka.version>2.7.0</kafka.version>
         <strimzi-oauth.version>0.7.1</strimzi-oauth.version>
         <fasterxml.version>2.12.2</fasterxml.version>
