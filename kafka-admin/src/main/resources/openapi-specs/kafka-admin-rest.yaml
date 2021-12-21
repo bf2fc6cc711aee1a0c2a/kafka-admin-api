@@ -1159,18 +1159,6 @@ components:
         page:
           description: The page
           type: integer
-        offset:
-          description: Offset of the topic list
-          deprecated: true
-          type: integer
-        limit:
-          description: Maximum of returned topics
-          deprecated: true
-          type: integer
-        count:
-          description: The total number of consumer groups.
-          deprecated: true
-          type: number
       example:
         count: 1
         limit: 10
