@@ -151,7 +151,8 @@ public class AdminServer extends AbstractVerticle {
                 .allowedHeader("Access-Control-Allow-Origin")
                 .allowedHeader("Access-Control-Allow-Headers")
                 .allowedHeader("Authorization")
-                .allowedHeader("Content-Type");
+                .allowedHeader("Content-Type")
+                .maxAgeSeconds((int) Duration.ofHours(2).toSeconds());
     }
 
     private Future<Void> buildResourcesRouter(Router router, RouterBuilder builder) {
