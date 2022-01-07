@@ -1,4 +1,4 @@
-FROM registry.access.redhat.com/ubi8/openjdk-11-runtime:1.10-1
+FROM registry.access.redhat.com/ubi8/openjdk-11-runtime
 
 USER root
 # Switch to legacy crypto policy and disable the TLS 3DES cipher suites

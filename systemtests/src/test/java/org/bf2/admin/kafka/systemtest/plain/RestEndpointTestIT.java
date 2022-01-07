@@ -4,6 +4,7 @@ import io.vertx.core.Vertx;
 import io.vertx.core.http.HttpClient;
 import io.vertx.core.http.HttpClientResponse;
 import io.vertx.core.http.HttpMethod;
+import io.vertx.junit5.Checkpoint;
 import io.vertx.junit5.VertxTestContext;
 import org.apache.kafka.clients.admin.NewTopic;
 import org.apache.kafka.clients.admin.TopicDescription;
@@ -18,6 +19,8 @@ import org.junit.jupiter.api.extension.ExtensionContext;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
+import java.net.HttpURLConnection;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -663,5 +666,25 @@ class RestEndpointTestIT extends PlainTestBase {
                     testContext.completeNow();
                 })));
         assertThat(testContext.awaitCompletion(1, TimeUnit.MINUTES)).isTrue();
+    }
+
+    @Test
+    void testOptionsRequestIncludesTwoHourMaxAge(Vertx vertx, VertxTestContext testContext, ExtensionContext extensionContext) throws Exception {
+        Checkpoint resultVerified = testContext.checkpoint();
+
+        createHttpClient(vertx)
+            .request(HttpMethod.OPTIONS, publishedAdminPort, "localhost", "/rest/topics")
+            .map(req -> req.putHeader("Origin", "http://localhost"))
+            .map(req -> req.putHeader("Access-Control-Request-Method", "POST"))
+            .compose(req -> req.send())
+            .map(resp -> {
+                assertThat(resp.statusCode())
+                    .isEqualTo(HttpURLConnection.HTTP_NO_CONTENT);
+                assertThat(resp.getHeader("Access-Control-Max-Age"))
+                    .isEqualTo(String.valueOf(Duration.ofHours(2).toSeconds()));
+                resultVerified.flag();
+                return resp;
+            })
+            .onFailure(testContext::failNow);
     }
 }
