@@ -26,6 +26,7 @@ import org.testcontainers.lifecycle.Startable;
 import org.testcontainers.utility.MountableFile;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -36,6 +37,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Properties;
 import java.util.UUID;
 import java.util.concurrent.ExecutionException;
 
@@ -332,12 +334,33 @@ public class DeploymentManager {
     private KafkaContainer<?> deployKafka() {
         LOGGER.info("Deploying Kafka container");
 
+        Map<String, String> env = new HashMap<>();
+
+        try (InputStream stream = getClass().getResourceAsStream("/kafka-oauth/env.properties")) {
+            Properties envProps = new Properties();
+            envProps.load(stream);
+            envProps.keySet()
+                .stream()
+                .map(Object::toString)
+                .forEach(key -> env.put(key, envProps.getProperty(key)));
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+
         var container = new KeycloakSecuredKafkaContainer(KAFKA_ALIAS)
                 .withLabels(Collections.singletonMap("test-ident", Environment.TEST_CONTAINER_LABEL))
                 .withLogConsumer(new Slf4jLogConsumer(LoggerFactory.getLogger("systemtests.oauth-kafka"), true))
                 .withCreateContainerCmdModifier(cmd -> cmd.withName(name("oauth-kafka")))
+                .withEnv(env)
                 .withNetwork(testNetwork)
-                .withNetworkAliases(KAFKA_ALIAS);
+                .withNetworkAliases(KAFKA_ALIAS)
+                .withClasspathResourceMapping("/cluster.keystore.p12", "/opt/kafka/certs/cluster.keystore.p12", BindMode.READ_ONLY)
+                .withClasspathResourceMapping("/cluster.truststore.p12", "/opt/kafka/certs/cluster.truststore.p12", BindMode.READ_ONLY)
+                .withClasspathResourceMapping("/kafka-oauth/config/", "/opt/kafka/config/strimzi/", BindMode.READ_ONLY)
+                .withCopyFileToContainer(MountableFile.forClasspathResource("/kafka-oauth/scripts/functions.sh"), "/opt/kafka/functions.sh")
+                .withCopyFileToContainer(MountableFile.forClasspathResource("/kafka-oauth/scripts/simple_kafka_config.sh", 0755), "/opt/kafka/simple_kafka_config.sh")
+                .withCopyFileToContainer(MountableFile.forClasspathResource("/kafka-oauth/scripts/start.sh", 0755), "/opt/kafka/start.sh")
+                .withCommand("/opt/kafka/start.sh");
 
         container.start();
         return container;

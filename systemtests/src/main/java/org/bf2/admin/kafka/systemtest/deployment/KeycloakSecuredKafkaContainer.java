@@ -24,7 +24,7 @@ class KeycloakSecuredKafkaContainer extends GenericContainer<KeycloakSecuredKafk
     private final String internalHost;
 
     KeycloakSecuredKafkaContainer(String internalHost) {
-        super("kafka-admin-kafka");
+        super("quay.io/strimzi/kafka:0.23.0-kafka-2.7.0");
         this.internalHost = internalHost;
         withExposedPorts(KAFKA_PORT);
     }
