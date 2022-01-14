@@ -41,9 +41,14 @@ public class RestOAuthTestIT extends OauthTestBase {
     static long initialTokenExpiresAt;
 
     @BeforeAll
-    static void getToken(Vertx vertx) {
-        initialToken = deployments.getTokenNow(vertx, UserType.OWNER);
-        initialTokenExpiresAt = System.currentTimeMillis() + (initialToken.getExpire() * 1000);
+    static void getToken(Vertx vertx, VertxTestContext vertxContext) {
+        try {
+            initialToken = deployments.getTokenNow(vertx, UserType.OWNER);
+            initialTokenExpiresAt = System.currentTimeMillis() + (initialToken.getExpire() * 1000);
+            vertxContext.completeNow();
+        } catch (Exception e) {
+            vertxContext.failNow(e);
+        }
     }
 
     @Test

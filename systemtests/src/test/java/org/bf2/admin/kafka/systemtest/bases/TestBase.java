@@ -3,6 +3,7 @@ package org.bf2.admin.kafka.systemtest.bases;
 import io.vertx.core.Future;
 import io.vertx.core.Promise;
 import io.vertx.core.Vertx;
+import io.vertx.core.buffer.Buffer;
 import io.vertx.core.http.HttpClient;
 import io.vertx.core.http.HttpClientOptions;
 import io.vertx.core.http.HttpClientResponse;
@@ -25,7 +26,11 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.extension.ExtensionContext;
 import org.testcontainers.containers.GenericContainer;
 
-import java.nio.file.Path;
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.io.UncheckedIOException;
 import java.time.Duration;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
@@ -121,7 +126,14 @@ public class TestBase {
         if (isSecured) {
             options.setSsl(true);
             options.setEnabledSecureTransportProtocols(Set.of("TLSv1.3"));
-            options.setPemTrustOptions(new PemTrustOptions().addCertPath(Path.of("docker", "certificates", "ca.crt").toAbsolutePath().toString()));
+            Buffer caCert;
+            try (InputStream stream = getClass().getResourceAsStream("/certs/ca.crt")) {
+                caCert = Buffer.buffer(new BufferedReader(new InputStreamReader(stream))
+                    .lines().collect(Collectors.joining("\n")));
+            } catch (IOException e) {
+                throw new UncheckedIOException(e);
+            }
+            options.setPemTrustOptions(new PemTrustOptions().addCertValue(caCert));
         }
         return vertx.createHttpClient(options);
     }

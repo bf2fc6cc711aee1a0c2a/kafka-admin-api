@@ -3,25 +3,21 @@
 ### Requirements
 Docker environment with at least 2 GB of RAM
 
-### Prerequisition
-Prepare images
-```
-make prepare-tests
-```
-For cleaning
-```
-make clean-tests
-```
-
 ### Running tests
 Execution
 ```
-mvn clean verify -pl systemtests
+mvn clean verify
 ```
 Single class/test execution
 ```
-mvn clean verify -pl systemtests -Dit.test=RestEndpointTestIT
-mvn clean verify -pl systemtests -Dit.test=RestEndpointTestIT#testTopicListAfterCreation
+mvn clean verify -Dit.test=RestEndpointTestIT
+mvn clean verify -Dit.test=RestEndpointTestIT#testTopicListAfterCreation
+```
+
+### Running tests in an IDE
+Before running the tests, ensure that the `generate-sources` and `pre-integration-test` Maven phases have run to build the server image and generate TLS keys/certificates for the tests. If not run by your IDE execute:
+```
+mvn pre-integration-test
 ```
 
 ### Remote Debugging

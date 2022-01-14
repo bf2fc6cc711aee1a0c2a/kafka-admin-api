@@ -6,6 +6,8 @@ import org.testcontainers.lifecycle.Startable;
 
 interface KafkaContainer<SELF extends GenericContainer<SELF>> extends Startable, Container<SELF> {
 
+    public static final String IMAGE_TAG = "0.26.0-kafka-2.8.1";
+
     String getBootstrapServers();
 
     String getInternalBootstrapServers();

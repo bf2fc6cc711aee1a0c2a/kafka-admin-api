@@ -54,9 +54,9 @@ public class AsyncMessaging {
     private static Future<Void> resetToEnd(KafkaConsumer<String, String> consumer, String topic) {
         LOGGER.info("reset topic {} offset for all partitions to the end", topic);
 
-        return consumer.partitionsFor(topic)
+        return Future.succeededFuture(consumer.unwrap().partitionsFor(topic))
             .map(partitions -> partitions.stream()
-                 .map(p -> new TopicPartition(p.getTopic(), p.getPartition()))
+                 .map(p -> new TopicPartition(p.topic(), p.partition()))
                  .collect(Collectors.toSet()))
             .compose(partitions -> {
                 LOGGER.info("Assigning partitions to consumer: {}", partitions);
@@ -184,8 +184,17 @@ public class AsyncMessaging {
                 .collect(Collectors.toList());
 
             CompositeFuture.all(pendingMessages)
-                .onFailure(promise::fail)
-                .onSuccess(results -> promise.complete());
+                .onComplete(result -> {
+                    try {
+                        producer.close();
+                    } finally {
+                        if (result.failed()) {
+                            promise.fail(result.cause());
+                        } else {
+                            promise.complete();
+                        }
+                    }
+                });
         });
 
     }

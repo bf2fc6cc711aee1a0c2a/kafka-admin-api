@@ -25,12 +25,12 @@ import org.testcontainers.containers.wait.strategy.Wait;
 import org.testcontainers.lifecycle.Startable;
 import org.testcontainers.utility.MountableFile;
 
+import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.time.Duration;
 import java.util.Base64;
 import java.util.Collections;
@@ -40,6 +40,7 @@ import java.util.Map;
 import java.util.Properties;
 import java.util.UUID;
 import java.util.concurrent.ExecutionException;
+import java.util.stream.Collectors;
 
 import static org.bf2.admin.kafka.systemtest.Environment.CONFIG;
 
@@ -245,9 +246,9 @@ public class DeploymentManager {
 
         if (oauthEnabled) {
             envMap.put(KafkaAdminConfigRetriever.BROKER_TLS_ENABLED, "true");
-            envMap.put(KafkaAdminConfigRetriever.BROKER_TRUSTED_CERT, encodeTLSConfig("ca.crt"));
-            envMap.put("KAFKA_ADMIN_TLS_CERT", encodeTLSConfig("admin-tls-chain.crt"));
-            envMap.put("KAFKA_ADMIN_TLS_KEY", encodeTLSConfig("admin-tls.key"));
+            envMap.put(KafkaAdminConfigRetriever.BROKER_TRUSTED_CERT, encodeTLSConfig("/certs/ca.crt"));
+            envMap.put("KAFKA_ADMIN_TLS_CERT", encodeTLSConfig("/certs/admin-tls-chain.crt"));
+            envMap.put("KAFKA_ADMIN_TLS_KEY", encodeTLSConfig("/certs/admin-tls.key"));
             envMap.put("KAFKA_ADMIN_OAUTH_JWKS_ENDPOINT_URI", "http://keycloak:8080/auth/realms/kafka-authz/protocol/openid-connect/certs");
             envMap.put("KAFKA_ADMIN_OAUTH_VALID_ISSUER_URI", "http://keycloak:8080/auth/realms/kafka-authz");
             envMap.put("KAFKA_ADMIN_OAUTH_TOKEN_ENDPOINT_URI", "http://keycloak:8080/auth/realms/kafka-authz/protocol/openid-connect/token");
@@ -305,7 +306,7 @@ public class DeploymentManager {
                         "PROXY_ADDRESS_FORWARDING", "true"))
                 .withCopyFileToContainer(MountableFile.forClasspathResource("/keycloak/scripts/keycloak-ssl.cli"),
                         "/opt/jboss/keycloak/keycloak-ssl.cli")
-                .withCopyFileToContainer(MountableFile.forClasspathResource("/keycloak.server.keystore.p12"),
+                .withCopyFileToContainer(MountableFile.forClasspathResource("/certs/keycloak.server.keystore.p12"),
                         "/opt/jboss/keycloak/standalone/configuration/certs/keycloak.server.keystore.p12")
                 .withCommand("-Dkeycloak.profile.feature.upload_scripts=enabled")
                 .waitingFor(Wait.forHttp("/auth/realms/demo").withStartupTimeout(Duration.ofMinutes(5)));
@@ -347,15 +348,15 @@ public class DeploymentManager {
             throw new UncheckedIOException(e);
         }
 
-        var container = new KeycloakSecuredKafkaContainer(KAFKA_ALIAS)
+        var container = new KeycloakSecuredKafkaContainer(KAFKA_ALIAS, KafkaContainer.IMAGE_TAG)
                 .withLabels(Collections.singletonMap("test-ident", Environment.TEST_CONTAINER_LABEL))
                 .withLogConsumer(new Slf4jLogConsumer(LoggerFactory.getLogger("systemtests.oauth-kafka"), true))
                 .withCreateContainerCmdModifier(cmd -> cmd.withName(name("oauth-kafka")))
                 .withEnv(env)
                 .withNetwork(testNetwork)
                 .withNetworkAliases(KAFKA_ALIAS)
-                .withClasspathResourceMapping("/cluster.keystore.p12", "/opt/kafka/certs/cluster.keystore.p12", BindMode.READ_ONLY)
-                .withClasspathResourceMapping("/cluster.truststore.p12", "/opt/kafka/certs/cluster.truststore.p12", BindMode.READ_ONLY)
+                .withClasspathResourceMapping("/certs/cluster.keystore.p12", "/opt/kafka/certs/cluster.keystore.p12", BindMode.READ_ONLY)
+                .withClasspathResourceMapping("/certs/cluster.truststore.p12", "/opt/kafka/certs/cluster.truststore.p12", BindMode.READ_ONLY)
                 .withClasspathResourceMapping("/kafka-oauth/config/", "/opt/kafka/config/strimzi/", BindMode.READ_ONLY)
                 .withCopyFileToContainer(MountableFile.forClasspathResource("/kafka-oauth/scripts/functions.sh"), "/opt/kafka/functions.sh")
                 .withCopyFileToContainer(MountableFile.forClasspathResource("/kafka-oauth/scripts/simple_kafka_config.sh", 0755), "/opt/kafka/simple_kafka_config.sh")
@@ -391,7 +392,7 @@ public class DeploymentManager {
             }
         }
 
-        var container = new StrimziPlainKafkaContainer("0.23.0-kafka-2.7.0")
+        var container = new StrimziPlainKafkaContainer(KafkaContainer.IMAGE_TAG)
                 .withLabels(Collections.singletonMap("test-ident", Environment.TEST_CONTAINER_LABEL))
                 .withLogConsumer(new Slf4jLogConsumer(LoggerFactory.getLogger("systemtests.plain-kafka"), true))
                 .withCreateContainerCmdModifier(cmd -> cmd.withName(name("plain-kafka")))
@@ -405,8 +406,9 @@ public class DeploymentManager {
     private String encodeTLSConfig(String fileName) {
         String rawContent;
 
-        try {
-            rawContent = Files.readString(Path.of("docker", "certificates", fileName));
+        try (InputStream stream = getClass().getResourceAsStream(fileName)) {
+            rawContent = new BufferedReader(new InputStreamReader(stream))
+                    .lines().collect(Collectors.joining("\n"));
             return Base64.getEncoder().encodeToString(rawContent.getBytes(StandardCharsets.UTF_8));
         } catch (IOException e) {
             throw new UncheckedIOException(e);

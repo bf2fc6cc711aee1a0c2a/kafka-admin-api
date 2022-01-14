@@ -23,8 +23,8 @@ class KeycloakSecuredKafkaContainer extends GenericContainer<KeycloakSecuredKafk
     private StringBuilder advertisedListeners;
     private final String internalHost;
 
-    KeycloakSecuredKafkaContainer(String internalHost) {
-        super("quay.io/strimzi/kafka:0.23.0-kafka-2.7.0");
+    KeycloakSecuredKafkaContainer(String internalHost, String version) {
+        super("quay.io/strimzi/kafka:" + version);
         this.internalHost = internalHost;
         withExposedPorts(KAFKA_PORT);
     }
