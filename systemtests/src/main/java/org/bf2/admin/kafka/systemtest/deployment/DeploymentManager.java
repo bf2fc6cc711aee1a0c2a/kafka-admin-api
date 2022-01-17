@@ -293,8 +293,9 @@ public class DeploymentManager {
 
     public GenericContainer<?> deployKeycloak() {
         LOGGER.info("Deploying keycloak container");
+        String imageName = System.getProperty("keycloak.image");
 
-        GenericContainer<?> container = new GenericContainer<>("quay.io/keycloak/keycloak:14.0.0")
+        GenericContainer<?> container = new GenericContainer<>(imageName)
                 .withLabels(Collections.singletonMap("test-ident", Environment.TEST_CONTAINER_LABEL))
                 .withLogConsumer(new Slf4jLogConsumer(LoggerFactory.getLogger("systemtests.keycloak"), true))
                 .withCreateContainerCmdModifier(cmd -> cmd.withName(name("keycloak")))
@@ -313,7 +314,7 @@ public class DeploymentManager {
 
         LOGGER.info("Deploying keycloak_import container");
 
-        new GenericContainer<>("quay.io/keycloak/keycloak:14.0.0")
+        new GenericContainer<>(imageName)
                 .withCreateContainerCmdModifier(cmd -> cmd.withName(name("keycloak-import")))
                 .withCreateContainerCmdModifier(cmd -> cmd.withEntrypoint(List.of("")))
                 .withNetwork(testNetwork)
@@ -348,7 +349,9 @@ public class DeploymentManager {
             throw new UncheckedIOException(e);
         }
 
-        var container = new KeycloakSecuredKafkaContainer(KAFKA_ALIAS, KafkaContainer.IMAGE_TAG)
+        String imageTag = System.getProperty("strimzi-kafka.tag");
+
+        var container = new KeycloakSecuredKafkaContainer(KAFKA_ALIAS, imageTag)
                 .withLabels(Collections.singletonMap("test-ident", Environment.TEST_CONTAINER_LABEL))
                 .withLogConsumer(new Slf4jLogConsumer(LoggerFactory.getLogger("systemtests.oauth-kafka"), true))
                 .withCreateContainerCmdModifier(cmd -> cmd.withName(name("oauth-kafka")))
@@ -392,7 +395,9 @@ public class DeploymentManager {
             }
         }
 
-        var container = new StrimziPlainKafkaContainer(KafkaContainer.IMAGE_TAG)
+        String imageTag = System.getProperty("strimzi-kafka.tag");
+
+        var container = new StrimziPlainKafkaContainer(imageTag)
                 .withLabels(Collections.singletonMap("test-ident", Environment.TEST_CONTAINER_LABEL))
                 .withLogConsumer(new Slf4jLogConsumer(LoggerFactory.getLogger("systemtests.plain-kafka"), true))
                 .withCreateContainerCmdModifier(cmd -> cmd.withName(name("plain-kafka")))

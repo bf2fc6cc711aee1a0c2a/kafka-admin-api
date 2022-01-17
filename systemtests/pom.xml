@@ -17,6 +17,10 @@
         <assertj.version>3.4.1</assertj.version>
         <hamcrest.version>2.2</hamcrest.version>
         <awaitility.version>4.0.3</awaitility.version>
+
+        <!-- System test image dependencies -->
+        <keycloak.image>quay.io/keycloak/keycloak:14.0.0</keycloak.image>
+        <strimzi-kafka.tag>0.26.0-kafka-2.8.1</strimzi-kafka.tag>
     </properties>
 
     <build>
@@ -61,6 +65,33 @@
                             <workingDirectory>${project.basedir}/../kafka-admin</workingDirectory>
                             <executable>docker</executable>
                             <commandlineArgs>build . -f src/main/docker/Dockerfile -t kafka-admin --pull</commandlineArgs>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-failsafe-plugin</artifactId>
+                <version>${surefire-plugin.version}</version>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>integration-test</goal>
+                            <goal>verify</goal>
+                        </goals>
+                        <configuration>
+                            <includes>
+                                <include>**/IT*.java</include>
+                                <include>**/*IT.java</include>
+                                <include>**/ST*.java</include>
+                                <include>**/*ST.java</include>
+                            </includes>
+                            <forkCount>2</forkCount>
+                            <redirectTestOutputToFile>true</redirectTestOutputToFile>
+                            <systemProperties>
+                                <keycloak.image>${keycloak.image}</keycloak.image>
+                                <strimzi-kafka.tag>${strimzi-kafka.tag}</strimzi-kafka.tag>
+                            </systemProperties>
                         </configuration>
                     </execution>
                 </executions>
