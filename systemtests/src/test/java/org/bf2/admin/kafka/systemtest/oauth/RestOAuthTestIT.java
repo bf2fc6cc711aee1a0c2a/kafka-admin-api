@@ -4,15 +4,19 @@ import io.vertx.core.Vertx;
 import io.vertx.core.http.HttpClient;
 import io.vertx.core.http.HttpClientResponse;
 import io.vertx.core.http.HttpMethod;
+import io.vertx.junit5.Checkpoint;
 import io.vertx.junit5.VertxTestContext;
 import org.apache.kafka.clients.admin.NewTopic;
 import org.apache.kafka.clients.admin.TopicDescription;
 import org.apache.kafka.common.config.ConfigResource;
 import org.bf2.admin.kafka.admin.model.Types;
 import org.bf2.admin.kafka.systemtest.bases.OauthTestBase;
+import org.bf2.admin.kafka.systemtest.deployment.DeploymentManager.UserType;
 import org.bf2.admin.kafka.systemtest.enums.ReturnCodes;
+import org.bf2.admin.kafka.systemtest.json.TokenModel;
 import org.bf2.admin.kafka.systemtest.utils.DynamicWait;
 import org.bf2.admin.kafka.systemtest.utils.RequestUtils;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtensionContext;
 
@@ -28,9 +32,24 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class RestOAuthTestIT extends OauthTestBase {
+
+    static TokenModel initialToken;
+    static long initialTokenExpiresAt;
+
+    @BeforeAll
+    static void getToken(Vertx vertx, VertxTestContext vertxContext) {
+        try {
+            initialToken = deployments.getTokenNow(vertx, UserType.OWNER);
+            initialTokenExpiresAt = System.currentTimeMillis() + (initialToken.getExpire() * 1000);
+            vertxContext.completeNow();
+        } catch (Exception e) {
+            vertxContext.failNow(e);
+        }
+    }
 
     @Test
     public void testListWithValidToken(Vertx vertx, VertxTestContext testContext) throws Exception {
@@ -118,10 +137,14 @@ public class RestOAuthTestIT extends OauthTestBase {
     @Test
     public void testListWithExpiredToken(Vertx vertx, VertxTestContext testContext) throws InterruptedException {
         // Wait for token to expire
-        Thread.sleep(120_000);
+        long sleepDuration = initialTokenExpiresAt - System.currentTimeMillis();
+
+        if (sleepDuration > 0) {
+            Thread.sleep(sleepDuration);
+        }
         HttpClient client = createHttpClient(vertx);
         client.request(HttpMethod.GET, publishedAdminPort, "localhost", "/rest/topics")
-                .compose(req -> req.putHeader("Authorization", "Bearer " + token).send()
+                .compose(req -> req.putHeader("Authorization", "Bearer " + initialToken.getAccessToken()).send()
                         .onSuccess(response -> testContext.verify(() -> {
                             assertThat(response.statusCode()).isEqualTo(ReturnCodes.UNAUTHORIZED.code);
                             assertStrictTransportSecurityEnabled(response, testContext);
@@ -156,22 +179,28 @@ public class RestOAuthTestIT extends OauthTestBase {
 
     @Test
     void testDescribeSingleTopicUnauthorized(Vertx vertx, VertxTestContext testContext) throws Exception {
-        final String topicName = UUID.randomUUID().toString();
-        kafkaClient.createTopics(Collections.singletonList(
-                new NewTopic(topicName, 2, (short) 1)
-        ));
-        DynamicWait.waitForTopicExists(topicName, kafkaClient);
-        changeTokenToUnauthorized(vertx, testContext);
+        final Checkpoint createStatusVerified = testContext.checkpoint();
+        final Checkpoint describeStatusVerified = testContext.checkpoint();
+        final Types.NewTopic topic = RequestUtils.getTopicObject(2);
 
-        String queryReq = "/rest/topics/" + topicName;
-        createHttpClient(vertx).request(HttpMethod.GET, publishedAdminPort, "localhost", queryReq)
-                .compose(req -> req.putHeader("Authorization", "Bearer " + token).send()
-                        .onSuccess(response -> testContext.verify(() -> {
-                            assertThat(response.statusCode()).isEqualTo(ReturnCodes.FORBIDDEN.code);
-                            assertStrictTransportSecurityEnabled(response, testContext);
-                            testContext.completeNow();
-                        })));
-        assertThat(testContext.awaitCompletion(1, TimeUnit.MINUTES)).isTrue();
+        createHttpClient(vertx).request(HttpMethod.POST, publishedAdminPort, "localhost", "/rest/topics")
+            .map(super::setDefaultAuthorization)
+            .map(req -> req.putHeader("content-type", "application/json"))
+            .compose(req -> req.send(MODEL_DESERIALIZER.serializeBody(topic)))
+            .map(rsp -> testContext.verify(() -> {
+                assertEquals(ReturnCodes.TOPIC_CREATED.code, rsp.statusCode());
+                createStatusVerified.flag();
+            }))
+            .compose(nothing -> createHttpClient(vertx).request(HttpMethod.GET, publishedAdminPort, "localhost", "/rest/topics/" + topic.getName()))
+            .compose(req -> setAuthorization(req, vertx, UserType.OTHER))
+            .compose(req -> req.send())
+            .map(rsp -> testContext.verify(() -> {
+                assertEquals(ReturnCodes.FORBIDDEN.code, rsp.statusCode());
+                describeStatusVerified.flag();
+            }))
+            .onFailure(e -> {
+                testContext.failNow(e);
+            });
     }
 
     @Test

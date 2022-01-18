@@ -29,17 +29,13 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-maven-
 
-      - name: Prepare tests
-        run: |
-          make prepare-tests
-
       - name: "Integration tests"
         run: |
-          mvn clean verify -pl systemtests --no-transfer-progress
+          mvn verify -B --no-transfer-progress
 
       - name: Archive results
         uses: actions/upload-artifact@v2
         if: failure()
         with:
           name: artifacts
-          path: systemtests/target/logs/
+          path: systemtests/target/failsafe-reports/

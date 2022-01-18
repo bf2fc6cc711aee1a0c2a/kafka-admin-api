@@ -376,45 +376,48 @@ class PartitionsOffsetOauthIT extends OauthTestBase {
         consumer.close();
 
         List<PartitionsModel> partList = Collections.singletonList(new PartitionsModel(topic.name(), List.of(0, 1, 2)));
-
         OffsetModel model = new OffsetModel("absolute", "0", partList);
-        CountDownLatch cd2 = new CountDownLatch(1);
-        createHttpClient(vertx).request(HttpMethod.POST, publishedAdminPort, "localhost", "/rest/consumer-groups/" + groupID + "/reset-offset")
-                .compose(req -> req.putHeader("content-type", "application/json")
-                        .putHeader("Authorization", "Bearer " + token)
-                        .send(MODEL_DESERIALIZER.serializeBody(model)).onSuccess(response -> {
-                            if (response.statusCode() !=  ReturnCodes.SUCCESS.code) {
-                                testContext.failNow("Status code " + response.statusCode() + " is not correct");
-                                cd2.countDown();
-                            }
-                            assertStrictTransportSecurityEnabled(response, testContext);
-                        }).onFailure(testContext::failNow).compose(HttpClientResponse::body))
-                .onComplete(testContext.succeeding(buffer -> testContext.verify(() -> {
-                    assertThat(testContext.failed()).isFalse();
-                    List<Types.TopicPartitionResetResult> results = MODEL_DESERIALIZER.getResetResult(buffer);
-                    assertThat(results).hasSize(3);
-                    assertThat(results).contains(new Types.TopicPartitionResetResult(topic.name(), 0, 0L));
-                    assertThat(results).contains(new Types.TopicPartitionResetResult(topic.name(), 1, 0L));
-                    assertThat(results).contains(new Types.TopicPartitionResetResult(topic.name(), 2, 0L));
-                    cd2.countDown();
-                })));
-        assertThat(cd2.await(1, TimeUnit.MINUTES)).isTrue();
+        Checkpoint groupResetCheck = testContext.checkpoint();
 
-        KafkaConsumer<String, String> consumer2 = KafkaConsumer.create(vertx, ClientsConfig.getConsumerConfigOauth(externalBootstrap, groupID, token));
-        TopicPartition partition = new TopicPartition(topic.name(), 0);
-        consumer2.assign(partition);
-        CountDownLatch cd3 = new CountDownLatch(1);
-        consumer2.poll(Duration.ofSeconds(20), result -> testContext.verify(() -> {
-            assertThat(result.succeeded()).isTrue();
-            assertThat(result.result().size()).isEqualTo(part0Records.size());
-            result.result().records().records(topic.name()).forEach(record -> {
-                assertThat(part0Records.stream().anyMatch(c -> Objects.equals(c.value(), record.value())));
-            });
-            cd3.countDown();
-        }));
-        assertThat(cd3.await(1, TimeUnit.MINUTES)).isTrue();
-        consumer2.close();
-        testContext.completeNow();
+        createHttpClient(vertx)
+            .request(HttpMethod.POST, publishedAdminPort, "localhost", "/rest/consumer-groups/" + groupID + "/reset-offset")
+            .map(req -> req.putHeader("content-type", "application/json"))
+            .map(req -> req.putHeader("Authorization", "Bearer " + token))
+            .compose(req -> req.send(MODEL_DESERIALIZER.serializeBody(model)))
+            .map(response -> {
+                testContext.verify(() -> {
+                    assertThat(response.statusCode()).isEqualTo(ReturnCodes.SUCCESS.code);
+                    assertStrictTransportSecurityEnabled(response, testContext);
+                });
+                return response;
+            })
+            .compose(HttpClientResponse::body)
+            .map(buffer -> testContext.verify(() -> {
+                assertThat(testContext.failed()).isFalse();
+                List<Types.TopicPartitionResetResult> results = MODEL_DESERIALIZER.getResetResult(buffer);
+                assertThat(results).hasSize(3);
+                assertThat(results).contains(new Types.TopicPartitionResetResult(topic.name(), 0, 0L));
+                assertThat(results).contains(new Types.TopicPartitionResetResult(topic.name(), 1, 0L));
+                assertThat(results).contains(new Types.TopicPartitionResetResult(topic.name(), 2, 0L));
+            }))
+            .map(nothing -> {
+                KafkaConsumer<String, String> consumer2 = KafkaConsumer.create(vertx, ClientsConfig.getConsumerConfigOauth(externalBootstrap, groupID, token));
+                consumer2.assign(new TopicPartition(topic.name(), 0));
+
+                return consumer2.poll(Duration.ofSeconds(20))
+                    .onSuccess(result -> testContext.verify(() -> {
+                        assertThat(result.size()).isEqualTo(part0Records.size());
+                        result.records().records(topic.name()).forEach(record -> {
+                            assertThat(part0Records.stream().anyMatch(c -> Objects.equals(c.value(), record.value())));
+                        });
+                        groupResetCheck.flag();
+                    }))
+                    .onFailure(testContext::failNow)
+                    .onComplete(result -> {
+                        consumer2.close();
+                    });
+            })
+            .onFailure(testContext::failNow);
     }
 
     /* Utilities */

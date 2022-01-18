@@ -3,6 +3,7 @@ package org.bf2.admin.kafka.systemtest.bases;
 import io.vertx.core.Future;
 import io.vertx.core.Promise;
 import io.vertx.core.Vertx;
+import io.vertx.core.buffer.Buffer;
 import io.vertx.core.http.HttpClient;
 import io.vertx.core.http.HttpClientOptions;
 import io.vertx.core.http.HttpClientResponse;
@@ -13,7 +14,6 @@ import org.apache.kafka.clients.admin.AdminClient;
 import org.apache.kafka.clients.admin.TopicListing;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.bf2.admin.kafka.systemtest.IndicativeSentences;
 import org.bf2.admin.kafka.systemtest.deployment.DeploymentManager;
 import org.bf2.admin.kafka.systemtest.json.ModelDeserializer;
 import org.bf2.admin.kafka.systemtest.listeners.ExtensionContextParameterResolver;
@@ -22,11 +22,15 @@ import org.bf2.admin.kafka.systemtest.listeners.TestExceptionCallbackListener;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.DisplayNameGeneration;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.api.extension.ExtensionContext;
 import org.testcontainers.containers.GenericContainer;
 
-import java.nio.file.Path;
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.io.UncheckedIOException;
 import java.time.Duration;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
@@ -37,7 +41,6 @@ import java.util.stream.Collectors;
 @ExtendWith(ExtensionContextParameterResolver.class)
 @ExtendWith(TestExceptionCallbackListener.class)
 @ExtendWith(VertxExtension.class)
-@DisplayNameGeneration(IndicativeSentences.class)
 public class TestBase {
     protected static final Logger LOGGER = LogManager.getLogger(TestBase.class);
 
@@ -57,11 +60,16 @@ public class TestBase {
     }
 
     @BeforeEach
-    void setup() {
-        kafkaContainer = deployments.getKafkaContainer();
-        adminContainer = deployments.getAdminContainer();
-        externalBootstrap = deployments.getExternalBootstrapServers();
-        publishedAdminPort = deployments.getAdminServerPort();
+    void setup(ExtensionContext context, VertxTestContext vertxContext) {
+        try {
+            kafkaContainer = deployments.getKafkaContainer();
+            adminContainer = deployments.getAdminContainer();
+            externalBootstrap = deployments.getExternalBootstrapServers();
+            publishedAdminPort = deployments.getAdminServerPort();
+            vertxContext.completeNow();
+        } catch (Exception e) {
+            vertxContext.failNow(e);
+        }
     }
 
     @AfterEach
@@ -118,7 +126,14 @@ public class TestBase {
         if (isSecured) {
             options.setSsl(true);
             options.setEnabledSecureTransportProtocols(Set.of("TLSv1.3"));
-            options.setPemTrustOptions(new PemTrustOptions().addCertPath(Path.of("docker", "certificates", "ca.crt").toAbsolutePath().toString()));
+            Buffer caCert;
+            try (InputStream stream = getClass().getResourceAsStream("/certs/ca.crt")) {
+                caCert = Buffer.buffer(new BufferedReader(new InputStreamReader(stream))
+                    .lines().collect(Collectors.joining("\n")));
+            } catch (IOException e) {
+                throw new UncheckedIOException(e);
+            }
+            options.setPemTrustOptions(new PemTrustOptions().addCertValue(caCert));
         }
         return vertx.createHttpClient(options);
     }

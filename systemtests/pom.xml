@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <parent>
         <groupId>org.bf2</groupId>
         <artifactId>kafka-admin-api</artifactId>
@@ -10,13 +11,93 @@
 
     <properties>
         <junit.platform.version>1.5.2</junit.platform.version>
-        <strimzi-test-container.version>0.22.1</strimzi-test-container.version>
-        <testcontainers.version>1.15.1</testcontainers.version>
-        <docker-java.version>3.2.7</docker-java.version>
+        <strimzi-test-container.version>0.25.0</strimzi-test-container.version>
+        <testcontainers.version>1.16.2</testcontainers.version>
+        <docker-java.version>3.2.12</docker-java.version>
         <assertj.version>3.4.1</assertj.version>
         <hamcrest.version>2.2</hamcrest.version>
         <awaitility.version>4.0.3</awaitility.version>
+
+        <!-- System test image dependencies -->
+        <keycloak.image>quay.io/keycloak/keycloak:14.0.0</keycloak.image>
+        <strimzi-kafka.tag>0.26.0-kafka-2.8.1</strimzi-kafka.tag>
     </properties>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>exec-maven-plugin</artifactId>
+                <version>3.0.0</version>
+                <executions>
+                    <execution>
+                        <id>remove-kafka-admin-image</id>
+                        <phase>clean</phase>
+                        <goals>
+                            <goal>exec</goal>
+                        </goals>
+                        <inherited>false</inherited>
+                        <configuration>
+                            <executable>docker</executable>
+                            <commandlineArgs>image rm -f kafka-admin</commandlineArgs>
+                        </configuration>
+                    </execution>
+                    <execution>
+                        <id>default-cli</id>
+                        <phase>generate-sources</phase>
+                        <goals>
+                            <goal>exec</goal>
+                        </goals>
+                        <configuration>
+                            <workingDirectory>${project.build.outputDirectory}</workingDirectory>
+                            <executable>/bin/bash</executable>
+                            <commandlineArgs>${project.basedir}/docker/certificates/gen-certs.sh</commandlineArgs>
+                        </configuration>
+                    </execution>
+                    <execution>
+                        <id>build-kafka-admin-image</id>
+                        <phase>pre-integration-test</phase>
+                        <goals>
+                            <goal>exec</goal>
+                        </goals>
+                        <inherited>false</inherited>
+                        <configuration>
+                            <workingDirectory>${project.basedir}/../kafka-admin</workingDirectory>
+                            <executable>docker</executable>
+                            <commandlineArgs>build . -f src/main/docker/Dockerfile -t kafka-admin --pull</commandlineArgs>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-failsafe-plugin</artifactId>
+                <version>${surefire-plugin.version}</version>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>integration-test</goal>
+                            <goal>verify</goal>
+                        </goals>
+                        <configuration>
+                            <includes>
+                                <include>**/IT*.java</include>
+                                <include>**/*IT.java</include>
+                                <include>**/ST*.java</include>
+                                <include>**/*ST.java</include>
+                            </includes>
+                            <forkCount>2</forkCount>
+                            <redirectTestOutputToFile>true</redirectTestOutputToFile>
+                            <systemProperties>
+                                <keycloak.image>${keycloak.image}</keycloak.image>
+                                <strimzi-kafka.tag>${strimzi-kafka.tag}</strimzi-kafka.tag>
+                            </systemProperties>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
 
     <dependencies>
         <dependency>
@@ -43,6 +124,17 @@
         <dependency>
             <groupId>org.apache.logging.log4j</groupId>
             <artifactId>log4j-core</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.slf4j</groupId>
+            <artifactId>slf4j-api</artifactId>
+            <version>1.7.30</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.logging.log4j</groupId>
+            <artifactId>log4j-slf4j-impl</artifactId>
+            <version>${log4j.version}</version>
+            <scope>test</scope>
         </dependency>
         <dependency>
             <groupId>org.apache.kafka</groupId>
@@ -72,16 +164,6 @@
         <dependency>
             <groupId>org.junit.jupiter</groupId>
             <artifactId>junit-jupiter-api</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>com.github.docker-java</groupId>
-            <artifactId>docker-java</artifactId>
-            <version>${docker-java.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>com.github.docker-java</groupId>
-            <artifactId>docker-java-core</artifactId>
-            <version>${docker-java.version}</version>
         </dependency>
         <dependency>
             <groupId>com.github.docker-java</groupId>
@@ -117,179 +199,14 @@
         </dependency>
         <dependency>
             <groupId>io.strimzi</groupId>
-            <artifactId>kafka-oauth-common</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>io.strimzi</groupId>
             <artifactId>kafka-oauth-client</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>io.strimzi</groupId>
-            <artifactId>kafka-oauth-server</artifactId>
-            <version>${strimzi-oauth.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>io.strimzi</groupId>
-            <artifactId>kafka-oauth-server-plain</artifactId>
-            <version>${strimzi-oauth.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>io.strimzi</groupId>
-            <artifactId>kafka-oauth-keycloak-authorizer</artifactId>
-            <version>${strimzi-oauth.version}</version>
         </dependency>
         <dependency>
             <groupId>io.strimzi</groupId>
             <artifactId>strimzi-test-container</artifactId>
             <version>${strimzi-test-container.version}</version>
         </dependency>
-        <!--Dependency for OAUTH stack-->
-        <dependency>
-            <groupId>org.keycloak</groupId>
-            <artifactId>keycloak-core</artifactId>
-            <version>12.0.1</version>
-        </dependency>
-        <dependency>
-            <groupId>org.keycloak</groupId>
-            <artifactId>keycloak-common</artifactId>
-            <version>12.0.1</version>
-        </dependency>
-        <dependency>
-            <groupId>org.bouncycastle</groupId>
-            <artifactId>bcprov-jdk15on</artifactId>
-            <version>1.60</version>
-        </dependency>
-        <dependency>
-            <groupId>com.jayway.jsonpath</groupId>
-            <artifactId>json-path</artifactId>
-            <version>2.5.0</version>
-        </dependency>
     </dependencies>
-    <build>
-        <plugins>
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-resources-plugin</artifactId>
-                <version>3.1.0</version>
-                <executions>
-                    <execution>
-                        <id>copy-kafka-example-truststore</id>
-                        <phase>install</phase>
-                        <goals>
-                            <goal>copy-resources</goal>
-                        </goals>
-                        <configuration>
-                            <outputDirectory>docker/target/kafka/config</outputDirectory>
-                            <resources>
-                                <resource>
-                                    <directory>docker/certificates</directory>
-                                    <includes>
-                                        <include>ca-truststore.p12</include>
-                                    </includes>
-                                    <filtering>false</filtering>
-                                </resource>
-                                <resource>
-                                    <directory>docker/kafka/config</directory>
-                                    <includes>
-                                        <include>log4j.properties</include>
-                                    </includes>
-                                    <filtering>false</filtering>
-                                </resource>
-                            </resources>
-                        </configuration>
-                    </execution>
-                    <execution>
-                        <id>copy-kafka-example-certs</id>
-                        <phase>install</phase>
-                        <goals>
-                            <goal>copy-resources</goal>
-                        </goals>
-                        <configuration>
-                            <outputDirectory>docker/target/kafka/certs</outputDirectory>
-                            <resources>
-                                <resource>
-                                    <directory>docker/certificates</directory>
-                                    <includes>
-                                        <include>cluster.keystore.p12</include>
-                                        <include>cluster.truststore.p12</include>
-                                    </includes>
-                                    <filtering>false</filtering>
-                                </resource>
-                            </resources>
-                        </configuration>
-                    </execution>
-                    <execution>
-                        <id>copy-keycloak-example-keystore</id>
-                        <phase>install</phase>
-                        <goals>
-                            <goal>copy-resources</goal>
-                        </goals>
-                        <configuration>
-                            <outputDirectory>docker/target/keycloak/certs</outputDirectory>
-                            <resources>
-                                <resource>
-                                    <directory>docker/certificates</directory>
-                                    <includes>
-                                        <include>keycloak.server.keystore.p12</include>
-                                    </includes>
-                                    <filtering>false</filtering>
-                                </resource>
-                            </resources>
-                        </configuration>
-                    </execution>
-                </executions>
-            </plugin>
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-dependency-plugin</artifactId>
-                <version>${maven.dependency.version}</version>
-                <executions>
-                    <execution>
-                        <id>copy</id>
-                        <phase>install</phase>
-                        <goals>
-                            <goal>copy</goal>
-                        </goals>
-                    </execution>
-                </executions>
-                <configuration>
-                    <artifactItems>
-                        <artifactItem>
-                            <groupId>io.strimzi</groupId>
-                            <artifactId>kafka-oauth-client</artifactId>
-                        </artifactItem>
-                        <artifactItem>
-                            <groupId>io.strimzi</groupId>
-                            <artifactId>kafka-oauth-server</artifactId>
-                        </artifactItem>
-                        <artifactItem>
-                            <groupId>io.strimzi</groupId>
-                            <artifactId>kafka-oauth-server-plain</artifactId>
-                        </artifactItem>
-                        <artifactItem>
-                            <groupId>io.strimzi</groupId>
-                            <artifactId>kafka-oauth-common</artifactId>
-                        </artifactItem>
-                        <artifactItem>
-                            <groupId>org.keycloak</groupId>
-                            <artifactId>keycloak-core</artifactId>
-                        </artifactItem>
-                        <artifactItem>
-                            <groupId>org.keycloak</groupId>
-                            <artifactId>keycloak-common</artifactId>
-                        </artifactItem>
-                        <artifactItem>
-                            <groupId>org.bouncycastle</groupId>
-                            <artifactId>bcprov-jdk15on</artifactId>
-                        </artifactItem>
-                    </artifactItems>
-                    <outputDirectory>docker/target/kafka/libs</outputDirectory>
-                    <overWriteReleases>false</overWriteReleases>
-                    <overWriteSnapshots>true</overWriteSnapshots>
-                </configuration>
-            </plugin>
-        </plugins>
-    </build>
     <profiles>
         <profile>
             <id>default</id>

@@ -5,7 +5,6 @@ import io.vertx.junit5.VertxTestContext;
 import org.apache.kafka.clients.admin.AdminClient;
 import org.apache.kafka.clients.admin.NewTopic;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
-import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
@@ -87,7 +86,4 @@ public class SyncMessaging {
         return createConsumerGroups(kafkaClient, count, bootstrap, testContext, null, "topic", "group");
     }
 
-    public static KafkaProducer<String, String> createProducer(String bootstrap) {
-        return new KafkaProducer<String, String>(ClientsConfig.getProducerConfig(bootstrap));
-    }
 }
