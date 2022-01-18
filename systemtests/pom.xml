@@ -40,6 +40,11 @@
                         <configuration>
                             <executable>docker</executable>
                             <commandlineArgs>image rm -f kafka-admin</commandlineArgs>
+                            <successCodes>
+                                <successCode>0</successCode>
+                                <!-- Allow error when image does not exist -->
+                                <successCode>1</successCode>
+                            </successCodes>
                         </configuration>
                     </execution>
                     <execution>

@@ -28,6 +28,7 @@ import org.apache.kafka.common.errors.InvalidPartitionsException;
 import org.apache.kafka.common.errors.InvalidReplicationFactorException;
 import org.apache.kafka.common.errors.InvalidRequestException;
 import org.apache.kafka.common.errors.LeaderNotAvailableException;
+import org.apache.kafka.common.errors.PolicyViolationException;
 import org.apache.kafka.common.errors.SaslAuthenticationException;
 import org.apache.kafka.common.errors.SslAuthenticationException;
 import org.apache.kafka.common.errors.TimeoutException;
@@ -203,6 +204,7 @@ public class CommonHandler {
                     && failureCause.getCause().getMessage().contains("Authentication failed due to an invalid token"))) {
             status = HttpResponseStatus.UNAUTHORIZED;
         } else if (failureCause instanceof org.apache.kafka.common.errors.InvalidTopicException
+                || failureCause instanceof PolicyViolationException
                 || failureCause instanceof InvalidReplicationFactorException
                 || failureCause instanceof BadRequestException) {
             status = HttpResponseStatus.BAD_REQUEST;
@@ -211,8 +213,6 @@ public class CommonHandler {
         } else if (failureCause instanceof InvalidRequestException
                 || failureCause instanceof InvalidConfigurationException
                 || failureCause instanceof IllegalArgumentException
-                || failureCause instanceof InvalidReplicationFactorException
-                || failureCause instanceof org.apache.kafka.common.errors.InvalidTopicException
                 || failureCause instanceof InvalidPartitionsException) {
             status = HttpResponseStatus.BAD_REQUEST;
         } else if (failureCause instanceof IllegalStateException) {
