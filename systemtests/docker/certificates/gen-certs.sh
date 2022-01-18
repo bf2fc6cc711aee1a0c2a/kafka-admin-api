@@ -4,7 +4,7 @@ set -e
 
 SCRIPTDIR=$(dirname "$0")
 
-rm -vf ./certs
+rm -rvf ./certs
 mkdir -p ./certs
 cd ./certs
 

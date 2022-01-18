@@ -256,7 +256,7 @@ public class DeploymentManager {
 
         class KafkaAdminServerContainer extends GenericContainer<KafkaAdminServerContainer> {
             KafkaAdminServerContainer() {
-                super("quay.io/test/kafka-admin:latest");
+                super("localhost/bf2/kafka-admin:latest");
             }
             @Override
             public void addFixedExposedPort(int hostPort, int containerPort) {

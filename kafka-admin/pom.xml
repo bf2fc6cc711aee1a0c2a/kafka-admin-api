@@ -42,13 +42,13 @@
         <profile>
             <id>docker</id>
             <properties>
-                <docker.registry>quay.io</docker.registry>
-                <docker.repo>test</docker.repo>
+                <docker.registry>localhost</docker.registry>
+                <docker.group>bf2</docker.group>
                 <docker.tag>latest</docker.tag>
                 <docker.push>false</docker.push>
                 <quarkus.container-image.build>true</quarkus.container-image.build>
                 <quarkus.container-image.registry>${docker.registry}</quarkus.container-image.registry>
-                <quarkus.container-image.group>${docker.repo}</quarkus.container-image.group>
+                <quarkus.container-image.group>${docker.group}</quarkus.container-image.group>
                 <quarkus.container-image.tag>${docker.tag}</quarkus.container-image.tag>
                 <quarkus.container-image.push>${docker.push}</quarkus.container-image.push>
             </properties>

@@ -58,19 +58,6 @@
                             <commandlineArgs>${project.basedir}/docker/certificates/gen-certs.sh</commandlineArgs>
                         </configuration>
                     </execution>
-                    <execution>
-                        <id>build-kafka-admin-image</id>
-                        <phase>pre-integration-test</phase>
-                        <goals>
-                            <goal>exec</goal>
-                        </goals>
-                        <inherited>false</inherited>
-                        <configuration>
-                            <workingDirectory>${project.basedir}/../kafka-admin</workingDirectory>
-                            <executable>docker</executable>
-                            <commandlineArgs>build . -f src/main/docker/Dockerfile -t kafka-admin --pull</commandlineArgs>
-                        </configuration>
-                    </execution>
                 </executions>
             </plugin>
             <plugin>

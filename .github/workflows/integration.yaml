@@ -31,7 +31,7 @@ jobs:
 
       - name: "Integration tests"
         run: |
-          mvn verify -B --no-transfer-progress
+          mvn verify -Pdocker -B --no-transfer-progress
 
       - name: Archive results
         uses: actions/upload-artifact@v2
