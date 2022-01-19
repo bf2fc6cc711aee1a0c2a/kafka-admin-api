@@ -1,4 +1,4 @@
 name: Kafka Admin Server
 release:
-  current-version: 0.6.4
-  next-version: 0.7.0-SNAPSHOT
+  current-version: 0.7.0
+  next-version: 0.7.1-SNAPSHOT
