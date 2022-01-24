@@ -42,10 +42,6 @@
         <profile>
             <id>docker</id>
             <properties>
-                <docker.registry>localhost</docker.registry>
-                <docker.group>bf2</docker.group>
-                <docker.tag>latest</docker.tag>
-                <docker.push>false</docker.push>
                 <quarkus.container-image.build>true</quarkus.container-image.build>
                 <quarkus.container-image.registry>${docker.registry}</quarkus.container-image.registry>
                 <quarkus.container-image.group>${docker.group}</quarkus.container-image.group>
@@ -100,6 +96,14 @@
         <dependency>
             <groupId>io.quarkus</groupId>
             <artifactId>quarkus-micrometer-registry-prometheus</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>io.quarkus</groupId>
+            <artifactId>quarkus-smallrye-health</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>io.quarkus</groupId>
+            <artifactId>quarkus-smallrye-openapi</artifactId>
         </dependency>
         <dependency>
             <groupId>io.vertx</groupId>

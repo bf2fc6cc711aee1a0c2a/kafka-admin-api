@@ -12,3 +12,5 @@ ${SCRIPTDIR}/gen-ca.sh
 ${SCRIPTDIR}/gen-keycloak-certs.sh
 ${SCRIPTDIR}/gen-kafka-certs.sh
 ${SCRIPTDIR}/gen-admin-certs.sh
+
+chmod 0644 ./*

@@ -30,30 +30,13 @@
                 <version>3.0.0</version>
                 <executions>
                     <execution>
-                        <id>remove-kafka-admin-image</id>
-                        <phase>clean</phase>
-                        <goals>
-                            <goal>exec</goal>
-                        </goals>
-                        <inherited>false</inherited>
-                        <configuration>
-                            <executable>docker</executable>
-                            <commandlineArgs>image rm -f kafka-admin</commandlineArgs>
-                            <successCodes>
-                                <successCode>0</successCode>
-                                <!-- Allow error when image does not exist -->
-                                <successCode>1</successCode>
-                            </successCodes>
-                        </configuration>
-                    </execution>
-                    <execution>
-                        <id>default-cli</id>
-                        <phase>generate-sources</phase>
+                        <id>generate-test-certs</id>
+                        <phase>pre-integration-test</phase>
                         <goals>
                             <goal>exec</goal>
                         </goals>
                         <configuration>
-                            <workingDirectory>${project.build.outputDirectory}</workingDirectory>
+                            <workingDirectory>${project.build.testOutputDirectory}</workingDirectory>
                             <executable>/bin/bash</executable>
                             <commandlineArgs>${project.basedir}/docker/certificates/gen-certs.sh</commandlineArgs>
                         </configuration>
@@ -82,6 +65,7 @@
                             <systemProperties>
                                 <keycloak.image>${keycloak.image}</keycloak.image>
                                 <strimzi-kafka.tag>${strimzi-kafka.tag}</strimzi-kafka.tag>
+                                <kafka-admin.image>${docker.registry}/${docker.group}/kafka-admin:${docker.tag}</kafka-admin.image>
                             </systemProperties>
                         </configuration>
                     </execution>

@@ -19,6 +19,13 @@
         <maven.compiler.target>11</maven.compiler.target>
         <maven.compiler.source>11</maven.compiler.source>
 
+        <!-- Container image properties for systemtests -->
+        <docker.registry>localhost</docker.registry>
+        <docker.group>bf2</docker.group>
+        <docker.tag>latest</docker.tag>
+        <docker.push>false</docker.push>
+
+        <!-- Dependencies -->
         <quarkus.version>2.4.1.Final</quarkus.version>
         <jandex.version>1.2.1</jandex.version>
         <log4j.version>2.17.1</log4j.version>
@@ -143,6 +150,8 @@
                                 <ignoredDependency>io.quarkus:quarkus-kafka-client</ignoredDependency>
                                 <ignoredDependency>io.quarkus:quarkus-container-image-jib</ignoredDependency>
                                 <ignoredDependency>io.quarkus:quarkus-container-image-docker</ignoredDependency>
+                                <ignoredDependency>io.quarkus:quarkus-smallrye-health</ignoredDependency>
+                                <ignoredDependency>io.quarkus:quarkus-smallrye-openapi</ignoredDependency>
                                 <ignoredDependency>io.strimzi:kafka-oauth-client</ignoredDependency>
                                 <ignoredDependency>org.jboss.logmanager:log4j2-jboss-logmanager</ignoredDependency>
                                 <ignoredDependency>org.jboss.logmanager:jboss-logmanager-embedded</ignoredDependency>

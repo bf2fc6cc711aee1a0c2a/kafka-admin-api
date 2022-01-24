@@ -679,7 +679,7 @@ class RestEndpointTestIT extends PlainTestBase {
             .compose(req -> req.send())
             .map(resp -> {
                 assertThat(resp.statusCode())
-                    .isEqualTo(HttpURLConnection.HTTP_NO_CONTENT);
+                    .isEqualTo(HttpURLConnection.HTTP_OK); // Quarkus uses 200 with content-length=0 instead of 204
                 assertThat(resp.getHeader("Access-Control-Max-Age"))
                     .isEqualTo(String.valueOf(Duration.ofHours(2).toSeconds()));
                 resultVerified.flag();
