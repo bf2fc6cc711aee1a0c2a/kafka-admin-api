@@ -30,7 +30,6 @@ import io.vertx.ext.web.handler.HSTSHandler;
 import io.vertx.ext.web.handler.OAuth2AuthHandler;
 import io.vertx.ext.web.openapi.OpenAPIHolder;
 import io.vertx.ext.web.openapi.RouterBuilder;
-import io.vertx.ext.web.openapi.RouterBuilderOptions;
 import io.vertx.ext.web.openapi.impl.ContractEndpointHandler;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -171,12 +170,6 @@ public class AdminServer extends AbstractVerticle {
             throw new UncheckedIOException(e);
         }
 
-        //final RouterBuilderOptions options = new RouterBuilderOptions();
-
-        // OpenAPI contract document served at `/rest/openapi`
-        //options.setContractEndpoint(RouterBuilderOptions.STANDARD_CONTRACT_ENDPOINT);
-        //builder.setOptions(options);
-
         updateOpenAPISecurity(openAPI);
         updateOpenAPISecurity(hostedOpenAPI);
 
@@ -193,7 +186,7 @@ public class AdminServer extends AbstractVerticle {
         Router restRouter = builder.createRouter();
 
         // OpenAPI contract document served at `/rest/openapi`
-        restRouter.get(RouterBuilderOptions.STANDARD_CONTRACT_ENDPOINT)
+        restRouter.get("/rest/openapi")
             .handler(ContractEndpointHandler.create(new OpenAPIHolder() {
                 @Override
                 public JsonObject solveIfNeeded(JsonObject obj) {
@@ -211,7 +204,7 @@ public class AdminServer extends AbstractVerticle {
                 }
             }));
 
-        router.mountSubRouter("/rest", restRouter);
+        router.mountSubRouter("/", restRouter);
         return result;
     }
 

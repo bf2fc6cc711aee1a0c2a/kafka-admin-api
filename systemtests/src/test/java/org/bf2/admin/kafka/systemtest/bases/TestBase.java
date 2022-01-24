@@ -50,6 +50,7 @@ public class TestBase {
 
     protected GenericContainer<?> kafkaContainer;
     protected GenericContainer<?> adminContainer;
+    protected GenericContainer<?> proxyContainer;
 
     protected int publishedAdminPort;
     protected AdminClient kafkaClient;
@@ -67,6 +68,7 @@ public class TestBase {
             adminContainer = deployments.getAdminContainer();
             externalBootstrap = deployments.getExternalBootstrapServers();
             publishedAdminPort = deployments.getAdminServerPort();
+            proxyContainer = deployments.getProxyContainer();
             vertxContext.completeNow();
         } catch (Exception e) {
             vertxContext.failNow(e);
@@ -142,8 +144,14 @@ public class TestBase {
     // Fail test if the response violates the OpenAPI contract
     protected void assertContractViolationError(HttpClientResponse response, VertxTestContext testContext) {
         response.body().onComplete(ar -> {
+            JsonObject responseObj;
             if (ar.succeeded()) {
-                JsonObject responseObj = ar.result().toJsonObject();
+                try {
+                    responseObj = ar.result().toJsonObject();
+                } catch (Exception e) {
+                    testContext.failNow(ar.result().toString());
+                    return;
+                }
                 String type = responseObj.getString("type");
                 if (type != null && type.startsWith("https://stoplight.io/prism/errors")) {
                     String title = responseObj.getString("title");

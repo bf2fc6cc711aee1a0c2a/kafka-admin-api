@@ -854,11 +854,7 @@ components:
       title: Root Type for NewTopicInput
       description: Kafka Topic (A feed where records are stored and published)
       type: object
-      required:
-        - id
       properties:
-        id:
-          description: Topic ID
         name:
           description: The name of the topic.
           type: string
@@ -1037,8 +1033,6 @@ components:
       properties:
         name:
           description: 'The topic name, this value must be unique.'
-          type: string
-        random_key:
           type: string
         settings:
           $ref: '#/components/schemas/TopicSettings'

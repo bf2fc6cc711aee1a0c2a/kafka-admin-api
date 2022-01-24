@@ -17,20 +17,14 @@ public class PlainTestBase extends TestBase {
     @BeforeAll
     static void initialize(ExtensionContext extensionContext) {
         deployments = DeploymentManager.newInstance(false);
+
     }
 
     @BeforeEach
     void setup(Vertx vertx) throws InterruptedException, ExecutionException {
         this.kafkaClient = deployments.createKafkaAdmin();
-
-        var validationProxyPortEnv = System.getProperty("validationProxyPort");
-        if (validationProxyPortEnv != null && !validationProxyPortEnv.equals("")) {
-            try {
-                this.publishedAdminPort = Integer.parseInt(validationProxyPortEnv);
-            } catch (Exception ex) {
-                // don't do anything - default port is already set
-            }
-        }
+        proxyContainer = deployments.getProxyContainer();
+        publishedAdminPort = proxyContainer.getMappedPort(4010);
 
         deleteAllTopics();
     }

@@ -18,14 +18,13 @@ import org.bf2.admin.kafka.systemtest.utils.ClientsConfig;
 import org.bf2.admin.kafka.systemtest.utils.RequestUtils;
 import org.slf4j.LoggerFactory;
 import org.testcontainers.containers.BindMode;
-import org.testcontainers.containers.FixedHostPortGenericContainer;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.Network;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.containers.wait.strategy.Wait;
 import org.testcontainers.lifecycle.Startable;
 import org.testcontainers.utility.MountableFile;
-
+import org.testcontainers.utility.DockerImageName;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
@@ -75,6 +74,8 @@ public class DeploymentManager {
     private KafkaContainer<?> kafkaContainer;
     private GenericContainer<?> adminContainer;
 
+    private GenericContainer<?> proxyContainer;
+
     public static DeploymentManager newInstance(boolean oauthEnabled) {
         return new DeploymentManager(oauthEnabled);
     }
@@ -93,7 +94,7 @@ public class DeploymentManager {
     }
 
     public void shutdown() {
-        stopAll(adminContainer, kafkaContainer, keycloakContainer);
+        stopAll(adminContainer, kafkaContainer, keycloakContainer, proxyContainer);
     }
 
     private void stopAll(Startable... containers) {
@@ -110,6 +111,14 @@ public class DeploymentManager {
         }
 
         return keycloakContainer;
+    }
+
+    public GenericContainer<?> getProxyContainer() {
+        if (proxyContainer == null) {
+            proxyContainer = deployProxy();
+        }
+
+        return proxyContainer;
     }
 
     public void stopKeycloakContainer() {
@@ -234,6 +243,23 @@ public class DeploymentManager {
         throw new IllegalStateException("Admin server not running");
     }
 
+    private GenericContainer<?> deployProxy() {
+        adminContainer = this.getAdminContainer();
+
+
+        var container = new GenericContainer<>(DockerImageName.parse("docker.io/stoplight/prism:4"))
+                .withLabels(Collections.singletonMap("test-ident", Environment.TEST_CONTAINER_LABEL))
+                .withNetwork(testNetwork)
+                .withExposedPorts(4010);
+
+        String adminApiUrl = "http://kafka-admin:" + (isOauthEnabled() ? 8443 : 8080);
+
+        container.setCommand("proxy", adminApiUrl + "/rest/openapi", adminApiUrl, "--host", "0.0.0.0", "--errors");
+
+        container.start();
+        return container;
+    }
+
     private GenericContainer<?> deployAdminContainer(String bootstrap) {
         LOGGER.info("Deploying Kafka Admin API container");
 
@@ -255,7 +281,7 @@ public class DeploymentManager {
             envMap.put("KAFKA_ADMIN_OAUTH_TOKEN_ENDPOINT_URI", "http://keycloak:8080/auth/realms/kafka-authz/protocol/openid-connect/token");
         }
 
-        class KafkaAdminServerContainer extends FixedHostPortGenericContainer<KafkaAdminServerContainer> {
+        class KafkaAdminServerContainer extends GenericContainer<KafkaAdminServerContainer> {
             KafkaAdminServerContainer() {
                 super("kafka-admin");
             }
@@ -270,8 +296,8 @@ public class DeploymentManager {
                 .withLogConsumer(new Slf4jLogConsumer(LoggerFactory.getLogger("systemtests.admin-server"), true))
                 .withCreateContainerCmdModifier(cmd -> cmd.withName(name("admin-server")))
                 .withNetwork(testNetwork)
+                .withNetworkAliases("kafka-admin")
                 .withExposedPorts(oauthEnabled ? 8443 : 8080, 9990)
-                .withFixedExposedPort(5555, 8080)
                 .withEnv(envMap)
                 .waitingFor(Wait.forHttp("/health/status").forPort(9990));
 
@@ -280,7 +306,6 @@ public class DeploymentManager {
         if (configuredDebugPort != null) {
             container.addExposedPort(configuredDebugPort);
             container.addFixedExposedPort(configuredDebugPort, configuredDebugPort);
-            container.addFixedExposedPort(5555, 8080);
             container.addEnv("KAFKA_ADMIN_DEBUG", String.format("-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:%d", configuredDebugPort));
         }
 
