@@ -1,168 +1,254 @@
 package org.bf2.admin;
 
+import io.quarkus.runtime.ShutdownEvent;
+import io.quarkus.runtime.StartupEvent;
+import org.eclipse.microprofile.config.inject.ConfigProperty;
+import org.eclipse.microprofile.context.ManagedExecutor;
+import org.jboss.logging.Logger;
+import org.jboss.logmanager.LogContext;
+
+import javax.enterprise.event.Observes;
+import javax.inject.Inject;
+import javax.inject.Singleton;
+
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
-import java.net.MalformedURLException;
-import java.net.URISyntaxException;
-import java.net.URL;
+import java.io.UncheckedIOException;
+import java.nio.file.ClosedWatchServiceException;
+import java.nio.file.FileSystems;
 import java.nio.file.Files;
-import java.util.Arrays;
+import java.nio.file.NoSuchFileException;
+import java.nio.file.Path;
+import java.nio.file.StandardWatchEventKinds;
+import java.nio.file.WatchEvent.Kind;
+import java.nio.file.WatchKey;
+import java.nio.file.WatchService;
+import java.time.Duration;
+import java.util.HashMap;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Optional;
 import java.util.Properties;
-import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
-import java.util.stream.Collectors;
-import javax.enterprise.context.ApplicationScoped;
-import javax.enterprise.event.Observes;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
-import io.quarkus.runtime.ShutdownEvent;
-import io.quarkus.runtime.StartupEvent;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
-import org.eclipse.microprofile.config.inject.ConfigProperty;
-import org.jboss.logmanager.LogContext;
-
-@ApplicationScoped
+@Singleton
 public class LoggingConfigWatcher {
 
-    private static final Logger LOGGER = LogManager.getLogger(LoggingConfigWatcher.class);
+    private static final Logger LOGGER = Logger.getLogger(LoggingConfigWatcher.class);
 
-    private static final String RECONFIG_FILE_MODIFIED = "Reconfiguration triggered; reason: log configuration has been modified: {}";
-    private static final String RECONFIG_FILE_ADDED = "Reconfiguration triggered; reason: previously absent log configuration is now available: {}";
-    private static final String RECONFIG_FILE_MISSING = "Reconfiguration triggered; reason: previously available log configured file is no longer present: {}";
+    private static final String RECONFIG_FILE_ADDED = "Log configuration override found: %s";
+    private static final String RECONFIG_FILE_MODIFIED = "Reconfiguration triggered; reason: log configuration has been modified: %s";
+    private static final String RECONFIG_FILE_MISSING = "Reconfiguration triggered; reason: log configuration file is no longer present: %s";
 
-    private Map<File, Long> configuredFiles;
-    private Set<File> configurationCandidates;
-    private ScheduledExecutorService workerPool;
+    private static final String ROOT_CONFIG = "quarkus.log.level";
+    private static final Pattern CATEGORY_CONFIG = Pattern.compile("^quarkus\\.log\\.category\\.\"([^\"]+?)\"\\.level$");
 
-    @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
-    @ConfigProperty(name = "logging.config.files")
-    Optional<String> files;
+    @FunctionalInterface
+    interface WatchKeyLookup {
+        WatchKey apply(WatchService source) throws InterruptedException;
+    }
 
-    @ConfigProperty(name = "logging.config.interval", defaultValue = "5")
-    long period;
+    private static class Inherit extends Level {
+        private static final long serialVersionUID = 1L;
+        Inherit() {
+            super("INHERIT", -1);
+        }
+    }
+
+    private static final Level INHERIT = new Inherit();
+
+    @Inject
+    ManagedExecutor executor;
+
+    @ConfigProperty(name = "logging.config.override")
+    Optional<String> loggingConfigOverride;
+
+    volatile boolean shutdown = false;
+
+    WatchService watchService;
+
+    Map<String, Level> overriddenLoggers = new HashMap<>();
 
     public void start(@Observes StartupEvent event) {
-        if (files.isEmpty() || files.get().trim().isEmpty()) {
-            LOGGER.info("No log config files set to monitor");
-            return;
-        }
-
-        configurationCandidates = Arrays.stream(files.get().split(","))
-            .map(this::toFile)
-            .collect(Collectors.toSet());
-
-        LOGGER.info("Monitoring files: {}", configurationCandidates);
-
-        /*
-         * We mock what was done before with Log4j, now with JBoss Logging
-         */
-        configuredFiles = new ConcurrentHashMap<>();
-        configurationCandidates.stream()
-            .filter(Objects::nonNull)
-            .filter(File::exists)
-            .forEach(file -> configuredFiles.put(file, file.lastModified()));
-
-        LOGGER.info("Initializing logging configuration watcher, period = {}sec", period);
-        workerPool = Executors.newScheduledThreadPool(1);
-        workerPool.scheduleAtFixedRate(this::monitor, period, period, TimeUnit.SECONDS);
+        loggingConfigOverride.ifPresentOrElse(this::startFileWatch, () -> LOGGER.info("No log config files set to monitor"));
     }
 
     public void stop(@Observes ShutdownEvent event) {
-        if (workerPool != null) {
-            workerPool.shutdown();
+        this.shutdown = true;
+
+        if (watchService != null) {
+            try {
+                watchService.close();
+            } catch (IOException e) {
+                LOGGER.warn("Exception closing WatchService: {}", e.getMessage(), e);
+            }
         }
     }
 
-    private File toFile(String fileUrl) {
-        File configFile = null;
+    void startFileWatch(String loggingConfigOverride) {
+        Path configOverride = Path.of(loggingConfigOverride);
+        LOGGER.infof("Monitoring logging configuration override file: %s", configOverride);
 
         try {
-            configFile = new File(new URL(fileUrl).toURI());
-        } catch (MalformedURLException | URISyntaxException e) {
-            LOGGER.info("File name must convertable to URI: {} [{}]", fileUrl, e.getMessage());
+            watchService = FileSystems.getDefault().newWatchService();
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
         }
 
-        return configFile;
-    }
-
-    private void monitor() {
-        LOGGER.debug("Checking for updates to configuration files: {}", configurationCandidates);
-        configurationCandidates.forEach(file -> {
-            if (reconfigurationRequired(file)) {
-                modify(file);
+        executor.submit(() -> {
+            while (!shutdown) {
+                try {
+                    if (!watchConfigOverride(configOverride, WatchService::take)) {
+                        Thread.sleep(Duration.ofSeconds(30).toMillis());
+                    }
+                }  catch (InterruptedException e) {
+                    LOGGER.warnf("WatchService interrupted", e);
+                    Thread.currentThread().interrupt();
+                }
             }
         });
     }
 
-    private void modify(File file) {
+    boolean watchConfigOverride(Path configOverride, WatchKeyLookup lookup) throws InterruptedException {
+        Path directory = configOverride.getParent();
+        Path fileName = configOverride.getFileName();
+        File watchedDirectory = directory.toFile();
+
+        if (!watchedDirectory.isDirectory()) {
+            return false;
+        }
+
         try {
-            Properties properties = new Properties();
-            try (InputStream stream = Files.newInputStream(file.toPath())) {
-                properties.load(stream);
+            directory.register(watchService,
+                          StandardWatchEventKinds.ENTRY_CREATE,
+                          StandardWatchEventKinds.ENTRY_DELETE,
+                          StandardWatchEventKinds.ENTRY_MODIFY);
+
+            if (configOverride.toFile().exists()) {
+                handleFileEvent(StandardWatchEventKinds.ENTRY_CREATE, configOverride);
+                handleFileEvent(StandardWatchEventKinds.ENTRY_MODIFY, configOverride);
             }
 
-            LogContext context = LogContext.getLogContext();
+            WatchKey key;
 
-            for (String key : properties.stringPropertyNames()) {
-                if (key.equals("quarkus.log.level") || key.equals("quarkus.log.min-level")) {
-                    org.jboss.logmanager.Logger root = context.getLogger("");
-                    Level level = context.getLevelForName(properties.getProperty(key));
-                    // TODO -- min-level handling?
-                    // https://github.com/quarkusio/quarkus/blob/2.3.0.Final/core/runtime/src/main/java/io/quarkus/runtime/logging/LoggingSetupRecorder.java#L92
-                    root.setLevel(level);
-                } else if (key.startsWith("quarkus.log.category.")) {
-                    int i1 = key.indexOf("\"");
-                    int i2 = key.lastIndexOf("\"");
-                    String category = key.substring(i1 + 1, i2);
-                    org.jboss.logmanager.Logger logger = context.getLogger(category);
-                    String type = key.substring(i2 + 2); // + 1 + dot
-                    if (type.equals("level") || type.equals("mil-level")) {
-                        Level level = context.getLevelForName(properties.getProperty(key));
-                        // TODO -- min-level handling?
-                        logger.setLevel(level);
-                    }
-                    // TODO -- handle other types ...
-                    // https://quarkus.io/guides/logging#logging-categories
-                }
+            while (watchedDirectory.isDirectory() && (key = lookup.apply(watchService)) != null) {
+                key.pollEvents()
+                    .stream()
+                    .filter(event -> fileName.equals(event.context()))
+                    .forEach(event -> handleFileEvent(event.kind(), configOverride));
+
+                key.reset();
             }
+        } catch (NoSuchFileException e) {
+            LOGGER.debugf("Logging configuration override directory does not exist: {}", e.getFile());
+        } catch (ClosedWatchServiceException e) {
+            LOGGER.info("WatchService closed");
         } catch (IOException e) {
-            LOGGER.warn("File {} cannot be read", file, e);
+            throw new UncheckedIOException(e);
+        }
+
+        return watchedDirectory.isDirectory();
+    }
+
+    void handleFileEvent(Kind<?> kind, Path configOverride) {
+        if (StandardWatchEventKinds.ENTRY_CREATE.equals(kind)) {
+            LOGGER.infof(RECONFIG_FILE_ADDED, configOverride);
+        } else if (StandardWatchEventKinds.ENTRY_DELETE.equals(kind)) {
+            LOGGER.infof(RECONFIG_FILE_MISSING, configOverride);
+            delete();
+        } else if (StandardWatchEventKinds.ENTRY_MODIFY.equals(kind)) {
+            LOGGER.infof(RECONFIG_FILE_MODIFIED, configOverride);
+            modify(configOverride);
         }
     }
 
-    boolean reconfigurationRequired(File configFile) {
-        boolean reconfigure = false;
-        boolean previouslyConfigured = configuredFiles.containsKey(configFile);
+    private void delete() {
+        LogContext context = LogContext.getLogContext();
 
-        if (Files.exists(configFile.toPath())) {
-            if (previouslyConfigured) {
-                long lastModified = configFile.lastModified();
-                long previousLastModified = configuredFiles.get(configFile);
+        overriddenLoggers.forEach((category, originalLevel) -> {
+            org.jboss.logmanager.Logger logger = context.getLogger(category);
+            LOGGER.infof("Restoring original log level for logger %s: %s",
+                     category.isEmpty() ? "ROOT" : category,
+                     originalLevel);
 
-                if (lastModified > previousLastModified) {
-                    LOGGER.info(RECONFIG_FILE_MODIFIED, configFile);
-                    configuredFiles.put(configFile, lastModified);
-                    reconfigure = true;
-                }
-            } else {
-                LOGGER.info(RECONFIG_FILE_ADDED, configFile);
-                configuredFiles.put(configFile, configFile.lastModified());
-                reconfigure = true;
+            if (originalLevel instanceof Inherit) {
+                originalLevel = null;
             }
-        } else if (previouslyConfigured) {
-            LOGGER.info(RECONFIG_FILE_MISSING, configFile);
-            configuredFiles.remove(configFile);
-            // reconfigure = true; // we only know how to configure changes
+
+            logger.setLevel(originalLevel);
+        });
+
+        overriddenLoggers.clear();
+    }
+
+    private void modify(Path file) {
+        Properties properties = new Properties();
+
+        try (InputStream stream = Files.newInputStream(file)) {
+            properties.load(stream);
+        } catch (IOException e) {
+            LOGGER.warn("File {} cannot be read", file, e);
+            return;
         }
 
-        return reconfigure;
+        LogContext context = LogContext.getLogContext();
+
+        properties.entrySet()
+            .stream()
+            .filter(this::isLogLevelConfiguration)
+            .map(entry -> toLoggerLevel(context, entry.getKey().toString(), entry.getValue().toString()))
+            .forEach(override -> {
+                org.jboss.logmanager.Logger logger = override.getKey();
+                String category = logger.getName();
+                Level level = override.getValue();
+                Level originalLevel = logger.getLevel() == null ? INHERIT : logger.getLevel();
+
+                LOGGER.infof("Overriding log level for category %s: %s => %s",
+                         category.isEmpty() ? "ROOT" : category,
+                         originalLevel,
+                         level);
+
+                // Save the original so that it can be restored if the override is removed
+                overriddenLoggers.computeIfAbsent(category, k -> originalLevel);
+
+                // TODO -- min-level handling? min-level is compile-time optimization
+                // See https://github.com/quarkusio/quarkus/blob/2.3.0.Final/core/runtime/src/main/java/io/quarkus/runtime/logging/LoggingSetupRecorder.java#L92
+                // TODO -- Handle other category properties (besides .level)
+                // See https://quarkus.io/guides/logging#logging-categories
+                logger.setLevel(level);
+            });
+    }
+
+    private boolean isLogLevelConfiguration(Map.Entry<Object, Object> property) {
+        Object key = property.getKey();
+
+        if (key instanceof String && property.getValue() instanceof String) {
+            String propertyName = (String) key;
+
+            if (ROOT_CONFIG.equals(propertyName)) {
+                return true;
+            }
+
+            return CATEGORY_CONFIG.matcher(propertyName).matches();
+        }
+
+        return false;
+    }
+
+    private Map.Entry<org.jboss.logmanager.Logger, Level> toLoggerLevel(LogContext context, String key, String levelName) {
+        String category;
+
+        if (ROOT_CONFIG.equals(key)) {
+            category = "";
+        } else {
+            Matcher m = CATEGORY_CONFIG.matcher(key);
+            m.find();
+            category = m.group(1);
+        }
+
+        Level level = context.getLevelForName(levelName);
+        return Map.entry(context.getLogger(category), level);
     }
 }
