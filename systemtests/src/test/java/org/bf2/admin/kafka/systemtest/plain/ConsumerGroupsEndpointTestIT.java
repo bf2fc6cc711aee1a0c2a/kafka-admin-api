@@ -344,14 +344,14 @@ class ConsumerGroupsEndpointTestIT extends PlainTestBase {
         Checkpoint responseBodyVerified = testContext.checkpoint();
 
         createHttpClient(vertx).request(HttpMethod.GET, publishedAdminPort, "localhost", "/rest/consumer-groups?" + String.join("&", filters))
-            .compose(req -> req.send())
-            .map(resp -> {
-                if (resp.statusCode() != ReturnCodes.SUCCESS.code) {
-                    testContext.failNow("Status code not correct");
-                }
-                statusVerified.flag();
-                return resp;
-            })
+                .compose(req -> req.send())
+                .map(resp -> {
+                    if (resp.statusCode() != ReturnCodes.SUCCESS.code) {
+                        testContext.failNow("Status code not correct");
+                    }
+                    statusVerified.flag();
+                    return resp;
+                })
             .compose(HttpClientResponse::body)
             .map(buffer -> MODEL_DESERIALIZER.deserializeResponse(buffer, Types.ConsumerGroupList.class))
             .map(groups -> testContext.verify(() -> {

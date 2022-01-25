@@ -23,7 +23,7 @@ public class PlainTestBase extends TestBase {
     @BeforeEach
     void setup(Vertx vertx) throws InterruptedException, ExecutionException {
         this.kafkaClient = deployments.createKafkaAdmin();
-        proxyContainer = deployments.getProxyContainer();
+
         publishedAdminPort = proxyContainer.getMappedPort(4010);
 
         deleteAllTopics();

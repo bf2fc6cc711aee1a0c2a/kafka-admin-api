@@ -141,8 +141,36 @@ public class TestBase {
         return vertx.createHttpClient(options);
     }
 
+    protected void assertCorrectResponseCode(int actual, int expected, VertxTestContext testContext) {
+        if (actual != expected) {
+            testContext.failNow("Status code '" + actual + "' is not correct, expected '" + expected + "'");
+        }
+    }
+
+    protected void assertContractViolationErrorOrInvalidResponseCode(HttpClientResponse response, int expectedCode, VertxTestContext testContext) {
+        response.body().onComplete(ar -> {
+            JsonObject responseObj;
+            if (ar.succeeded()) {
+                try {
+                    responseObj = ar.result().toJsonObject();
+                } catch (Exception e) {
+                    testContext.failNow(ar.result().toString());
+                    return;
+                }
+                String type = responseObj.getString("type");
+                if (type != null && type.startsWith("https://stoplight.io/prism/errors")) {
+                    String title = responseObj.getString("title");
+                    String validation = responseObj.getString("validation");
+                    String message = String.format("%s: %s", title, validation);
+                    testContext.failNow(new ContractViolationException(message));
+                }
+            }
+            assertCorrectResponseCode(response.statusCode(), expectedCode, testContext);
+        });
+    }
+
     // Fail test if the response violates the OpenAPI contract
-    protected void assertContractViolationError(HttpClientResponse response, VertxTestContext testContext) {
+    protected void assertContractViolationErrorFromResponse(HttpClientResponse response, VertxTestContext testContext) {
         response.body().onComplete(ar -> {
             JsonObject responseObj;
             if (ar.succeeded()) {
@@ -161,6 +189,18 @@ public class TestBase {
                 }
             }
         });
+    }
+
+    // Fail test if the response violates the OpenAPI contract
+    protected void assertContractViolationFromBuffer(Buffer buffer, VertxTestContext testContext) {
+        JsonObject responseObj = buffer.toJsonObject();
+        String type = responseObj.getString("type");
+        if (type != null && type.startsWith("https://stoplight.io/prism/errors")) {
+            String title = responseObj.getString("title");
+            String validation = responseObj.getString("validation");
+            String message = String.format("%s: %s", title, validation);
+            testContext.failNow(new ContractViolationException(message));
+        }
     }
 
     protected void assertStrictTransportSecurity(HttpClientResponse response, VertxTestContext testContext, boolean secureTransport) {

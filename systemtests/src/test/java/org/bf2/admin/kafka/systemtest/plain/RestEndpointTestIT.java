@@ -42,11 +42,7 @@ class RestEndpointTestIT extends PlainTestBase {
         HttpClient client = createHttpClient(vertx);
         client.request(HttpMethod.GET, publishedAdminPort, "localhost", "/rest/topics")
                 .compose(req -> req.send().onSuccess(response -> {
-//                    if (response.statusCode() != ReturnCodes.SUCCESS.code) {
-//                        testContext.failNow("Status code not correct");
-//                    }
                     assertStrictTransportSecurityDisabled(response, testContext);
-                    assertContractViolationError(response, testContext);
                 }).onFailure(testContext::failNow).compose(HttpClientResponse::body))
                 .onComplete(testContext.succeeding(buffer -> testContext.verify(() -> {
                     assertThat(testContext.failed()).isFalse();
@@ -68,7 +64,7 @@ class RestEndpointTestIT extends PlainTestBase {
                         assertThat(l.result().statusCode()).isEqualTo(ReturnCodes.KAFKA_DOWN.code);
                     }
                     assertStrictTransportSecurityDisabled(l.result(), testContext);
-                    assertContractViolationError(l.result(), testContext);
+                    assertContractViolationErrorFromResponse(l.result(), testContext);
                     testContext.completeNow();
                 })).onFailure(testContext::failNow));
         assertThat(testContext.awaitCompletion(1, TimeUnit.MINUTES)).isTrue();
@@ -88,7 +84,7 @@ class RestEndpointTestIT extends PlainTestBase {
                         testContext.failNow("Status code not correct");
                     }
                     assertStrictTransportSecurityDisabled(response, testContext);
-                    assertContractViolationError(response, testContext);
+                    assertContractViolationErrorFromResponse(response, testContext);
                 }).onFailure(testContext::failNow).compose(HttpClientResponse::body))
                 .onComplete(testContext.succeeding(buffer -> testContext.verify(() -> {
                     assertThat(testContext.failed()).isFalse();
@@ -119,7 +115,7 @@ class RestEndpointTestIT extends PlainTestBase {
                         testContext.failNow("Status code not correct");
                     }
                     assertStrictTransportSecurityDisabled(response, testContext);
-                    assertContractViolationError(response, testContext);
+                    assertContractViolationErrorFromResponse(response, testContext);
                 }).onFailure(testContext::failNow).compose(HttpClientResponse::body))
                 .onComplete(testContext.succeeding(buffer -> testContext.verify(() -> {
                     assertThat(testContext.failed()).isFalse();
@@ -146,11 +142,9 @@ class RestEndpointTestIT extends PlainTestBase {
         HttpClient client = createHttpClient(vertx);
         client.request(HttpMethod.GET, publishedAdminPort, "localhost", "/rest/topics?limit=" + limit)
                 .compose(req -> req.send().onSuccess(response -> {
-                    if (response.statusCode() !=  ReturnCodes.SUCCESS.code) {
-                        testContext.failNow("Status code not correct");
-                    }
+                    assertCorrectResponseCode(response.statusCode(), ReturnCodes.SUCCESS.code, testContext);
+
                     assertStrictTransportSecurityDisabled(response, testContext);
-                    assertContractViolationError(response, testContext);
                 }).onFailure(testContext::failNow).compose(HttpClientResponse::body))
                 .onComplete(testContext.succeeding(buffer -> testContext.verify(() -> {
                     assertThat(testContext.failed()).isFalse();
@@ -177,7 +171,7 @@ class RestEndpointTestIT extends PlainTestBase {
                         testContext.failNow("Status code not correct");
                     }
                     assertStrictTransportSecurityDisabled(response, testContext);
-                    assertContractViolationError(response, testContext);
+                    assertContractViolationErrorFromResponse(response, testContext);
                 }).onFailure(testContext::failNow).compose(HttpClientResponse::body))
                 .onComplete(testContext.succeeding(buffer -> testContext.verify(() -> {
                     assertThat(testContext.failed()).isFalse();
@@ -202,7 +196,7 @@ class RestEndpointTestIT extends PlainTestBase {
                     if (response.statusCode() !=  ReturnCodes.SUCCESS.code) {
                         testContext.failNow("Status code not correct");
                     }
-                    assertContractViolationError(response, testContext);
+                    assertContractViolationErrorFromResponse(response, testContext);
                     assertStrictTransportSecurityDisabled(response, testContext);
                 }).onFailure(testContext::failNow).compose(HttpClientResponse::body))
                 .onComplete(testContext.succeeding(buffer -> testContext.verify(() -> {
@@ -227,7 +221,7 @@ class RestEndpointTestIT extends PlainTestBase {
                     if (response.statusCode() !=  ReturnCodes.SUCCESS.code) {
                         testContext.failNow("Status code not correct");
                     }
-                    assertContractViolationError(response, testContext);
+                    assertContractViolationErrorFromResponse(response, testContext);
                     assertStrictTransportSecurityDisabled(response, testContext);
                 }).onFailure(testContext::failNow).compose(HttpClientResponse::body))
                 .onComplete(testContext.succeeding(buffer -> testContext.verify(() -> {
@@ -253,7 +247,7 @@ class RestEndpointTestIT extends PlainTestBase {
                             || (response.statusCode() !=  ReturnCodes.FAILED_REQUEST.code && page != 1)) {
                         testContext.failNow("Status code not correct");
                     }
-                    assertContractViolationError(response, testContext);
+                    assertContractViolationErrorFromResponse(response, testContext);
                     assertStrictTransportSecurityDisabled(response, testContext);
                 }).onFailure(testContext::failNow).compose(HttpClientResponse::body))
                 .onComplete(testContext.succeeding(buffer -> testContext.verify(() -> {
@@ -282,7 +276,7 @@ class RestEndpointTestIT extends PlainTestBase {
                         testContext.failNow("Status code not correct");
                     }
                     assertStrictTransportSecurityDisabled(response, testContext);
-                    assertContractViolationError(response, testContext);
+                    assertContractViolationErrorFromResponse(response, testContext);
                 }).onFailure(testContext::failNow).compose(HttpClientResponse::body))
                 .onComplete(testContext.succeeding(buffer -> testContext.verify(() -> {
                     assertThat(testContext.failed()).isFalse();
@@ -305,7 +299,7 @@ class RestEndpointTestIT extends PlainTestBase {
                         assertThat(l.result().statusCode()).isEqualTo(ReturnCodes.KAFKA_DOWN.code);
                         assertStrictTransportSecurityDisabled(l.result(), testContext);
                     }
-                    assertContractViolationError(l.result(), testContext);
+                    assertContractViolationErrorFromResponse(l.result(), testContext);
                     testContext.completeNow();
                 })).onFailure(testContext::failNow));
         assertThat(testContext.awaitCompletion(1, TimeUnit.MINUTES)).isTrue();
@@ -322,7 +316,7 @@ class RestEndpointTestIT extends PlainTestBase {
                         testContext.failNow("Status code not correct");
                     }
                     assertStrictTransportSecurityDisabled(response, testContext);
-                    assertContractViolationError(response, testContext);
+                    assertContractViolationErrorFromResponse(response, testContext);
                     testContext.completeNow();
                 }).onFailure(testContext::failNow));
         assertThat(testContext.awaitCompletion(1, TimeUnit.MINUTES)).isTrue();
@@ -333,16 +327,14 @@ class RestEndpointTestIT extends PlainTestBase {
         Types.NewTopic topic = RequestUtils.getTopicObject(3);
 
         createHttpClient(vertx).request(HttpMethod.POST, publishedAdminPort, "localhost", "/rest/topics")
-                .compose(req -> req.putHeader("content-type", "application/json").putHeader("Authorization", "Bearer blah")
+                .compose(req -> req.putHeader("content-type", "application/json")
                         .send(MODEL_DESERIALIZER.serializeBody(topic)).onSuccess(response -> {
-//                            if (response.statusCode() !=  ReturnCodes.TOPIC_CREATED.code) {
-//                                testContext.failNow("Status code " + response.statusCode() + " is not correct");
-//                            }
+                            if (response.statusCode() != ReturnCodes.TOPIC_CREATED.code) {
+                                testContext.failNow("Status code " + response.statusCode() + " is not correct");
+                            }
                             assertStrictTransportSecurityDisabled(response, testContext);
-                            assertContractViolationError(response, testContext);
                         }).onFailure(testContext::failNow).compose(HttpClientResponse::body))
                 .onComplete(testContext.succeeding(buffer -> testContext.verify(() -> {
-                    assertThat(testContext.failed()).isFalse();
                     DynamicWait.waitForTopicExists(topic.getName(), kafkaClient);
                     TopicDescription description = kafkaClient.describeTopics(Collections.singleton(topic.getName()))
                             .all().get().get(topic.getName());
@@ -364,7 +356,7 @@ class RestEndpointTestIT extends PlainTestBase {
                                 testContext.failNow("Status code " + response.statusCode() + " is not correct");
                             }
                             assertStrictTransportSecurityDisabled(response, testContext);
-                            assertContractViolationError(response, testContext);
+                            assertContractViolationErrorFromResponse(response, testContext);
                         }).onFailure(testContext::failNow).compose(HttpClientResponse::body))
                 .onComplete(testContext.succeeding(buffer -> testContext.verify(() -> {
                     assertThat(testContext.failed()).isFalse();
@@ -389,7 +381,7 @@ class RestEndpointTestIT extends PlainTestBase {
                             if (l.succeeded()) {
                                 assertThat(l.result().statusCode()).isEqualTo(ReturnCodes.KAFKA_DOWN.code);
                                 assertStrictTransportSecurityDisabled(l.result(), testContext);
-                                assertContractViolationError(l.result(), testContext);
+                                assertContractViolationErrorFromResponse(l.result(), testContext);
                             }
                             testContext.completeNow();
                         })).onFailure(testContext::failNow));
@@ -407,7 +399,7 @@ class RestEndpointTestIT extends PlainTestBase {
                                 testContext.failNow("Status code " + response.statusCode() + " is not correct");
                             }
                             assertStrictTransportSecurityDisabled(response, testContext);
-                            assertContractViolationError(response, testContext);
+                            assertContractViolationErrorFromResponse(response, testContext);
                             testContext.completeNow();
                         }).onFailure(testContext::failNow));
         assertThat(testContext.awaitCompletion(1, TimeUnit.MINUTES)).isTrue();
@@ -424,7 +416,7 @@ class RestEndpointTestIT extends PlainTestBase {
                                 testContext.failNow("Status code " + response.statusCode() + " is not correct");
                             }
                             assertStrictTransportSecurityDisabled(response, testContext);
-                            assertContractViolationError(response, testContext);
+                            assertContractViolationErrorFromResponse(response, testContext);
                             testContext.completeNow();
                         }).onFailure(testContext::failNow));
         assertThat(testContext.awaitCompletion(1, TimeUnit.MINUTES)).isTrue();
@@ -442,7 +434,7 @@ class RestEndpointTestIT extends PlainTestBase {
                                 testContext.failNow("Status code " + response.statusCode() + " is not correct");
                             }
                             assertStrictTransportSecurityDisabled(response, testContext);
-                            assertContractViolationError(response, testContext);
+                            assertContractViolationErrorFromResponse(response, testContext);
                             testContext.completeNow();
                         }).onFailure(testContext::failNow));
         assertThat(testContext.awaitCompletion(1, TimeUnit.MINUTES)).isTrue();
@@ -465,13 +457,14 @@ class RestEndpointTestIT extends PlainTestBase {
         createHttpClient(vertx).request(HttpMethod.POST, publishedAdminPort, "localhost", "/rest/topics")
                 .compose(req -> req.putHeader("content-type", "application/json")
                         .send(MODEL_DESERIALIZER.serializeBody(topic)).onSuccess(response -> {
-                            // if (response.statusCode() !=  ReturnCodes.FAILED_REQUEST.code) {
-                            //     testContext.failNow("Status code " + response.statusCode() + " is not correct");
-                            // }
+                            if (response.statusCode() !=  ReturnCodes.FAILED_REQUEST.code) {
+                                testContext.failNow("Status code " + response.statusCode() + " is not correct");
+                            }
                             assertStrictTransportSecurityDisabled(response, testContext);
-                            assertContractViolationError(response, testContext);
+                            assertContractViolationErrorFromResponse(response, testContext);
                         }).onFailure(testContext::failNow).compose(HttpClientResponse::body))
                 .onComplete(testContext.succeeding(buffer -> testContext.verify(() -> {
+                    assertContractViolationFromBuffer(buffer, testContext);
                     assertThat(testContext.failed()).isFalse();
                     assertThat(kafkaClient.listTopics().names().get()).doesNotContain(topic.getName());
                     testContext.completeNow();
@@ -494,7 +487,7 @@ class RestEndpointTestIT extends PlainTestBase {
                                 testContext.failNow("Status code " + response.statusCode() + " is not correct");
                             }
                             assertStrictTransportSecurityDisabled(response, testContext);
-                            assertContractViolationError(response, testContext);
+                            assertContractViolationErrorFromResponse(response, testContext);
                             testContext.completeNow();
                         }).onFailure(testContext::failNow));
         assertThat(testContext.awaitCompletion(1, TimeUnit.MINUTES)).isTrue();
@@ -512,7 +505,7 @@ class RestEndpointTestIT extends PlainTestBase {
                                 testContext.failNow("Status code " + response.statusCode() + " is not correct");
                             }
                             assertStrictTransportSecurityDisabled(response, testContext);
-                            assertContractViolationError(response, testContext);
+                            assertContractViolationErrorFromResponse(response, testContext);
                         }).onFailure(testContext::failNow).compose(HttpClientResponse::body))
                 .onComplete(testContext.succeeding(buffer -> testContext.verify(() -> {
                     assertThat(testContext.failed()).isFalse();
@@ -537,7 +530,7 @@ class RestEndpointTestIT extends PlainTestBase {
                             if (response.statusCode() !=  ReturnCodes.SUCCESS.code) {
                                 testContext.failNow("Status code " + response.statusCode() + " is not correct");
                             }
-                            assertContractViolationError(response, testContext);
+                            assertContractViolationErrorFromResponse(response, testContext);
                             assertStrictTransportSecurityDisabled(response, testContext);
                         }).onFailure(testContext::failNow).compose(HttpClientResponse::body))
                 .onComplete(testContext.succeeding(buffer -> testContext.verify(() -> {
@@ -561,7 +554,7 @@ class RestEndpointTestIT extends PlainTestBase {
                             if (l.succeeded()) {
                                 assertThat(l.result().statusCode()).isEqualTo(ReturnCodes.KAFKA_DOWN.code);
                             }
-                            assertContractViolationError(l.result(), testContext);
+                            assertContractViolationErrorFromResponse(l.result(), testContext);
                             assertStrictTransportSecurityDisabled(l.result(), testContext);
                             testContext.completeNow();
                         })).onFailure(testContext::failNow));
@@ -579,7 +572,7 @@ class RestEndpointTestIT extends PlainTestBase {
                                 testContext.failNow("Status code " + response.statusCode() + " is not correct");
                             }
                             assertStrictTransportSecurityDisabled(response, testContext);
-                            assertContractViolationError(response, testContext);
+                            assertContractViolationErrorFromResponse(response, testContext);
                             testContext.completeNow();
                         }).onFailure(testContext::failNow));
         assertThat(testContext.awaitCompletion(1, TimeUnit.MINUTES)).isTrue();
@@ -608,7 +601,7 @@ class RestEndpointTestIT extends PlainTestBase {
                                 testContext.failNow("Status code " + response.statusCode() + " is not correct");
                             }
                             assertStrictTransportSecurityDisabled(response, testContext);
-                            assertContractViolationError(response, testContext);
+                            assertContractViolationErrorFromResponse(response, testContext);
                         }).onFailure(testContext::failNow).compose(HttpClientResponse::body))
                 .onComplete(testContext.succeeding(buffer -> testContext.verify(() -> {
                     assertThat(testContext.failed()).isFalse();
@@ -642,7 +635,7 @@ class RestEndpointTestIT extends PlainTestBase {
                                 testContext.failNow("Status code " + response.statusCode() + " is not correct");
                             }
                             assertStrictTransportSecurityDisabled(response, testContext);
-                            assertContractViolationError(response, testContext);
+                            assertContractViolationErrorFromResponse(response, testContext);
                             testContext.completeNow();
                         }).onFailure(testContext::failNow));
         assertThat(testContext.awaitCompletion(1, TimeUnit.MINUTES)).isTrue();
@@ -671,7 +664,7 @@ class RestEndpointTestIT extends PlainTestBase {
                                 testContext.failNow("Status code " + response.statusCode() + " is not correct");
                             }
                             assertStrictTransportSecurityDisabled(response, testContext);
-                            assertContractViolationError(response, testContext);
+                            assertContractViolationErrorFromResponse(response, testContext);
                         }).onFailure(testContext::failNow).compose(HttpClientResponse::body))
                 .onComplete(testContext.succeeding(buffer -> testContext.verify(() -> {
                     assertThat(testContext.failed()).isFalse();
@@ -711,7 +704,7 @@ class RestEndpointTestIT extends PlainTestBase {
                                 testContext.failNow("Status code " + response.statusCode() + " is not correct");
                             }
                             assertStrictTransportSecurityDisabled(response, testContext);
-                            assertContractViolationError(response, testContext);
+                            assertContractViolationErrorFromResponse(response, testContext);
                         }).onFailure(testContext::failNow).compose(HttpClientResponse::body))
                 .onComplete(testContext.succeeding(buffer -> testContext.verify(() -> {
                     assertThat(testContext.failed()).isFalse();
@@ -734,7 +727,7 @@ class RestEndpointTestIT extends PlainTestBase {
                     .isEqualTo(HttpURLConnection.HTTP_NO_CONTENT);
                 assertThat(resp.getHeader("Access-Control-Max-Age"))
                     .isEqualTo(String.valueOf(Duration.ofHours(2).toSeconds()));
-                assertContractViolationError(resp, testContext);
+                assertContractViolationErrorFromResponse(resp, testContext);
                 resultVerified.flag();
                 return resp;
             })
