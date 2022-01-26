@@ -281,7 +281,7 @@ public class DeploymentManager {
                 .withNetwork(testNetwork)
                 .withExposedPorts(exposedPorts.toArray(Integer[]::new))
                 .withEnv(envMap)
-                .waitingFor(Wait.forHttp("/q/health/started").forPort(8080));
+                .waitingFor(Wait.forHttp("/health/started").forPort(8080));
 
         if (oauthEnabled) {
             container

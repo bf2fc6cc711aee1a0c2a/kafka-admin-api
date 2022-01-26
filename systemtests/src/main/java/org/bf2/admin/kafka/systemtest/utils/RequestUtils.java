@@ -291,9 +291,9 @@ public class RequestUtils {
 
     public static String retrieveMetrics(Vertx vertx, ExtensionContext extensionContext, VertxTestContext testContext, int port) {
         CountDownLatch countDownLatch = new CountDownLatch(1);
-        LOGGER.info("Fetching metrics from {}:{}{}", "localhost", port, "/q/metrics");
+        LOGGER.info("Fetching metrics from {}:{}{}", "localhost", port, "/metrics");
 
-        Future<Buffer> metricsBuffer = vertx.createHttpClient().request(HttpMethod.GET, port, "localhost", "/q/metrics")
+        Future<Buffer> metricsBuffer = vertx.createHttpClient().request(HttpMethod.GET, port, "localhost", "/metrics")
                 .compose(req -> req.send().onSuccess(response -> {
                     if (response.statusCode() !=  ReturnCodes.SUCCESS.code) {
                         testContext.failNow("Status code not correct");

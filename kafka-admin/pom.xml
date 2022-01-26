@@ -31,6 +31,11 @@
             <id>jib</id>
             <properties>
                 <quarkus.container-image.build>true</quarkus.container-image.build>
+                <quarkus.container-image.registry>${docker.registry}</quarkus.container-image.registry>
+                <quarkus.container-image.group>${docker.group}</quarkus.container-image.group>
+                <quarkus.container-image.tag>${docker.tag}</quarkus.container-image.tag>
+                <quarkus.container-image.push>${docker.push}</quarkus.container-image.push>
+                <quarkus.jib.base-jvm-image>registry.access.redhat.com/ubi8/openjdk-11-runtime</quarkus.jib.base-jvm-image>
             </properties>
             <dependencies>
                 <dependency>
