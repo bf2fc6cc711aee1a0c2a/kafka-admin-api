@@ -1,6 +1,7 @@
 package org.bf2.admin;
 
 import org.jboss.logmanager.LogContext;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
@@ -24,6 +25,16 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class LoggingConfigWatcherTest {
 
     LogContext context = LogContext.getLogContext();
+    File override;
+    LoggingConfigWatcher watcher;
+
+    @BeforeEach
+    void setup() {
+        context.getLogger("").setLevel(Level.INFO);
+        context.getLogger("org.bf2").setLevel(null);
+        override = createTempFile();
+        watcher = buildWatcher(override);
+    }
 
     @ParameterizedTest
     @CsvSource({
@@ -33,9 +44,6 @@ class LoggingConfigWatcherTest {
     void testOriginalLevelRestoredWhenOverrideDeleted(String logger, String property, String originalLevel, String newLevel) throws Exception {
         Level originalLevelValue = "INHERIT".equals(originalLevel) ? null : context.getLevelForName(originalLevel);
         context.getLogger(logger).setLevel(originalLevelValue);
-
-        File override = createTempFile();
-        LoggingConfigWatcher watcher = buildWatcher(override);
         AtomicInteger loopCount = new AtomicInteger(0);
 
         boolean dirExists = watcher.watchConfigOverride(override.toPath(), ws -> {
@@ -57,8 +65,8 @@ class LoggingConfigWatcherTest {
         assertTrue(dirExists);
         assertEquals(3, loopCount.get());
         assertFalse(override.exists());
-        assertEquals(originalLevelValue, context.getLogger(logger).getLevel());
         assertTrue(watcher.overriddenLoggers.isEmpty());
+        assertEquals(originalLevelValue, context.getLogger(logger).getLevel());
     }
 
     @ParameterizedTest
@@ -68,8 +76,6 @@ class LoggingConfigWatcherTest {
     })
     void testLevelUpdatedAndOriginalLevelPreserved(String logger, String property) throws Exception {
         context.getLogger(logger).setLevel(Level.INFO);
-        File override = createTempFile();
-        LoggingConfigWatcher watcher = buildWatcher(override);
         AtomicInteger loopCount = new AtomicInteger(0);
 
         boolean dirExists = watcher.watchConfigOverride(override.toPath(), ws -> {
@@ -89,8 +95,6 @@ class LoggingConfigWatcherTest {
 
     @Test
     void testRunnableCompletesWhenWatcherStopped() throws Exception {
-        File override = createTempFile();
-        LoggingConfigWatcher watcher = buildWatcher(override);
         AtomicInteger loopCount = new AtomicInteger(0);
 
         boolean dirExists = watcher.watchConfigOverride(override.toPath(), ws -> {
