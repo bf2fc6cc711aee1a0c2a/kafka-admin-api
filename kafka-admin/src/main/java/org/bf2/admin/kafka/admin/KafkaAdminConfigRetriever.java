@@ -9,7 +9,7 @@ import org.apache.kafka.common.security.auth.SecurityProtocol;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
-import javax.enterprise.context.ApplicationScoped;
+import javax.inject.Singleton;
 
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -23,7 +23,7 @@ import java.util.stream.Collectors;
 /**
  * KafkaAdminConfigRetriever class gets configuration from envvars
  */
-@ApplicationScoped
+@Singleton
 public class KafkaAdminConfigRetriever {
 
     protected final Logger log = LogManager.getLogger(KafkaAdminConfigRetriever.class);

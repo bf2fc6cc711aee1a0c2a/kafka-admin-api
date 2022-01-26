@@ -239,8 +239,8 @@ public class DeploymentManager {
 
         Map<String, String> envMap = new HashMap<>();
         envMap.put("KAFKA_ADMIN_BOOTSTRAP_SERVERS", bootstrap);
-        envMap.put("KAFKA_ADMIN_API_TIMEOUT_MS_CONFIG", "5000");
-        envMap.put("KAFKA_ADMIN_REQUEST_TIMEOUT_MS_CONFIG", "4000");
+        envMap.put("KAFKA_ADMIN_API_TIMEOUT_MS_CONFIG", "7000");
+        envMap.put("KAFKA_ADMIN_REQUEST_TIMEOUT_MS_CONFIG", "6000");
         envMap.put("KAFKA_ADMIN_OAUTH_ENABLED", Boolean.toString(oauthEnabled));
         envMap.put("KAFKA_ADMIN_REPLICATION_FACTOR", "1");
         envMap.put("KAFKA_ADMIN_ACL_RESOURCE_OPERATIONS", CONFIG.getProperty("systemtests.kafka.admin.acl.resource-operations"));
