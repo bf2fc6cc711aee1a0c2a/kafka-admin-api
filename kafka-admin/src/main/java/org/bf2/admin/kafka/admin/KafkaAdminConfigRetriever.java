@@ -76,6 +76,9 @@ public class KafkaAdminConfigRetriever {
             saslEnabled = true;
             adminClientConfig.put(SaslConfigs.SASL_MECHANISM, OAUTHBEARER);
             adminClientConfig.put(SaslConfigs.SASL_LOGIN_CALLBACK_HANDLER_CLASS, "io.strimzi.kafka.oauth.client.JaasClientOauthLoginCallbackHandler");
+            // Do not attempt token refresh ahead of expiration (ExpiringCredentialRefreshingLogin)
+            // May still cause warnings to be logged when token will expired in less than SASL_LOGIN_REFRESH_MIN_PERIOD_SECONDS.
+            adminClientConfig.put(SaslConfigs.SASL_LOGIN_REFRESH_BUFFER_SECONDS, "0");
         } else if (basicEnabled) {
             log.info("SASL/PLAIN from HTTP Basic authentication enabled");
             saslEnabled = true;
