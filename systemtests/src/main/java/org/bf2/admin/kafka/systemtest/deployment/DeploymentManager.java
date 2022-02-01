@@ -32,6 +32,7 @@ import java.io.InputStreamReader;
 import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.Base64;
 import java.util.Collections;
 import java.util.HashMap;
@@ -227,7 +228,7 @@ public class DeploymentManager {
 
     public int getAdminServerManagementPort() {
         if (adminContainer != null) {
-            return adminContainer.getMappedPort(9990);
+            return adminContainer.getMappedPort(8080);
         }
 
         throw new IllegalStateException("Admin server not running");
@@ -238,17 +239,20 @@ public class DeploymentManager {
 
         Map<String, String> envMap = new HashMap<>();
         envMap.put("KAFKA_ADMIN_BOOTSTRAP_SERVERS", bootstrap);
-        envMap.put("KAFKA_ADMIN_API_TIMEOUT_MS_CONFIG", "5000");
-        envMap.put("KAFKA_ADMIN_REQUEST_TIMEOUT_MS_CONFIG", "4000");
+        envMap.put("KAFKA_ADMIN_API_TIMEOUT_MS_CONFIG", "7000");
+        envMap.put("KAFKA_ADMIN_REQUEST_TIMEOUT_MS_CONFIG", "6000");
         envMap.put("KAFKA_ADMIN_OAUTH_ENABLED", Boolean.toString(oauthEnabled));
         envMap.put("KAFKA_ADMIN_REPLICATION_FACTOR", "1");
         envMap.put("KAFKA_ADMIN_ACL_RESOURCE_OPERATIONS", CONFIG.getProperty("systemtests.kafka.admin.acl.resource-operations"));
 
+        final String pathCert = "/certs/admin-tls-chain.crt";
+        final String pathKey = "/certs/admin-tls.key";
+
         if (oauthEnabled) {
             envMap.put(KafkaAdminConfigRetriever.BROKER_TLS_ENABLED, "true");
             envMap.put(KafkaAdminConfigRetriever.BROKER_TRUSTED_CERT, encodeTLSConfig("/certs/ca.crt"));
-            envMap.put("KAFKA_ADMIN_TLS_CERT", encodeTLSConfig("/certs/admin-tls-chain.crt"));
-            envMap.put("KAFKA_ADMIN_TLS_KEY", encodeTLSConfig("/certs/admin-tls.key"));
+            envMap.put("KAFKA_ADMIN_TLS_CERT", pathCert);
+            envMap.put("KAFKA_ADMIN_TLS_KEY", pathKey);
             envMap.put("KAFKA_ADMIN_OAUTH_JWKS_ENDPOINT_URI", "http://keycloak:8080/auth/realms/kafka-authz/protocol/openid-connect/certs");
             envMap.put("KAFKA_ADMIN_OAUTH_VALID_ISSUER_URI", "http://keycloak:8080/auth/realms/kafka-authz");
             envMap.put("KAFKA_ADMIN_OAUTH_TOKEN_ENDPOINT_URI", "http://keycloak:8080/auth/realms/kafka-authz/protocol/openid-connect/token");
@@ -256,7 +260,7 @@ public class DeploymentManager {
 
         class KafkaAdminServerContainer extends GenericContainer<KafkaAdminServerContainer> {
             KafkaAdminServerContainer() {
-                super("kafka-admin");
+                super(System.getProperty("kafka-admin.image", "localhost/bf2/kafka-admin:latest"));
             }
             @Override
             public void addFixedExposedPort(int hostPort, int containerPort) {
@@ -264,14 +268,26 @@ public class DeploymentManager {
             }
         }
 
+        List<Integer> exposedPorts = new ArrayList<>(2);
+        exposedPorts.add(8080); // health check
+        if (oauthEnabled) {
+            exposedPorts.add(8443);
+        }
+
         KafkaAdminServerContainer container = new KafkaAdminServerContainer()
                 .withLabels(Collections.singletonMap("test-ident", Environment.TEST_CONTAINER_LABEL))
                 .withLogConsumer(new Slf4jLogConsumer(LoggerFactory.getLogger("systemtests.admin-server"), true))
                 .withCreateContainerCmdModifier(cmd -> cmd.withName(name("admin-server")))
                 .withNetwork(testNetwork)
-                .withExposedPorts(oauthEnabled ? 8443 : 8080, 9990)
+                .withExposedPorts(exposedPorts.toArray(Integer[]::new))
                 .withEnv(envMap)
-                .waitingFor(Wait.forHttp("/health/status").forPort(9990));
+                .waitingFor(Wait.forHttp("/health/started").forPort(8080));
+
+        if (oauthEnabled) {
+            container
+                .withClasspathResourceMapping(pathCert, pathCert, BindMode.READ_ONLY)
+                .withClasspathResourceMapping(pathKey, pathKey, BindMode.READ_ONLY);
+        }
 
         Integer configuredDebugPort = Integer.getInteger("debugPort");
 

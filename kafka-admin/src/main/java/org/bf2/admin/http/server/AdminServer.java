@@ -1,21 +1,15 @@
 package org.bf2.admin.http.server;
 
-
 import com.fasterxml.jackson.dataformat.yaml.YAMLMapper;
-import io.netty.handler.codec.http.HttpResponseStatus;
-import io.vertx.core.AbstractVerticle;
 import io.vertx.core.AsyncResult;
 import io.vertx.core.Future;
 import io.vertx.core.Handler;
-import io.vertx.core.Promise;
+import io.vertx.core.Vertx;
 import io.vertx.core.buffer.Buffer;
 import io.vertx.core.http.HttpClientOptions;
-import io.vertx.core.http.HttpServer;
-import io.vertx.core.http.HttpServerOptions;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 import io.vertx.core.json.pointer.JsonPointer;
-import io.vertx.core.net.PemKeyCertOptions;
 import io.vertx.core.net.PemTrustOptions;
 import io.vertx.ext.auth.JWTOptions;
 import io.vertx.ext.auth.User;
@@ -25,7 +19,6 @@ import io.vertx.ext.auth.oauth2.OAuth2Options;
 import io.vertx.ext.web.Router;
 import io.vertx.ext.web.RoutingContext;
 import io.vertx.ext.web.handler.BasicAuthHandler;
-import io.vertx.ext.web.handler.CorsHandler;
 import io.vertx.ext.web.handler.HSTSHandler;
 import io.vertx.ext.web.handler.OAuth2AuthHandler;
 import io.vertx.ext.web.openapi.OpenAPIHolder;
@@ -39,6 +32,10 @@ import org.bf2.admin.kafka.admin.KafkaAdminConfigRetriever;
 import org.bf2.admin.kafka.admin.Operations;
 import org.bf2.admin.kafka.admin.handlers.RestOperations;
 
+import javax.enterprise.context.ApplicationScoped;
+import javax.enterprise.event.Observes;
+import javax.inject.Inject;
+
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.UncheckedIOException;
@@ -51,7 +48,7 @@ import java.util.Base64.Decoder;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Set;
+import java.util.concurrent.ExecutionException;
 import java.util.function.Consumer;
 
 /**
@@ -63,96 +60,37 @@ import java.util.function.Consumer;
  * accessed by users of the admin server and are exposed using TLS on port 8443 or in clear text on port
  * 8080 if no certificate is provided.
  */
-public class AdminServer extends AbstractVerticle {
+@ApplicationScoped
+public class AdminServer {
 
     private static final Logger LOGGER = LogManager.getLogger(AdminServer.class);
-    private static final int HTTP_PORT = 8080;
-    private static final int HTTPS_PORT = 8443;
-    private static final int MANAGEMENT_PORT = 9990;
-    private static final String REST_API_SPEC = "openapi-specs/kafka-admin-rest.yaml";
-    private static final String SUCCESS_RESPONSE = "{\"status\": \"OK\"}";
+    private static final String REST_API_SPEC = "META-INF/openapi.yaml";
     private static final String SECURITY_SCHEME_NAME_OAUTH = "Bearer";
     private static final String SECURITY_SCHEME_NAME_BASIC = "BasicAuth";
     private static final Decoder BASE64_DECODER = Base64.getDecoder();
 
-    private final KafkaAdminConfigRetriever config = new KafkaAdminConfigRetriever();
-    private final HttpMetrics httpMetrics = new HttpMetrics();
+    @Inject
+    Vertx vertx;
 
-    @Override
-    public void start(final Promise<Void> startServer) {
-        startResourcesServer()
-            .compose(nothing -> startManagementServer())
-            .onFailure(startServer::fail);
-    }
+    @Inject
+    HttpMetrics httpMetrics;
 
-    private Future<Void> startManagementServer() {
-        Promise<Void> promise = Promise.promise();
+    @Inject
+    KafkaAdminConfigRetriever config;
 
-        addHealthRouter(Router.router(vertx))
-                .compose(this::addMetricsRouter)
-                .compose(router -> vertx.createHttpServer().requestHandler(router).listen(MANAGEMENT_PORT))
-                .onSuccess(server -> {
-                    LOGGER.info("Admin Server management is listening on port {}", MANAGEMENT_PORT);
-                    promise.complete();
-                })
-                .onFailure(cause -> {
-                    LOGGER.atFatal().log("Loading of management routes was unsuccessful.");
-                    promise.fail(cause);
-                });
+    public void init(@Observes Router router) {
+        try {
+            router.route()
+                .handler(HSTSHandler.create(Duration.ofDays(365).toSeconds(), false));
 
-        return promise.future();
-    }
-
-    Future<Router> addHealthRouter(final Router root) {
-        return RouterBuilder.create(vertx, "openapi-specs/health.yaml")
-                     .onSuccess(builder -> {
-                         builder.operation("status").handler(rc -> rc.response().end(SUCCESS_RESPONSE));
-                         builder.operation("liveness").handler(rc -> rc.response().end(SUCCESS_RESPONSE));
-                         root.mountSubRouter("/health", builder.createRouter());
-                     }).map(root);
-    }
-
-    Future<Router> addMetricsRouter(final Router root) {
-        root.get("/metrics").handler(routingContext ->
-                routingContext.response()
-                    .setStatusCode(HttpResponseStatus.OK.code())
-                    .end(httpMetrics.getRegistry().scrape()));
-
-        return Future.succeededFuture(root);
-    }
-
-    private Future<Void> startResourcesServer() {
-        final Promise<Void> promise = Promise.promise();
-        final Router router = Router.router(vertx);
-        router.route().handler(createCORSHander());
-        router.route().handler(HSTSHandler.create(Duration.ofDays(365).toSeconds(), false));
-
-        RouterBuilder.create(vertx, REST_API_SPEC)
-            .compose(builder -> buildResourcesRouter(router, builder))
-            .compose(nothing -> startResourcesHttpServer(router))
-            .onSuccess(promise::complete)
-            .onFailure(promise::fail);
-
-        return promise.future();
-    }
-
-    private CorsHandler createCORSHander() {
-        String allowList = config.getCorsAllowPattern();
-        LOGGER.info("CORS allow list regex is {}", allowList);
-
-        return CorsHandler.create(allowList)
-                .allowedMethod(io.vertx.core.http.HttpMethod.GET)
-                .allowedMethod(io.vertx.core.http.HttpMethod.POST)
-                .allowedMethod(io.vertx.core.http.HttpMethod.PATCH)
-                .allowedMethod(io.vertx.core.http.HttpMethod.DELETE)
-                .allowedMethod(io.vertx.core.http.HttpMethod.OPTIONS)
-                .allowedHeader("Access-Control-Request-Method")
-                .allowedHeader("Access-Control-Allow-Credentials")
-                .allowedHeader("Access-Control-Allow-Origin")
-                .allowedHeader("Access-Control-Allow-Headers")
-                .allowedHeader("Authorization")
-                .allowedHeader("Content-Type")
-                .maxAgeSeconds((int) Duration.ofHours(2).toSeconds());
+            RouterBuilder.create(vertx, REST_API_SPEC)
+                .compose(builder -> buildResourcesRouter(router, builder))
+                .toCompletionStage()
+                .toCompletableFuture()
+                .get();
+        } catch (InterruptedException | ExecutionException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     private Future<Void> buildResourcesRouter(Router router, RouterBuilder builder) {
@@ -332,50 +270,6 @@ public class AdminServer extends AbstractVerticle {
                 })
                 // Common error handling for all routes
                 .failureHandler(ro::errorHandler));
-    }
-
-    private Future<Void> startResourcesHttpServer(Router router) {
-        Promise<Void> promise = Promise.promise();
-        final String tlsCert = config.getTlsCertificate();
-        final HttpServer server;
-        final int listenerPort;
-        final String portType;
-
-        if (tlsCert == null) {
-            server = vertx.createHttpServer();
-            listenerPort = HTTP_PORT;
-            portType = "plain HTTP";
-        } else {
-            Set<String> tlsVersions = config.getTlsVersions();
-            String tlsKey = config.getTlsKey();
-
-            LOGGER.info("Starting secure admin server with TLS version(s) {}", tlsVersions);
-
-            PemKeyCertOptions certOptions = new PemKeyCertOptions();
-            setCertConfig(tlsCert, certOptions::addCertPath, certOptions::addCertValue);
-            setCertConfig(tlsKey, certOptions::addKeyPath, certOptions::addKeyValue);
-
-            server = vertx.createHttpServer(new HttpServerOptions()
-                                            .setLogActivity(true)
-                                            .setSsl(true)
-                                            .setEnabledSecureTransportProtocols(tlsVersions)
-                                            .setPemKeyCertOptions(certOptions));
-
-            listenerPort = HTTPS_PORT;
-            portType = "secure HTTPS";
-        }
-
-        server.requestHandler(router).listen(listenerPort)
-            .onSuccess(httpServer -> {
-                LOGGER.info("Admin Server is listening on {} port {}", portType, listenerPort);
-                promise.complete();
-            })
-            .onFailure(cause -> {
-                LOGGER.atFatal().log("Startup of Admin Server resources listener was unsuccessful.");
-                promise.fail(cause);
-            });
-
-        return promise.future();
     }
 
     private void setCertConfig(String value, Consumer<String> pathSetter, Consumer<Buffer> valueSetter) {

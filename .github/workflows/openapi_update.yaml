@@ -1,10 +1,10 @@
 name: Dispatch OpenAPI File Change event
 on:
   push:
-    branches: 
+    branches:
       - main
     paths:
-      - "kafka-admin/src/main/resources/openapi-specs/kafka-admin-rest.yaml"
+      - "kafka-admin/src/main/resources/META-INF/openapi.yaml"
 
 jobs:
   dispatch:
@@ -21,4 +21,4 @@ jobs:
           token: "${{ env.APP_SERVICES_CI_TOKEN }}"
           repository: ${{ matrix.repo }}
           event-type: openapi-spec-change
-          client-payload: '{ "id": "kafka-admin/v1", "download_url": "https://raw.githubusercontent.com/bf2fc6cc711aee1a0c2a/kafka-admin-api/main/kafka-admin/src/main/resources/openapi-specs/kafka-admin-rest.yaml"}'
+          client-payload: '{ "id": "kafka-admin/v1", "download_url": "https://raw.githubusercontent.com/bf2fc6cc711aee1a0c2a/kafka-admin-api/main/kafka-admin/src/main/resources/META-INF/openapi.yaml"}'

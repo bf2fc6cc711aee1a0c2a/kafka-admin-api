@@ -9,6 +9,8 @@ import org.apache.kafka.common.security.auth.SecurityProtocol;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
+import javax.inject.Singleton;
+
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.InvalidPathException;
@@ -16,19 +18,18 @@ import java.nio.file.Path;
 import java.util.Base64;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
  * KafkaAdminConfigRetriever class gets configuration from envvars
  */
+@Singleton
 public class KafkaAdminConfigRetriever {
 
     protected final Logger log = LogManager.getLogger(KafkaAdminConfigRetriever.class);
 
     private static final String PREFIX = "KAFKA_ADMIN_";
     private static final String OAUTHBEARER = "OAUTHBEARER";
-    private static final String DEFAULT_TLS_VERSION = "TLSv1.3";
 
     public static final String BOOTSTRAP_SERVERS = PREFIX + "BOOTSTRAP_SERVERS";
     public static final String API_TIMEOUT_MS_CONFIG = PREFIX + "API_TIMEOUT_MS_CONFIG";
@@ -42,10 +43,6 @@ public class KafkaAdminConfigRetriever {
 
     public static final String BROKER_TLS_ENABLED = PREFIX + "BROKER_TLS_ENABLED";
     public static final String BROKER_TRUSTED_CERT = PREFIX + "BROKER_TRUSTED_CERT";
-
-    public static final String TLS_CERT = PREFIX + "TLS_CERT";
-    public static final String TLS_KEY = PREFIX + "TLS_KEY";
-    public static final String TLS_VERSION = PREFIX + "TLS_VERSION";
 
     public static final String ACL_RESOURCE_OPERATIONS = PREFIX + "ACL_RESOURCE_OPERATIONS";
 
@@ -79,6 +76,9 @@ public class KafkaAdminConfigRetriever {
             saslEnabled = true;
             adminClientConfig.put(SaslConfigs.SASL_MECHANISM, OAUTHBEARER);
             adminClientConfig.put(SaslConfigs.SASL_LOGIN_CALLBACK_HANDLER_CLASS, "io.strimzi.kafka.oauth.client.JaasClientOauthLoginCallbackHandler");
+            // Do not attempt token refresh ahead of expiration (ExpiringCredentialRefreshingLogin)
+            // May still cause warnings to be logged when token will expired in less than SASL_LOGIN_REFRESH_MIN_PERIOD_SECONDS.
+            adminClientConfig.put(SaslConfigs.SASL_LOGIN_REFRESH_BUFFER_SECONDS, "0");
         } else if (basicEnabled) {
             log.info("SASL/PLAIN from HTTP Basic authentication enabled");
             saslEnabled = true;
@@ -174,22 +174,6 @@ public class KafkaAdminConfigRetriever {
 
     public String getOauthTokenEndpointUri() {
         return System.getenv(OAUTH_TOKEN_ENDPOINT_URI);
-    }
-
-    public String getTlsCertificate() {
-        return System.getenv(TLS_CERT);
-    }
-
-    public String getTlsKey() {
-        return System.getenv(TLS_KEY);
-    }
-
-    public Set<String> getTlsVersions() {
-        return Set.of(System.getenv().getOrDefault(TLS_VERSION, DEFAULT_TLS_VERSION).split(","));
-    }
-
-    public String getCorsAllowPattern() {
-        return System.getenv().getOrDefault("CORS_ALLOW_LIST_REGEX", "(https?:\\/\\/localhost(:\\d*)?)");
     }
 
     public String getAclResourceOperations() {
