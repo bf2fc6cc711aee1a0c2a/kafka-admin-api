@@ -249,6 +249,8 @@ public class DeploymentManager {
 
         var container = new GenericContainer<>(DockerImageName.parse("docker.io/stoplight/prism:4"))
                 .withLabels(Collections.singletonMap("test-ident", Environment.TEST_CONTAINER_LABEL))
+                .withCreateContainerCmdModifier(cmd -> cmd.withName(name("prism-proxy")))
+                .withLogConsumer(new Slf4jLogConsumer(LoggerFactory.getLogger("systemtests.prism-proxy")))
                 .withNetwork(testNetwork)
                 .withExposedPorts(4010);
 
