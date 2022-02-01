@@ -26,7 +26,7 @@
         <docker.push>false</docker.push>
 
         <!-- Dependencies -->
-        <quarkus.version>2.4.1.Final</quarkus.version>
+        <quarkus.version>2.6.3.Final</quarkus.version>
         <jandex.version>1.2.1</jandex.version>
         <log4j.version>2.17.1</log4j.version>
         <kafka.version>2.8.1</kafka.version>
@@ -145,19 +145,24 @@
                         <configuration>
                             <failOnWarning>true</failOnWarning>
                             <ignoredDependencies>
-                                <ignoredDependency>io.quarkus:quarkus-vertx</ignoredDependency>
-                                <ignoredDependency>io.quarkus:quarkus-micrometer-registry-prometheus</ignoredDependency>
-                                <ignoredDependency>io.quarkus:quarkus-kafka-client</ignoredDependency>
-                                <ignoredDependency>io.quarkus:quarkus-container-image-jib</ignoredDependency>
                                 <ignoredDependency>io.quarkus:quarkus-container-image-docker</ignoredDependency>
+                                <ignoredDependency>io.quarkus:quarkus-container-image-jib</ignoredDependency>
+                                <ignoredDependency>io.quarkus:quarkus-kafka-client</ignoredDependency>
+                                <ignoredDependency>io.quarkus:quarkus-micrometer-registry-prometheus</ignoredDependency>
                                 <ignoredDependency>io.quarkus:quarkus-smallrye-health</ignoredDependency>
+                                <ignoredDependency>io.quarkus:quarkus-smallrye-jwt</ignoredDependency>
                                 <ignoredDependency>io.quarkus:quarkus-smallrye-openapi</ignoredDependency>
+                                <ignoredDependency>io.quarkus:quarkus-resteasy-reactive</ignoredDependency>
+                                <ignoredDependency>io.quarkus:quarkus-resteasy-reactive-jackson</ignoredDependency>
+                                <ignoredDependency>io.quarkus:quarkus-vertx</ignoredDependency>
                                 <ignoredDependency>io.strimzi:kafka-oauth-client</ignoredDependency>
-                                <ignoredDependency>org.jboss.logmanager:log4j2-jboss-logmanager</ignoredDependency>
-                                <ignoredDependency>org.jboss.logmanager:jboss-logmanager-embedded</ignoredDependency>
+                                <ignoredDependency>io.vertx:vertx-core</ignoredDependency>
                                 <ignoredDependency>org.apache.logging.log4j:log4j-api</ignoredDependency>
-                                <ignoredDependency>org.apache.logging.log4j:log4j-core</ignoredDependency>
-                                <ignoredDependency>org.apache.logging.log4j:log4j-slf4j-impl</ignoredDependency>
+                                <ignoredDependency>org.eclipse.microprofile.jwt:microprofile-jwt-auth-api</ignoredDependency>
+                                <ignoredDependency>org.eclipse.microprofile.openapi:microprofile-openapi-api</ignoredDependency>
+                                <ignoredDependency>org.jboss.logmanager:jboss-logmanager-embedded</ignoredDependency>
+                                <ignoredDependency>org.jboss.logmanager:log4j2-jboss-logmanager</ignoredDependency>
+                                <ignoredDependency>org.jboss.spec.javax.ws.rs:jboss-jaxrs-api_2.1_spec</ignoredDependency>
                                 <!-- Oauth kafka test dependencies -->
                                 <ignoredDependency>io.strimzi:kafka-oauth-common</ignoredDependency>
                                 <ignoredDependency>io.strimzi:kafka-oauth-server</ignoredDependency>

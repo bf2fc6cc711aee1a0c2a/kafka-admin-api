@@ -1,8 +1,11 @@
 package org.bf2.admin.kafka.admin.model;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonInclude.Include;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.databind.JsonNode;
 import io.vertx.core.Future;
 import org.apache.kafka.common.acl.AccessControlEntry;
 import org.apache.kafka.common.acl.AccessControlEntryFilter;
@@ -14,8 +17,14 @@ import org.apache.kafka.common.resource.ResourcePattern;
 import org.apache.kafka.common.resource.ResourcePatternFilter;
 import org.apache.kafka.common.resource.ResourceType;
 
+import javax.ws.rs.QueryParam;
+import javax.ws.rs.core.MultivaluedMap;
+import javax.ws.rs.core.UriBuilder;
+
+import java.net.URI;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.function.UnaryOperator;
 
 public class Types {
@@ -376,12 +385,16 @@ public class Types {
 
     public static class PageRequest {
         private boolean deprecatedFormat;
+        @QueryParam("page")
         private Integer page;
+        @QueryParam("size")
         private Integer size;
 
         @Deprecated
+        @QueryParam("offset")
         private Integer offset;
         @Deprecated
+        @QueryParam("limit")
         private Integer limit;
 
         public boolean isDeprecatedFormat() {
@@ -441,7 +454,9 @@ public class Types {
     }
 
     public static class OrderByInput {
+        @QueryParam("orderKey")
         private String field;
+        @QueryParam("order")
         private SortDirectionEnum order;
 
         public String getField() {
@@ -729,8 +744,19 @@ public class Types {
             return binding;
         }
 
-        public static AclBinding fromQueryParams(io.vertx.core.MultiMap params) {
-            return fromSource(params::get);
+        public static AclBinding fromQueryParams(MultivaluedMap<String, String> multivaluedMap) {
+            return fromSource(multivaluedMap::getFirst);
+        }
+
+        @JsonIgnore
+        public URI buildUri(UriBuilder builder) {
+            builder.queryParam(PROP_RESOURCE_TYPE, resourceType);
+            builder.queryParam(PROP_RESOURCE_NAME, resourceName);
+            builder.queryParam(PROP_PATTERN_TYPE, patternType);
+            builder.queryParam(PROP_PRINCIPAL, principal);
+            builder.queryParam(PROP_OPERATION, operation);
+            builder.queryParam(PROP_PERMISSION, permission);
+            return builder.build();
         }
 
         public static AclBinding fromKafkaBinding(org.apache.kafka.common.acl.AclBinding kafkaBinding) {
@@ -743,6 +769,15 @@ public class Types {
             binding.setPermission(kafkaBinding.entry().permissionType().toString());
 
             return binding;
+        }
+
+        @JsonCreator
+        public static AclBinding fromJsonObject(JsonNode jsonBinding) {
+            return fromSource(fieldName -> Optional.ofNullable(jsonBinding.get(fieldName))
+                  .filter(Objects::nonNull)
+                  .filter(JsonNode::isTextual)
+                  .map(JsonNode::asText)
+                  .orElse(null));
         }
 
         public static AclBinding fromJsonObject(io.vertx.core.json.JsonObject jsonBinding) {
@@ -829,5 +864,46 @@ public class Types {
         public void setPermission(String permission) {
             this.permission = permission;
         }
+    }
+
+    public static class Error {
+        int code;
+        @JsonProperty("error_message")
+        String errorMessage;
+        @JsonProperty("class")
+        String className;
+
+        public Error(int code, String errorMessage) {
+            this.code = code;
+            this.errorMessage = errorMessage;
+        }
+
+        public Error() {
+        }
+
+        public int getCode() {
+            return code;
+        }
+
+        public void setCode(int code) {
+            this.code = code;
+        }
+
+        public String getErrorMessage() {
+            return errorMessage;
+        }
+
+        public void setErrorMessage(String errorMessage) {
+            this.errorMessage = errorMessage;
+        }
+
+        public String getClassName() {
+            return className;
+        }
+
+        public void setClassName(String className) {
+            this.className = className;
+        }
+
     }
 }

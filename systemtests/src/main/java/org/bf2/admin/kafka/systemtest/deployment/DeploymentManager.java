@@ -242,6 +242,7 @@ public class DeploymentManager {
         envMap.put("KAFKA_ADMIN_API_TIMEOUT_MS_CONFIG", "7000");
         envMap.put("KAFKA_ADMIN_REQUEST_TIMEOUT_MS_CONFIG", "6000");
         envMap.put("KAFKA_ADMIN_OAUTH_ENABLED", Boolean.toString(oauthEnabled));
+        envMap.put("QUARKUS_SMALLRYE_JWT_ENABLED", Boolean.toString(oauthEnabled));
         envMap.put("KAFKA_ADMIN_REPLICATION_FACTOR", "1");
         envMap.put("KAFKA_ADMIN_ACL_RESOURCE_OPERATIONS", CONFIG.getProperty("systemtests.kafka.admin.acl.resource-operations"));
 
@@ -292,9 +293,9 @@ public class DeploymentManager {
         Integer configuredDebugPort = Integer.getInteger("debugPort");
 
         if (configuredDebugPort != null) {
-            container.addExposedPort(configuredDebugPort);
-            container.addFixedExposedPort(configuredDebugPort, configuredDebugPort);
-            container.addEnv("KAFKA_ADMIN_DEBUG", String.format("-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:%d", configuredDebugPort));
+            //container.addExposedPort(configuredDebugPort);
+            container.addFixedExposedPort(configuredDebugPort, 5005);
+            container.addEnv("JAVA_DEBUG", "true");
         }
 
         String customLogConfig = System.getProperty("customLogConfig");

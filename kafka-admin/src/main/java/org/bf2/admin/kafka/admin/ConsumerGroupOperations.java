@@ -19,6 +19,7 @@ import org.apache.logging.log4j.Logger;
 import org.bf2.admin.kafka.admin.handlers.CommonHandler;
 import org.bf2.admin.kafka.admin.model.Types;
 import org.bf2.admin.kafka.admin.model.Types.PagedResponse;
+import org.bf2.admin.kafka.admin.model.Types.TopicPartitionResetResult;
 
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
@@ -33,6 +34,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
 import java.util.function.ToLongFunction;
@@ -48,7 +50,9 @@ public class ConsumerGroupOperations {
     private static final Pattern MATCH_ALL = Pattern.compile(".*");
     private static final Types.OrderByInput BLANK_ORDER = new Types.OrderByInput();
 
-    public static void getGroupList(KafkaAdminClient ac, Promise<PagedResponse<Types.ConsumerGroupDescription>> prom, Pattern topicPattern, Pattern groupIdPattern, Types.PageRequest pageRequest, Types.OrderByInput orderByInput) {
+    public static CompletionStage<PagedResponse<Types.ConsumerGroupDescription>> getGroupList(KafkaAdminClient ac, Pattern topicPattern, Pattern groupIdPattern, Types.PageRequest pageRequest, Types.OrderByInput orderByInput) {
+        Promise<PagedResponse<Types.ConsumerGroupDescription>> prom = Promise.promise();
+
         // Obtain list of all consumer groups
         ac.listConsumerGroups()
             .map(groups -> groups.stream()
@@ -95,9 +99,12 @@ public class ConsumerGroupOperations {
                 }
                 ac.close();
             });
+
+        return prom.future().toCompletionStage();
     }
 
-    public static void deleteGroup(KafkaAdminClient ac, List<String> groupsToDelete, Promise<List<String>> prom) {
+    public static CompletionStage<List<String>> deleteGroup(KafkaAdminClient ac, List<String> groupsToDelete) {
+        Promise<List<String>> prom = Promise.promise();
         ac.deleteConsumerGroups(groupsToDelete, res -> {
             if (res.failed()) {
                 prom.fail(res.cause());
@@ -106,10 +113,13 @@ public class ConsumerGroupOperations {
             }
             ac.close();
         });
+
+        return prom.future().toCompletionStage();
     }
 
     @SuppressWarnings({"checkstyle:JavaNCSS", "checkstyle:MethodLength"})
-    public static void resetGroupOffset(KafkaAdminClient ac, Types.ConsumerGroupOffsetResetParameters parameters, Promise<Types.PagedResponse<Types.TopicPartitionResetResult>> prom) {
+    public static CompletionStage<PagedResponse<TopicPartitionResetResult>> resetGroupOffset(KafkaAdminClient ac, Types.ConsumerGroupOffsetResetParameters parameters) {
+        Promise<PagedResponse<TopicPartitionResetResult>> prom = Promise.promise();
 
         if (!"latest".equals(parameters.getOffset()) && !"earliest".equals(parameters.getOffset()) && parameters.getValue() == null) {
             throw new InvalidRequestException("Value has to be set when " + parameters.getOffset() + " offset is used.");
@@ -276,6 +286,8 @@ public class ConsumerGroupOperations {
             }
             ac.close();
         });
+
+        return prom.future().toCompletionStage();
     }
 
     static Future<Void> validatePartitionsResettable(KafkaAdminClient ac, String groupId, Set<TopicPartition> topicPartitionsToReset) {
@@ -382,7 +394,9 @@ public class ConsumerGroupOperations {
         }
     }
 
-    public static void describeGroup(KafkaAdminClient ac, Promise<Types.ConsumerGroupDescription> prom, String groupToDescribe, Types.OrderByInput orderBy, int partitionFilter) {
+    public static CompletionStage<Types.ConsumerGroupDescription> describeGroup(KafkaAdminClient ac, String groupToDescribe, Types.OrderByInput orderBy, int partitionFilter) {
+        Promise<Types.ConsumerGroupDescription> prom = Promise.promise();
+
         fetchDescriptions(ac, List.of(groupToDescribe), MATCH_ALL, partitionFilter, orderBy)
             .map(groupDescriptions -> groupDescriptions.findFirst().orElse(null))
             .onComplete(res -> {
@@ -399,6 +413,8 @@ public class ConsumerGroupOperations {
                 }
                 ac.close();
             });
+
+        return prom.future().toCompletionStage();
     }
 
     private static List<Types.ConsumerGroupDescription> getConsumerGroupsDescription(Pattern pattern,
