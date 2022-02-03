@@ -43,6 +43,13 @@ public class ClientsConfig {
         return props;
     }
 
+    public static Properties getAdminConfig(String bootstrap) {
+        Properties conf = new Properties();
+        conf.put(AdminClientConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrap);
+        conf.put(AdminClientConfig.REQUEST_TIMEOUT_MS_CONFIG, "5000");
+        return conf;
+    }
+
     private static void getOauthConfig(Properties props, String token) {
         props.put(SaslConfigs.SASL_MECHANISM, "OAUTHBEARER");
         props.put(CommonClientConfigs.SECURITY_PROTOCOL_CONFIG, "SASL_PLAINTEXT");

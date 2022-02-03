@@ -6,6 +6,7 @@ import org.eclipse.microprofile.openapi.annotations.Operation;
 import org.eclipse.microprofile.openapi.annotations.enums.ParameterIn;
 import org.eclipse.microprofile.openapi.annotations.parameters.Parameter;
 
+import javax.validation.Valid;
 import javax.ws.rs.DELETE;
 import javax.ws.rs.GET;
 import javax.ws.rs.PATCH;
@@ -24,7 +25,7 @@ public interface OperationsHandler {
     @POST
     @Path("topics")
     @Operation(operationId = Operations.CREATE_TOPIC)
-    CompletionStage<Response> createTopic(Types.NewTopic newTopic);
+    CompletionStage<Response> createTopic(@Valid Types.NewTopic newTopic);
 
     @GET
     @Path("topics/{topicName}")
@@ -34,7 +35,7 @@ public interface OperationsHandler {
     @PATCH
     @Path("topics/{topicName}")
     @Operation(operationId = Operations.UPDATE_TOPIC)
-    CompletionStage<Response> updateTopic(@PathParam("topicName") String topicName, Types.UpdatedTopic updatedTopic);
+    CompletionStage<Response> updateTopic(@PathParam("topicName") String topicName, @Valid Types.UpdatedTopic updatedTopic);
 
     @DELETE
     @Path("topics/{topicName}")

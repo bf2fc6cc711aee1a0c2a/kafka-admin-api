@@ -22,11 +22,9 @@ import org.apache.kafka.common.errors.UnknownMemberIdException;
 import org.apache.kafka.common.errors.UnknownTopicOrPartitionException;
 import org.bf2.admin.kafka.admin.InvalidConsumerGroupException;
 import org.bf2.admin.kafka.admin.InvalidTopicException;
-import org.bf2.admin.kafka.admin.KafkaAdminConfigRetriever;
 import org.bf2.admin.kafka.admin.model.Types;
 import org.jboss.logging.Logger;
 
-import javax.inject.Inject;
 import javax.ws.rs.WebApplicationException;
 import javax.ws.rs.core.Response;
 import javax.ws.rs.core.Response.ResponseBuilder;
@@ -44,20 +42,18 @@ import java.util.regex.PatternSyntaxException;
 
 public class CommonHandler {
 
-    protected static final Logger log = Logger.getLogger(CommonHandler.class);
-    protected static final String ADMIN_CLIENT_CONFIG = RestOperations.class.getName() + ".ADMIN_CLIENT_CONFIG";
+    static final Logger log = Logger.getLogger(CommonHandler.class);
 
-    @Inject
-    protected KafkaAdminConfigRetriever kaConfig;
-
-    static ResponseBuilder errorResponse(Throwable error, StatusType status) {
+    static ResponseBuilder errorResponse(Throwable error, StatusType status, String errorMessage) {
         final int statusCode = status.getStatusCode();
         ResponseBuilder response = Response.status(statusCode);
         Types.Error errorEntity = new Types.Error();
 
         errorEntity.setCode(statusCode);
 
-        if (status == Status.INTERNAL_SERVER_ERROR) {
+        if (errorMessage != null) {
+            errorEntity.setErrorMessage(errorMessage);
+        } else if (status == Status.INTERNAL_SERVER_ERROR) {
             errorEntity.setErrorMessage(status.getReasonPhrase());
         } else {
             errorEntity.setErrorMessage(error.getMessage());
@@ -72,6 +68,7 @@ public class CommonHandler {
     @SuppressWarnings({ "checkstyle:CyclomaticComplexity" })
     static ResponseBuilder processFailure(Throwable failureCause) {
         StatusType status;
+        String errorMessage = null;
 
         if (failureCause instanceof CompletionException) {
             failureCause = failureCause.getCause();
@@ -126,10 +123,12 @@ public class CommonHandler {
         } else if (failureCause instanceof InvalidRequestException
                 || failureCause instanceof InvalidConfigurationException
                 || failureCause instanceof IllegalArgumentException
-                || failureCause instanceof InvalidPartitionsException
-                || failureCause instanceof com.fasterxml.jackson.core.JsonParseException
+                || failureCause instanceof InvalidPartitionsException) {
+            status = Status.BAD_REQUEST;
+        } else if (failureCause instanceof com.fasterxml.jackson.core.JsonParseException
                 || failureCause instanceof com.fasterxml.jackson.databind.JsonMappingException) {
             status = Status.BAD_REQUEST;
+            errorMessage = "invalid JSON";
         } else if (failureCause instanceof IllegalStateException) {
             status = Status.UNAUTHORIZED;
         } else if (failureCause instanceof DecodeException
@@ -168,7 +167,7 @@ public class CommonHandler {
             log.warnf("%s %s", failureCause.getClass(), failureCause.getMessage());
         }
 
-        return errorResponse(failureCause, status);
+        return errorResponse(failureCause, status, errorMessage);
     }
 
     public static class TopicComparator implements Comparator<Types.Topic> {

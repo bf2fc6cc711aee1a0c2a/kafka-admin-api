@@ -17,6 +17,10 @@ import org.apache.kafka.common.resource.ResourcePattern;
 import org.apache.kafka.common.resource.ResourcePatternFilter;
 import org.apache.kafka.common.resource.ResourceType;
 
+import javax.validation.Valid;
+import javax.validation.constraints.NotBlank;
+import javax.validation.constraints.NotNull;
+import javax.validation.constraints.Positive;
 import javax.ws.rs.QueryParam;
 import javax.ws.rs.core.MultivaluedMap;
 import javax.ws.rs.core.UriBuilder;
@@ -167,7 +171,9 @@ public class Types {
     }
 
     public static class NewTopicConfigEntry {
+        @NotBlank
         private String key;
+        @NotBlank
         private String value;
 
         public String getKey() {
@@ -188,8 +194,9 @@ public class Types {
     }
 
     public static class NewTopicInput {
-        private List<NewTopicConfigEntry> config;
+        private List<@NotNull @Valid NewTopicConfigEntry> config;
 
+        @Positive
         private Integer numPartitions;
 
         public Integer getNumPartitions() {
@@ -210,7 +217,11 @@ public class Types {
     }
 
     public static class NewTopic {
+        @NotBlank
         private String name;
+
+        @NotNull
+        @Valid
         private NewTopicInput settings;
 
         public String getName() {
@@ -353,9 +364,12 @@ public class Types {
     }
 
     public static class UpdatedTopic {
+        @NotBlank
         private String name;
-        private List<NewTopicConfigEntry> config;
 
+        private List<@NotNull @Valid NewTopicConfigEntry> config;
+
+        @Positive
         private Integer numPartitions;
 
         public Integer getNumPartitions() {
@@ -866,6 +880,7 @@ public class Types {
         }
     }
 
+    @JsonInclude(Include.NON_NULL)
     public static class Error {
         int code;
         @JsonProperty("error_message")

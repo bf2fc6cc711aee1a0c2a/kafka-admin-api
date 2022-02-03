@@ -147,6 +147,7 @@
                             <ignoredDependencies>
                                 <ignoredDependency>io.quarkus:quarkus-container-image-docker</ignoredDependency>
                                 <ignoredDependency>io.quarkus:quarkus-container-image-jib</ignoredDependency>
+                                <ignoredDependency>io.quarkus:quarkus-hibernate-validator</ignoredDependency>
                                 <ignoredDependency>io.quarkus:quarkus-kafka-client</ignoredDependency>
                                 <ignoredDependency>io.quarkus:quarkus-micrometer-registry-prometheus</ignoredDependency>
                                 <ignoredDependency>io.quarkus:quarkus-smallrye-health</ignoredDependency>
@@ -158,6 +159,7 @@
                                 <ignoredDependency>io.strimzi:kafka-oauth-client</ignoredDependency>
                                 <ignoredDependency>io.vertx:vertx-core</ignoredDependency>
                                 <ignoredDependency>org.apache.logging.log4j:log4j-api</ignoredDependency>
+                                <ignoredDependency>org.eclipse.microprofile.config:microprofile-config-api</ignoredDependency>
                                 <ignoredDependency>org.eclipse.microprofile.jwt:microprofile-jwt-auth-api</ignoredDependency>
                                 <ignoredDependency>org.eclipse.microprofile.openapi:microprofile-openapi-api</ignoredDependency>
                                 <ignoredDependency>org.jboss.logmanager:jboss-logmanager-embedded</ignoredDependency>

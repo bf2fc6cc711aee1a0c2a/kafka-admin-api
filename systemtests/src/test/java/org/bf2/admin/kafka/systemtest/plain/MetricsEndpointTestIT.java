@@ -41,12 +41,7 @@ class MetricsEndpointTestIT {
         final int number = 3;
         List<String> preMetrics = getMetrics();
 
-        IntStream.range(0, number).forEach(i ->
-            when()
-                .get("/rest/topics")
-            .then()
-                .log().ifValidationFails()
-                .statusCode(Status.OK.getStatusCode()));
+        listTopics(number, Status.OK);
 
         List<String> postMetrics = getMetrics();
         assertEquals(number, getMetricDiff(preMetrics, postMetrics, "^list_topics_requests_total[ {]").intValueExact());
@@ -138,11 +133,7 @@ class MetricsEndpointTestIT {
         createTopics(List.of("bad_topic_0", "bad_topic_1"), -1, Status.BAD_REQUEST);
         failedRequests.merge("400", 2, Integer::sum);
 
-        when()
-            .get("/rest/topics")
-        .then()
-            .log().ifValidationFails()
-            .statusCode(Status.OK.getStatusCode());
+        listTopics(1, Status.OK);
         successfulRequests++;
 
         int totalFailedRequests = failedRequests.values().stream().mapToInt(Integer::intValue).sum();
@@ -152,6 +143,15 @@ class MetricsEndpointTestIT {
         assertEquals(successfulRequests + totalFailedRequests, getMetricDiff(preMetrics, postMetrics, "^requests_total[ {]").intValueExact());
         assertEquals(failedRequests.get("400"), getMetricDiff(preMetrics, postMetrics, "^failed_requests_total\\{.*status_code=\"400\"").intValueExact());
         assertEquals(failedRequests.get("404"), getMetricDiff(preMetrics, postMetrics, "^failed_requests_total\\{.*status_code=\"404\"").intValueExact());
+    }
+
+    void listTopics(int times, Status expectedStatus) {
+        IntStream.range(0, times).forEach(i ->
+            when()
+                .get("/rest/topics")
+            .then()
+                .log().ifValidationFails()
+                .statusCode(expectedStatus.getStatusCode()));
     }
 
     void createTopics(List<String> names, int numPartitions, Status expectedStatus) {

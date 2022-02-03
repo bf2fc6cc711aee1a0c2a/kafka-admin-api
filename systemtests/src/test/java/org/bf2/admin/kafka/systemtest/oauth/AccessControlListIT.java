@@ -1,87 +1,140 @@
 package org.bf2.admin.kafka.systemtest.oauth;
 
-import io.vertx.core.CompositeFuture;
-import io.vertx.core.Future;
-import io.vertx.core.Promise;
-import io.vertx.core.Vertx;
-import io.vertx.core.http.HttpClientRequest;
-import io.vertx.core.http.HttpClientResponse;
-import io.vertx.core.http.HttpMethod;
+import io.quarkus.test.common.QuarkusTestResource;
+import io.quarkus.test.junit.QuarkusTest;
+import io.quarkus.test.junit.TestProfile;
+import io.restassured.http.Method;
+import io.restassured.response.ValidatableResponse;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
-import io.vertx.junit5.Checkpoint;
-import io.vertx.junit5.VertxTestContext;
+import org.apache.kafka.clients.admin.Admin;
 import org.apache.kafka.common.acl.AclOperation;
 import org.apache.kafka.common.acl.AclPermissionType;
 import org.apache.kafka.common.resource.PatternType;
 import org.apache.kafka.common.resource.ResourceType;
 import org.bf2.admin.kafka.admin.AccessControlOperations;
+import org.bf2.admin.kafka.admin.KafkaAdminConfigRetriever;
 import org.bf2.admin.kafka.admin.model.Types;
-import org.bf2.admin.kafka.systemtest.bases.OauthTestBase;
 import org.bf2.admin.kafka.systemtest.deployment.DeploymentManager.UserType;
-import org.bf2.admin.kafka.systemtest.enums.ReturnCodes;
+import org.bf2.admin.kafka.systemtest.TestOAuthProfile;
+import org.bf2.admin.kafka.systemtest.deployment.KafkaOAuthSecuredResourceManager;
+import org.bf2.admin.kafka.systemtest.utils.ClientsConfig;
+import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 
+import java.io.IOException;
+import java.io.StringReader;
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.net.http.HttpResponse.BodyHandlers;
 import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
-import static org.bf2.admin.kafka.systemtest.Environment.CONFIG;
+import javax.inject.Inject;
+import javax.json.Json;
+import javax.json.JsonReader;
+import javax.ws.rs.core.HttpHeaders;
+import javax.ws.rs.core.Response.Status;
+
+import static io.restassured.RestAssured.given;
+import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.hasSize;
+import static org.hamcrest.Matchers.notNullValue;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.fail;
 
-class AccessControlListIT extends OauthTestBase {
-
-    static final String PARAMETERIZED_TEST_NAME =
-            ParameterizedTest.DISPLAY_NAME_PLACEHOLDER + "-" + ParameterizedTest.DEFAULT_DISPLAY_NAME;
+@QuarkusTest
+@QuarkusTestResource(KafkaOAuthSecuredResourceManager.class)
+@TestProfile(TestOAuthProfile.class)
+class AccessControlListIT {
 
     static final String SORT_ASC = "asc";
     static final String SORT_DESC = "desc";
 
-    @AfterEach
-    void cleanup(Vertx vertx, VertxTestContext testContext) {
-        Checkpoint statusVerified = testContext.checkpoint();
-        deleteAcls(vertx, testContext, statusVerified, UserType.OWNER, Map.of())
-            .map(testContext)
-            .onSuccess(VertxTestContext::completeNow)
-            .onFailure(testContext::failNow);
+    @Inject
+    @ConfigProperty(name = KafkaAdminConfigRetriever.BOOTSTRAP_SERVERS, defaultValue = "")
+    String bootstrapServers;
+
+    @Inject
+    @ConfigProperty(name = KafkaAdminConfigRetriever.OAUTH_TOKEN_ENDPOINT_URI, defaultValue = "")
+    String tokenEndpoint;
+
+    @Inject
+    @ConfigProperty(name = KafkaAdminConfigRetriever.ACL_RESOURCE_OPERATIONS, defaultValue = "")
+    String validResourceOperations;
+
+    String getToken(String username) {
+        if (username == null) {
+            return UUID.randomUUID().toString();
+        }
+
+        final String payload = String.format("grant_type=password&username=%1$s&password=%1$s-password&client_id=kafka-cli", username);
+
+        /*
+         * Requires JDK 11.0.4+. If the `Host` header is not set, Keycloak will
+         * generate tokens with an issuer URI containing localhost:<random port>.
+         */
+        System.setProperty("jdk.httpclient.allowRestrictedHeaders", "host");
+
+        HttpRequest request = HttpRequest.newBuilder()
+                .uri(URI.create(tokenEndpoint))
+                .header("Host", "keycloak:8080")
+                .header("Content-Type", "application/x-www-form-urlencoded")
+                .POST(HttpRequest.BodyPublishers.ofString(payload))
+                .build();
+
+        try {
+            HttpResponse<String> response = HttpClient
+                    .newBuilder()
+                    .build()
+                    .send(request, BodyHandlers.ofString());
+
+            try (JsonReader reader = Json.createReader(new StringReader(response.body()))) {
+                return reader.readObject().getString("access_token");
+            }
+        } catch (IOException | InterruptedException e) {
+            throw new RuntimeException(e);
+        }
     }
 
-    @ParameterizedTest(name = PARAMETERIZED_TEST_NAME)
+    @AfterEach
+    void cleanup() {
+        deleteAcls(UserType.OWNER, Map.of());
+    }
+
+    @ParameterizedTest
     @CsvSource({
-        "OWNER,   SUCCESS",
+        "OWNER,   OK",
         "USER,    FORBIDDEN",
         "OTHER,   FORBIDDEN",
         "INVALID, UNAUTHORIZED"
     })
-    void testGetAclsByUserType(UserType userType, ReturnCodes expectedStatus, Vertx vertx, VertxTestContext testContext) {
-        Checkpoint statusVerified = testContext.checkpoint();
-
-        getAcls(vertx, testContext, statusVerified, userType, Map.of(), expectedStatus)
-            .onFailure(testContext::failNow);
+    void testGetAclsByUserType(UserType userType, Status expectedStatus) {
+        getAcls(userType, Map.of(), expectedStatus);
     }
 
-    @ParameterizedTest(name = PARAMETERIZED_TEST_NAME)
+    @ParameterizedTest
     @CsvSource({
-        "OWNER,   SUCCESS, SUCCESS",
-        "USER,    FORBIDDEN, SUCCESS",
-        "OTHER,   FORBIDDEN, FORBIDDEN", // OTHER user always restricted from cluster (per Keycloak RBAC)
+        "OWNER,   OK,           OK",
+        "USER,    FORBIDDEN,    OK",
+        "OTHER,   FORBIDDEN,    FORBIDDEN", // OTHER user always restricted from cluster (per Keycloak RBAC)
         "INVALID, UNAUTHORIZED, UNAUTHORIZED"
     })
-    void testGetAclsByUserTypeWithGrant(UserType userType, ReturnCodes beforeStatus, ReturnCodes afterStatus,
-                                 Vertx vertx, VertxTestContext testContext) {
-
-        Checkpoint statusVerified = testContext.checkpoint(3);
-        Checkpoint responseBodyVerified = testContext.checkpoint();
+    void testGetAclsByUserTypeWithGrant(UserType userType, Status beforeStatus, Status afterStatus) {
         JsonObject newBinding = aclBinding(ResourceType.CLUSTER,
                                     "kafka-cluster",
                                     PatternType.LITERAL,
@@ -89,29 +142,42 @@ class AccessControlListIT extends OauthTestBase {
                                     AclOperation.DESCRIBE,
                                     AclPermissionType.ALLOW);
 
-        Future<HttpClientResponse> response;
+        var beforeResponse = getAcls(userType, Map.of(), beforeStatus);
 
-        response = getAcls(vertx, testContext, statusVerified, userType, Map.of(), beforeStatus)
-            .compose(ignored -> createAcl(vertx, testContext, statusVerified, UserType.OWNER, newBinding))
-            .compose(ignored -> getAcls(vertx, testContext, statusVerified, userType, Map.of(), afterStatus));
-
-        if (afterStatus == ReturnCodes.SUCCESS) {
-            response.compose(HttpClientResponse::body)
-                .map(buffer -> new JsonObject(buffer).getJsonArray("items"))
-                .map(bindings -> testContext.verify(() -> {
-                    assertTrue(bindings.stream().anyMatch(newBinding::equals), () ->
-                        "Response " + bindings + " did not contain " + newBinding);
-                    responseBodyVerified.flag();
-                }))
-                .onFailure(testContext::failNow);
+        if (beforeStatus == Status.OK) {
+            beforeResponse.body("items.size()", equalTo(0));
+        } else if (userType == UserType.INVALID) {
+            /*
+             * Quarkus forces an empty 401 response when the token is not valid
+             * https://github.com/quarkusio/quarkus/issues/22971
+             */
+            beforeResponse.header("content-length", equalTo("0"));
         } else {
-            responseBodyVerified.flag();
-            response.onFailure(testContext::failNow);
+            beforeResponse.body("code", equalTo(beforeStatus.getStatusCode()))
+                .body("error_message", notNullValue());
+        }
+
+        createAcl(UserType.OWNER, newBinding.toString()); // Grant allow describe on cluster to USER
+
+        var afterResponse = getAcls(userType, Map.of(), afterStatus);
+
+        if (afterStatus == Status.OK) {
+            afterResponse.body("items", hasSize(1))
+                .body("items.find { it }.resourceName", equalTo("kafka-cluster"));
+        } else if (userType == UserType.INVALID) {
+            /*
+             * Quarkus forces an empty 401 response when the token is not valid
+             * https://github.com/quarkusio/quarkus/issues/22971
+             */
+            afterResponse.header("content-length", equalTo("0"));
+        } else {
+            afterResponse.body("code", equalTo(afterStatus.getStatusCode()))
+                .body("error_message", notNullValue());
         }
     }
 
     @Test
-    void testCreateAclsDeniedInvalid(Vertx vertx, VertxTestContext testContext) {
+    void testCreateAclsDeniedInvalid() {
         JsonObject newBinding = aclBinding(ResourceType.CLUSTER,
                                            "kafka-cluster",
                                            PatternType.LITERAL,
@@ -119,70 +185,54 @@ class AccessControlListIT extends OauthTestBase {
                                            AclOperation.ALL,
                                            AclPermissionType.ALLOW);
 
-        Checkpoint statusVerified = testContext.checkpoint();
-        Checkpoint responseBodyVerified = testContext.checkpoint();
-
-        createAcl(vertx, testContext, statusVerified, UserType.OWNER, newBinding, ReturnCodes.FAILED_REQUEST)
-            .compose(HttpClientResponse::body)
-            .map(buffer -> new JsonObject(buffer))
-            .map(response -> testContext.verify(() -> {
-                assertEquals(400, response.getInteger("code"));
-                assertEquals(AccessControlOperations.INVALID_ACL_RESOURCE_OPERATION, response.getString("error_message"));
-                responseBodyVerified.flag();
-            }))
-            .onFailure(testContext::failNow);
+        createAcl(UserType.OWNER, newBinding.toString(), Status.BAD_REQUEST)
+            .body("code", equalTo(400))
+            .body("error_message", equalTo(AccessControlOperations.INVALID_ACL_RESOURCE_OPERATION));
     }
 
     @Test
-    void testGetAclsByUserIncludesWildcard(Vertx vertx, VertxTestContext testContext) {
+    void testGetAclsByUserIncludesWildcard() {
         String principal = "User:" + UserType.USER.getUsername();
         JsonObject binding1 = aclBinding(ResourceType.TOPIC, "user_topic", PatternType.LITERAL, principal, AclOperation.READ, AclPermissionType.ALLOW);
         JsonObject binding2 = aclBinding(ResourceType.TOPIC, "public_topic", PatternType.LITERAL, "User:*", AclOperation.READ, AclPermissionType.ALLOW);
         List<JsonObject> newBindings = List.of(binding1, binding2);
 
-        Checkpoint statusVerified = testContext.checkpoint(3);
-        Checkpoint responseBodyVerified = testContext.checkpoint();
+        createAcls(UserType.OWNER, newBindings);
 
-        createAcls(vertx, testContext, statusVerified, UserType.OWNER, newBindings)
-            .compose(ignored -> getAcls(vertx, testContext, statusVerified, UserType.OWNER, Map.of("principal", principal)))
-            .compose(HttpClientResponse::body)
-            .map(buffer -> new JsonObject(buffer).getJsonArray("items"))
-            .map(bindings -> testContext.verify(() -> {
-                assertEquals(2, bindings.size());
-                // Objects internal to the array are stored as Maps - iteration forces conversion to JsonObject
-                List<JsonObject> createdBindings = bindings.stream().map(JsonObject.class::cast).collect(Collectors.toList());
-                assertTrue(newBindings.stream().allMatch(createdBindings::contains), () ->
-                    "Response " + bindings + " did not contain one of " + newBindings);
-                responseBodyVerified.flag();
-            }))
-            .onFailure(testContext::failNow);
+        var response = getAcls(UserType.OWNER, Map.of("principal", principal));
+        response.body("items", hasSize(2));
+
+        var bindings = new JsonObject(response.extract().asString()).getJsonArray("items");
+
+        List<JsonObject> createdBindings = bindings.stream().map(JsonObject.class::cast).collect(Collectors.toList());
+        assertTrue(newBindings.stream().allMatch(createdBindings::contains), () ->
+            "Response " + bindings + " did not contain one of " + newBindings);
     }
 
     @Test
-    void testGetAclsByWildcardExcludesUser(Vertx vertx, VertxTestContext testContext) {
+    void testGetAclsByWildcardExcludesUser() {
         String principal = "User:" + UserType.USER.getUsername();
         JsonObject binding1 = aclBinding(ResourceType.TOPIC, "user_topic", PatternType.LITERAL, principal, AclOperation.READ, AclPermissionType.ALLOW);
         JsonObject binding2 = aclBinding(ResourceType.TOPIC, "public_topic", PatternType.LITERAL, "User:*", AclOperation.READ, AclPermissionType.ALLOW);
         List<JsonObject> newBindings = List.of(binding1, binding2);
 
-        Checkpoint statusVerified = testContext.checkpoint(3);
-        Checkpoint responseBodyVerified = testContext.checkpoint();
+        createAcls(UserType.OWNER, newBindings);
 
-        createAcls(vertx, testContext, statusVerified, UserType.OWNER, newBindings)
-            .compose(ignored -> getAcls(vertx, testContext, statusVerified, UserType.OWNER, Map.of("principal", "User:*")))
-            .compose(HttpClientResponse::body)
-            .map(buffer -> new JsonObject(buffer).getJsonArray("items"))
-            .map(bindings -> testContext.verify(() -> {
-                assertEquals(1, bindings.size());
-                assertTrue(bindings.stream().anyMatch(binding2::equals), () ->
-                    "Response " + bindings + " did not contain " + binding2);
-                responseBodyVerified.flag();
-            }))
-            .onFailure(testContext::failNow);
+        var response = getAcls(UserType.OWNER, Map.of("principal", "User:*"));
+        response.body("items", hasSize(1));
+
+        List<JsonObject> createdBindings = new JsonObject(response.extract().asString())
+                .getJsonArray("items")
+                .stream()
+                .map(JsonObject.class::cast)
+                .collect(Collectors.toList());
+
+        assertTrue(createdBindings.stream().anyMatch(binding2::equals), () ->
+            "Response " + createdBindings + " did not contain " + binding2);
     }
 
     @Test
-    void testGetAclsSortsDenyFirst(Vertx vertx, VertxTestContext testContext) {
+    void testGetAclsSortsDenyFirst() {
         String principal = "User:" + UserType.USER.getUsername();
 
         List<JsonObject> newBindings = IntStream.range(0, 20)
@@ -193,32 +243,50 @@ class AccessControlListIT extends OauthTestBase {
                                               index % 2 == 0 ? AclPermissionType.ALLOW : AclPermissionType.DENY))
                 .collect(Collectors.toList());
 
-        Checkpoint statusVerified = testContext.checkpoint(newBindings.size() + 1);
-        Checkpoint responseBodyVerified = testContext.checkpoint();
+        createAcls(UserType.OWNER, newBindings);
 
-        createAcls(vertx, testContext, statusVerified, UserType.OWNER, newBindings)
-            .compose(ignored -> getAcls(vertx, testContext, statusVerified, UserType.OWNER, Map.of("page", "1", "size", "10")))
-            .compose(HttpClientResponse::body)
-            .map(buffer -> new JsonObject(buffer))
-            .map(response -> testContext.verify(() -> {
-                assertEquals(20, response.getInteger("total"));
-                assertEquals(1, response.getInteger("page"));
-                assertEquals(10, response.getInteger("size"));
+        var response = getAcls(UserType.OWNER, Map.of("page", "1", "size", "10"));
 
-                JsonArray bindings = response.getJsonArray("items");
-                assertEquals(10, bindings.size());
-                assertTrue(bindings.stream()
-                           .map(JsonObject.class::cast)
-                           .map(b -> b.getString("permission"))
-                           .map(AclPermissionType::valueOf)
-                           .allMatch(AclPermissionType.DENY::equals), () ->
-                    "Response " + bindings + " were not all DENY");
-                responseBodyVerified.flag();
-            }))
-            .onFailure(testContext::failNow);
+        response
+            .body("page", equalTo(1))
+            .body("size", equalTo(10))
+            .body("total", equalTo(newBindings.size()))
+            .body("items", hasSize(10));
+
+        List<JsonObject> createdBindings = new JsonObject(response.extract().asString())
+                .getJsonArray("items")
+                .stream()
+                .map(JsonObject.class::cast)
+                .collect(Collectors.toList());
+
+        assertTrue(createdBindings.stream()
+               .map(JsonObject.class::cast)
+               .map(b -> b.getString("permission"))
+               .map(AclPermissionType::valueOf)
+               .allMatch(AclPermissionType.DENY::equals), () -> "Response " + createdBindings + " were not all DENY");
+
+//            .compose(ignored -> )
+//            .compose(HttpClientResponse::body)
+//            .map(buffer -> new JsonObject(buffer))
+//            .map(response -> testContext.verify(() -> {
+//                assertEquals(20, response.getInteger("total"));
+//                assertEquals(1, response.getInteger("page"));
+//                assertEquals(10, response.getInteger("size"));
+//
+//                JsonArray bindings = response.getJsonArray("items");
+//                assertEquals(10, bindings.size());
+//                assertTrue(bindings.stream()
+//                           .map(JsonObject.class::cast)
+//                           .map(b -> b.getString("permission"))
+//                           .map(AclPermissionType::valueOf)
+//                           .allMatch(AclPermissionType.DENY::equals), () ->
+//                    "Response " + bindings + " were not all DENY");
+//                responseBodyVerified.flag();
+//            }))
+//            .onFailure(testContext::failNow);
     }
 
-    @ParameterizedTest(name = PARAMETERIZED_TEST_NAME)
+    @ParameterizedTest
     @CsvSource({
         Types.AclBinding.PROP_PERMISSION + "," + SORT_ASC,
         Types.AclBinding.PROP_PERMISSION + "," + SORT_DESC,
@@ -233,8 +301,8 @@ class AccessControlListIT extends OauthTestBase {
         Types.AclBinding.PROP_RESOURCE_NAME + "," + SORT_ASC,
         Types.AclBinding.PROP_RESOURCE_NAME + "," + SORT_DESC,
     })
-    void testGetAclsOrderByProperies(String orderKey, String order, Vertx vertx, VertxTestContext testContext) {
-        JsonObject allowedResourceOperations = new JsonObject(CONFIG.getProperty("systemtests.kafka.admin.acl.resource-operations"));
+    void testGetAclsOrderByProperies(String orderKey, String order) throws Exception {
+        JsonObject allowedResourceOperations = new JsonObject(validResourceOperations);
 
         List<JsonObject> newBindings = Stream.of(new JsonObject())
             .flatMap(binding -> join(binding, Types.AclBinding.PROP_PERMISSION, AclPermissionType.ALLOW, AclPermissionType.DENY))
@@ -283,9 +351,6 @@ class AccessControlListIT extends OauthTestBase {
             })
             .collect(Collectors.toList());
 
-        Checkpoint statusVerified = testContext.checkpoint();
-        Checkpoint responseBodyVerified = testContext.checkpoint();
-
         final int expectedTotal = newBindings.size();
         final int pageSize = expectedTotal + 1;
         final var queryParams = Map.of("page", "1", "size", String.valueOf(pageSize), "orderKey", orderKey, "order", order);
@@ -294,121 +359,86 @@ class AccessControlListIT extends OauthTestBase {
          * Due to the number of ACLs created for this case (> 200), using the
          * bulk API directly is necessary.
          */
-        kafkaClient.createAcls(newBindings.stream()
+        try (Admin admin = Admin.create(ClientsConfig.getAdminConfigOauth(getToken(UserType.OWNER.getUsername()), bootstrapServers))) {
+            admin.createAcls(newBindings.stream()
                                .map(Types.AclBinding::fromJsonObject)
                                .map(Types.AclBinding::toKafkaBinding)
                                .collect(Collectors.toList()))
-            .all()
-            .whenComplete((result, error) -> {
-                if (error != null) {
-                    testContext.failNow(error);
-                } else {
-                    getAcls(vertx, testContext, statusVerified, UserType.OWNER, queryParams)
-                        .compose(HttpClientResponse::body)
-                        .map(buffer -> new JsonObject(buffer))
-                        .map(response -> testContext.verify(() -> {
-                            assertEquals(expectedTotal, response.getInteger("total"));
-                            assertEquals(pageSize, response.getInteger("size"));
-                            assertEquals(1, response.getInteger("page"));
+                .all()
+                .whenComplete((result, error) -> {
+                    if (error != null) {
+                        fail(error);
+                    } else {
+                        var response = getAcls(UserType.OWNER, queryParams)
+                            .body("total", equalTo(expectedTotal))
+                            .body("size", equalTo(pageSize))
+                            .body("page", equalTo(1))
+                            .body("items", hasSize(expectedTotal));
 
-                            JsonArray bindings = response.getJsonArray("items");
-                            assertEquals(expectedTotal, bindings.size());
+                        JsonObject responseBody = new JsonObject(response.extract().asString());
+                        List<JsonObject> responseValues = responseBody.getJsonArray("items")
+                            .stream()
+                            .map(JsonObject.class::cast)
+                            .collect(Collectors.toList());
 
-                            List<JsonObject> responseValues = bindings.stream()
-                                    .map(JsonObject.class::cast)
-                                    .collect(Collectors.toList());
-
-                            assertEquals(expectedValues, responseValues, "Unexpected response order");
-                            responseBodyVerified.flag();
-                        }))
-                        .onFailure(testContext::failNow);
-                }
-            });
+                        assertEquals(expectedValues, responseValues, "Unexpected response order");
+                    }
+                })
+                .toCompletionStage()
+                .toCompletableFuture()
+                .get(30, TimeUnit.SECONDS);
+        }
     }
 
     // Utilities
 
-    Future<HttpClientResponse> getAcls(Vertx vertx, VertxTestContext testContext, Checkpoint statusVerified, UserType userType, Map<String, String> filters, ReturnCodes expectedStatus) {
-        return adminServerRequest(vertx, testContext, statusVerified, HttpMethod.GET, getAclPath(filters), userType, null, expectedStatus);
+    ValidatableResponse getAcls(UserType userType, Map<String, String> filters, Status expectedStatus) {
+        return aclRequest(Method.GET, filters, userType, null, expectedStatus);
     }
 
-    Future<HttpClientResponse> getAcls(Vertx vertx, VertxTestContext testContext, Checkpoint statusVerified, UserType userType, Map<String, String> filters) {
-        return getAcls(vertx, testContext, statusVerified, userType, filters, ReturnCodes.SUCCESS);
+    ValidatableResponse getAcls(UserType userType, Map<String, String> filters) {
+        return getAcls(userType, filters, Status.OK);
     }
 
-    Future<HttpClientResponse> createAcl(Vertx vertx, VertxTestContext testContext, Checkpoint statusVerified, UserType userType, JsonObject newBinding, ReturnCodes expectedStatus) {
-        return adminServerRequest(vertx, testContext, statusVerified, HttpMethod.POST, getAclPath(Map.of()), userType, newBinding, expectedStatus);
+    ValidatableResponse createAcl(UserType userType, String newBinding, Status expectedStatus) {
+        return aclRequest(Method.POST, Map.of(), userType, newBinding, expectedStatus);
     }
 
-    Future<HttpClientResponse> createAcl(Vertx vertx, VertxTestContext testContext, Checkpoint statusVerified, UserType userType, JsonObject newBinding) {
-        return createAcl(vertx, testContext, statusVerified, userType, newBinding, ReturnCodes.TOPIC_CREATED);
+    ValidatableResponse createAcl(UserType userType, String newBinding) {
+        return createAcl(userType, newBinding, Status.CREATED);
     }
 
-    Future<Void> createAcls(Vertx vertx, VertxTestContext testContext, Checkpoint statusVerified, UserType userType, List<JsonObject> newBindings) {
-        return CompositeFuture.all(newBindings.stream()
-                                   .map(binding -> createAcl(vertx, testContext, statusVerified, userType, binding, ReturnCodes.TOPIC_CREATED))
-                                   .collect(Collectors.toList()))
-                .compose(composite -> Future.<Void>succeededFuture());
+    void createAcls(UserType userType, List<JsonObject> newBindings) {
+        newBindings.stream().forEach(binding -> createAcl(userType, binding.toString()));
     }
 
-    Future<HttpClientResponse> deleteAcls(Vertx vertx, VertxTestContext testContext, Checkpoint statusVerified, UserType userType, Map<String, String> filters) {
-        return adminServerRequest(vertx, testContext, statusVerified, HttpMethod.DELETE, getAclPath(filters), userType, null, ReturnCodes.SUCCESS);
+    ValidatableResponse deleteAcls(UserType userType, Map<String, String> filters) {
+        return aclRequest(Method.DELETE, filters, userType, null, Status.OK);
     }
 
-    String getAclPath(Map<String, String> filters) {
-        StringBuilder path = new StringBuilder("/rest/acls");
-        int count = 0;
+    ValidatableResponse aclRequest(Method method,
+                                  Map<String, String> filters,
+                                  UserType userType,
+                                  String body,
+                                  Status expectedStatus) {
 
-        for (Map.Entry<String, String> filter : filters.entrySet()) {
-            path.append(count++ > 0 ? '&' : '?');
-            path.append(String.format("%s=%s", filter.getKey(), filter.getValue()));
-        }
-
-        return path.toString();
-    }
-
-    Future<HttpClientResponse> adminServerRequest(Vertx vertx,
-                                                  VertxTestContext testContext,
-                                                  Checkpoint statusVerified,
-                                                  HttpMethod method,
-                                                  String path,
-                                                  UserType userType,
-                                                  JsonObject body,
-                                                  ReturnCodes expectedStatus) {
-
-        int port = deployments.getAdminServerPort();
-
-        Future<HttpClientRequest> request = createHttpClient(vertx, true)
-                .request(method, port, "localhost", path)
-                .compose(req -> CompositeFuture.all(Future.succeededFuture(req), deployments.getAccessToken(vertx, userType)))
-                .map(composite -> composite.<HttpClientRequest>resultAt(0).putHeader("Authorization", "Bearer " + composite.resultAt(1)));
-
-        final Future<HttpClientResponse> response;
+        var request = given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + getToken(userType.getUsername()));
 
         if (body != null) {
-            response = request
-                    .map(req -> req.putHeader("content-type", "application/json"))
-                    .compose(req -> req.send(body.toBuffer()));
-        } else {
-            response = request.compose(HttpClientRequest::send);
+            request = request
+                    .header("content-type", "application/json")
+                    .body(body);
         }
 
-        return response.compose(rsp -> {
-            Promise<HttpClientResponse> promise = Promise.promise();
-
-            testContext.verify(() -> {
-                assertEquals(expectedStatus.code, rsp.statusCode());
-                statusVerified.flag();
-            });
-
-            if (testContext.failed()) {
-                promise.fail(testContext.causeOfFailure());
-            } else {
-                promise.complete(rsp);
-            }
-
-            return promise.future();
-        });
+        return request
+            .log().ifValidationFails()
+        .when()
+            .queryParams(filters)
+            .request(Method.valueOf(method.name()), "/rest/acls")
+        .then()
+            .log().ifValidationFails()
+            .statusCode(expectedStatus.getStatusCode());
     }
 
     JsonObject aclBinding(ResourceType resourceType,

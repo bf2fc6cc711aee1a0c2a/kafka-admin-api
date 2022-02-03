@@ -41,6 +41,7 @@ public class KafkaAdminConfigRetriever {
     public static final String OAUTH_ENABLED = PREFIX + "oauth.enabled";
     // TODO: PR to allow configuration via smallrye-jwt
     public static final String OAUTH_TRUSTED_CERT = PREFIX + "oauth.trusted.cert";
+    public static final String OAUTH_JWKS_ENDPOINT_URI = PREFIX + "oauth.jwks.endpoint.uri";
     public static final String OAUTH_TOKEN_ENDPOINT_URI = PREFIX + "oauth.token.endpoint.uri";
 
     public static final String BROKER_TLS_ENABLED = PREFIX + "broker.tls.enabled";

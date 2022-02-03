@@ -13,7 +13,7 @@ import org.bf2.admin.kafka.admin.KafkaAdminConfigRetriever;
 import org.bf2.admin.kafka.admin.TopicOperations;
 import org.bf2.admin.kafka.admin.model.Types;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
-import org.eclipse.microprofile.context.ThreadContext;
+import org.eclipse.microprofile.context.ManagedExecutor;
 
 import javax.inject.Inject;
 import javax.ws.rs.BadRequestException;
@@ -25,11 +25,11 @@ import javax.ws.rs.core.Response.Status;
 import javax.ws.rs.core.UriBuilder;
 import javax.ws.rs.core.UriInfo;
 
-import java.net.URI;
 import java.util.Collections;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 import java.util.regex.Pattern;
 
@@ -60,7 +60,7 @@ public class RestOperations implements OperationsHandler {
     TopicOperations topicOperations;
 
     @Inject
-    ThreadContext threadContext;
+    ManagedExecutor contextualExecutor;
 
     @Override
     @Counted("create_topic_requests")
@@ -73,7 +73,7 @@ public class RestOperations implements OperationsHandler {
         }
 
         return withAdminClient(client -> topicOperations.createTopic(KafkaAdminClient.create(vertx, client), inputTopic))
-                .thenApply(createdTopic -> Response.created(URI.create("/rest/topics/" + createdTopic.getName())).entity(createdTopic).build());
+                .thenApply(createdTopic -> Response.created(uriBuilder("describeTopic").build(createdTopic.getName())).entity(createdTopic).build());
     }
 
     @Override
@@ -195,7 +195,8 @@ public class RestOperations implements OperationsHandler {
     @Timed("create_acls_request_time")
     public CompletionStage<Response> createAcl(Types.AclBinding binding) {
         return withAdminClient(client -> aclOperations.createAcl(client, binding))
-                .thenApply(nothing -> Response.created(binding.buildUri(UriBuilder.fromResource(getClass()).path(getClass(), "describeAcls"))).build());
+                .thenApply(nothing -> binding.buildUri(uriBuilder("describeAcls")))
+                .thenApply(location -> Response.created(location).build());
     }
 
     @Override
@@ -205,6 +206,11 @@ public class RestOperations implements OperationsHandler {
         var filter = Types.AclBinding.fromQueryParams(requestUri.getQueryParameters());
         return withAdminClient(client -> aclOperations.deleteAcls(client, filter))
                 .thenApply(aclList -> Response.ok().entity(aclList).build());
+    }
+
+    private UriBuilder uriBuilder(String methodName) {
+        return UriBuilder.fromResource(RestOperations.class)
+                .path(OperationsHandler.class, methodName);
     }
 
     private boolean numPartitionsValid(Types.NewTopicInput settings, int maxPartitions) {
@@ -299,16 +305,22 @@ public class RestOperations implements OperationsHandler {
     }
 
     <R> CompletionStage<R> withAdminClient(Function<AdminClient, CompletionStage<R>> function) {
-        final AdminClient client = clientFactory.createAdminClient();
+        AtomicReference<AdminClient> openClient = new AtomicReference<>();
 
-        return threadContext.withContextCapture(function.apply(client))
-                .whenComplete((result, error) -> {
+        return contextualExecutor.supplyAsync(clientFactory::createAdminClient)
+            .thenApply(client -> openClient.updateAndGet(nothing -> client))
+            .thenCompose(function)
+            .whenComplete((result, error) -> {
+                AdminClient client = openClient.get();
+
+                if (client != null) {
                     try {
                         client.close();
                     } catch (Exception e) {
                         log.warn("Exception closing Kafka AdminClient", e);
                     }
-                });
+                }
+            });
     }
 
     CompletionStage<Response> badRequest(String message) {

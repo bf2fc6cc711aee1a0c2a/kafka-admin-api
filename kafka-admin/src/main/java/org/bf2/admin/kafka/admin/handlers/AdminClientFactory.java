@@ -8,13 +8,13 @@ import org.eclipse.microprofile.jwt.JsonWebToken;
 import org.jboss.logging.Logger;
 
 import javax.enterprise.context.RequestScoped;
+import javax.enterprise.inject.Instance;
 import javax.inject.Inject;
 import javax.ws.rs.NotAuthorizedException;
 import javax.ws.rs.core.HttpHeaders;
 import javax.ws.rs.core.Response;
 import javax.ws.rs.core.Response.Status;
 
-import java.security.Principal;
 import java.util.Base64;
 import java.util.Map;
 import java.util.Objects;
@@ -40,7 +40,7 @@ public class AdminClientFactory {
     KafkaAdminConfigRetriever config;
 
     @Inject
-    Principal principal;
+    Instance<JsonWebToken> token;
 
     @Inject
     HttpHeaders headers;
@@ -58,8 +58,8 @@ public class AdminClientFactory {
         Map<String, Object> acConfig = config.getAcConfig();
 
         if (config.isOauthEnabled()) {
-            if (principal instanceof JsonWebToken) {
-                final String accessToken = ((JsonWebToken) principal).getRawToken();
+            if (token.isResolvable()) {
+                final String accessToken = token.get().getRawToken();
                 acConfig.put(SaslConfigs.SASL_JAAS_CONFIG, String.format(SASL_OAUTH_CONFIG_TEMPLATE, accessToken));
             } else {
                 log.warn("OAuth is enabled, but there is no JWT principal");
