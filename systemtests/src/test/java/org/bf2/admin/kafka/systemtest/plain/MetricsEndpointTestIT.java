@@ -1,10 +1,10 @@
 package org.bf2.admin.kafka.systemtest.plain;
 
-import io.quarkus.test.common.QuarkusTestResource;
 import io.quarkus.test.common.http.TestHTTPResource;
 import io.quarkus.test.junit.QuarkusTest;
+import io.quarkus.test.junit.TestProfile;
 import io.restassured.http.ContentType;
-import org.bf2.admin.kafka.systemtest.deployment.KafkaUnsecuredResourceManager;
+import org.bf2.admin.kafka.systemtest.TestPlainProfile;
 import org.junit.jupiter.api.Test;
 
 import java.io.BufferedReader;
@@ -30,7 +30,7 @@ import static io.restassured.RestAssured.when;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 @QuarkusTest
-@QuarkusTestResource(KafkaUnsecuredResourceManager.class)
+@TestProfile(TestPlainProfile.class)
 class MetricsEndpointTestIT {
 
     @TestHTTPResource("/metrics")

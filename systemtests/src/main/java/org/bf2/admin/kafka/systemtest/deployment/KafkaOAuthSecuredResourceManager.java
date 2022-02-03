@@ -8,8 +8,14 @@ import java.util.Map;
 
 public class KafkaOAuthSecuredResourceManager implements QuarkusTestResourceLifecycleManager {
 
+    Map<String, String> initArgs;
     DeploymentManager deployments;
     GenericContainer<?> kafkaContainer;
+
+    @Override
+    public void init(Map<String, String> initArgs) {
+        this.initArgs = Map.copyOf(initArgs);
+    }
 
     @Override
     public Map<String, String> start() {
@@ -19,10 +25,11 @@ public class KafkaOAuthSecuredResourceManager implements QuarkusTestResourceLife
         String externalBootstrap = deployments.getExternalBootstrapServers();
 
         int kcPort = keycloak.getMappedPort(8080);
+        String profile = "%" + initArgs.get("profile") + ".";
 
-        return Map.of("%testoauth." + KafkaAdminConfigRetriever.BOOTSTRAP_SERVERS, externalBootstrap,
-                      "%testoauth." + KafkaAdminConfigRetriever.OAUTH_JWKS_ENDPOINT_URI, String.format("http://localhost:%d/auth/realms/kafka-authz/protocol/openid-connect/certs", kcPort),
-                      "%testoauth." + KafkaAdminConfigRetriever.OAUTH_TOKEN_ENDPOINT_URI, String.format("http://localhost:%d/auth/realms/kafka-authz/protocol/openid-connect/token", kcPort));
+        return Map.of(profile + KafkaAdminConfigRetriever.BOOTSTRAP_SERVERS, externalBootstrap,
+                      profile + KafkaAdminConfigRetriever.OAUTH_JWKS_ENDPOINT_URI, String.format("http://localhost:%d/auth/realms/kafka-authz/protocol/openid-connect/certs", kcPort),
+                      profile + KafkaAdminConfigRetriever.OAUTH_TOKEN_ENDPOINT_URI, String.format("http://localhost:%d/auth/realms/kafka-authz/protocol/openid-connect/token", kcPort));
     }
 
     @Override

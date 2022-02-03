@@ -1,6 +1,5 @@
 package org.bf2.admin.kafka.systemtest.oauth;
 
-import io.quarkus.test.common.QuarkusTestResource;
 import io.quarkus.test.junit.QuarkusTest;
 import io.quarkus.test.junit.TestProfile;
 import io.restassured.http.Method;
@@ -15,23 +14,17 @@ import org.apache.kafka.common.resource.ResourceType;
 import org.bf2.admin.kafka.admin.AccessControlOperations;
 import org.bf2.admin.kafka.admin.KafkaAdminConfigRetriever;
 import org.bf2.admin.kafka.admin.model.Types;
-import org.bf2.admin.kafka.systemtest.deployment.DeploymentManager.UserType;
 import org.bf2.admin.kafka.systemtest.TestOAuthProfile;
-import org.bf2.admin.kafka.systemtest.deployment.KafkaOAuthSecuredResourceManager;
+import org.bf2.admin.kafka.systemtest.deployment.DeploymentManager.UserType;
 import org.bf2.admin.kafka.systemtest.utils.ClientsConfig;
-import org.eclipse.microprofile.config.inject.ConfigProperty;
+import org.bf2.admin.kafka.systemtest.utils.TokenUtils;
+import org.eclipse.microprofile.config.Config;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 
-import java.io.IOException;
-import java.io.StringReader;
-import java.net.URI;
-import java.net.http.HttpClient;
-import java.net.http.HttpRequest;
-import java.net.http.HttpResponse;
-import java.net.http.HttpResponse.BodyHandlers;
 import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.List;
@@ -44,9 +37,6 @@ import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
 import javax.inject.Inject;
-import javax.json.Json;
-import javax.json.JsonReader;
-import javax.ws.rs.core.HttpHeaders;
 import javax.ws.rs.core.Response.Status;
 
 import static io.restassured.RestAssured.given;
@@ -58,7 +48,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
 @QuarkusTest
-@QuarkusTestResource(KafkaOAuthSecuredResourceManager.class)
 @TestProfile(TestOAuthProfile.class)
 class AccessControlListIT {
 
@@ -66,49 +55,17 @@ class AccessControlListIT {
     static final String SORT_DESC = "desc";
 
     @Inject
-    @ConfigProperty(name = KafkaAdminConfigRetriever.BOOTSTRAP_SERVERS, defaultValue = "")
+    Config config;
+
     String bootstrapServers;
-
-    @Inject
-    @ConfigProperty(name = KafkaAdminConfigRetriever.OAUTH_TOKEN_ENDPOINT_URI, defaultValue = "")
-    String tokenEndpoint;
-
-    @Inject
-    @ConfigProperty(name = KafkaAdminConfigRetriever.ACL_RESOURCE_OPERATIONS, defaultValue = "")
     String validResourceOperations;
+    TokenUtils tokenUtils;
 
-    String getToken(String username) {
-        if (username == null) {
-            return UUID.randomUUID().toString();
-        }
-
-        final String payload = String.format("grant_type=password&username=%1$s&password=%1$s-password&client_id=kafka-cli", username);
-
-        /*
-         * Requires JDK 11.0.4+. If the `Host` header is not set, Keycloak will
-         * generate tokens with an issuer URI containing localhost:<random port>.
-         */
-        System.setProperty("jdk.httpclient.allowRestrictedHeaders", "host");
-
-        HttpRequest request = HttpRequest.newBuilder()
-                .uri(URI.create(tokenEndpoint))
-                .header("Host", "keycloak:8080")
-                .header("Content-Type", "application/x-www-form-urlencoded")
-                .POST(HttpRequest.BodyPublishers.ofString(payload))
-                .build();
-
-        try {
-            HttpResponse<String> response = HttpClient
-                    .newBuilder()
-                    .build()
-                    .send(request, BodyHandlers.ofString());
-
-            try (JsonReader reader = Json.createReader(new StringReader(response.body()))) {
-                return reader.readObject().getString("access_token");
-            }
-        } catch (IOException | InterruptedException e) {
-            throw new RuntimeException(e);
-        }
+    @BeforeEach
+    void setup() {
+        bootstrapServers = config.getValue(KafkaAdminConfigRetriever.BOOTSTRAP_SERVERS, String.class);
+        validResourceOperations = config.getValue(KafkaAdminConfigRetriever.ACL_RESOURCE_OPERATIONS, String.class);
+        tokenUtils = new TokenUtils(config.getValue(KafkaAdminConfigRetriever.OAUTH_TOKEN_ENDPOINT_URI, String.class));
     }
 
     @AfterEach
@@ -359,7 +316,7 @@ class AccessControlListIT {
          * Due to the number of ACLs created for this case (> 200), using the
          * bulk API directly is necessary.
          */
-        try (Admin admin = Admin.create(ClientsConfig.getAdminConfigOauth(getToken(UserType.OWNER.getUsername()), bootstrapServers))) {
+        try (Admin admin = Admin.create(ClientsConfig.getAdminConfigOauth(tokenUtils.getToken(UserType.OWNER.getUsername()), bootstrapServers))) {
             admin.createAcls(newBindings.stream()
                                .map(Types.AclBinding::fromJsonObject)
                                .map(Types.AclBinding::toKafkaBinding)
@@ -423,7 +380,7 @@ class AccessControlListIT {
                                   Status expectedStatus) {
 
         var request = given()
-                .header(HttpHeaders.AUTHORIZATION, "Bearer " + getToken(userType.getUsername()));
+                .header(tokenUtils.authorizationHeader(userType.getUsername()));
 
         if (body != null) {
             request = request

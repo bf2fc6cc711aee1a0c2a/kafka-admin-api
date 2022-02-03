@@ -1,13 +1,15 @@
 package org.bf2.admin.kafka.systemtest.plain;
 
-import io.quarkus.test.common.QuarkusTestResource;
 import io.quarkus.test.junit.QuarkusTest;
+import io.quarkus.test.junit.TestProfile;
 import io.restassured.http.ContentType;
 import org.apache.kafka.clients.admin.Admin;
 import org.apache.kafka.clients.admin.TopicListing;
+import org.bf2.admin.kafka.admin.KafkaAdminConfigRetriever;
+import org.bf2.admin.kafka.systemtest.TestPlainProfile;
 import org.bf2.admin.kafka.systemtest.deployment.KafkaUnsecuredResourceManager;
 import org.bf2.admin.kafka.systemtest.utils.RequestUtils;
-import org.eclipse.microprofile.config.inject.ConfigProperty;
+import org.eclipse.microprofile.config.Config;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -36,18 +38,21 @@ import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.notNullValue;
 
 @QuarkusTest
-@QuarkusTestResource(KafkaUnsecuredResourceManager.class)
+@TestProfile(TestPlainProfile.class)
 class RestEndpointTestIT {
 
     static final String TOPIC_COLLECTION_PATH = "/rest/topics";
     static final String TOPIC_PATH = "/rest/topics/{topicName}";
 
     @Inject
-    @ConfigProperty(name = "kafka.admin.bootstrap.servers")
+    Config config;
+
     String bootstrapServers;
 
     @BeforeEach
     void setup() {
+        bootstrapServers = config.getValue(KafkaAdminConfigRetriever.BOOTSTRAP_SERVERS, String.class);
+
         // Tests assume a clean slate - remove any existing topics
         try (Admin admin = Admin.create(RequestUtils.getKafkaAdminConfig(bootstrapServers))) {
             admin.listTopics()

@@ -44,6 +44,18 @@ public class CommonHandler {
 
     static final Logger log = Logger.getLogger(CommonHandler.class);
 
+    public static boolean isCausedBy(Throwable error, Class<? extends Throwable> searchCause) {
+        Throwable cause = error;
+
+        do {
+            if (searchCause.isInstance(cause)) {
+                return true;
+            }
+        } while (cause != cause.getCause() && (cause = cause.getCause()) != null);
+
+        return false;
+    }
+
     static ResponseBuilder errorResponse(Throwable error, StatusType status, String errorMessage) {
         final int statusCode = status.getStatusCode();
         ResponseBuilder response = Response.status(statusCode);

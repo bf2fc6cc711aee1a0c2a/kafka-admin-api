@@ -132,17 +132,17 @@ public class ConsumerGroupOperations {
 
         if (parameters.getTopics() == null || parameters.getTopics().isEmpty()) {
             // reset everything
-            Promise promise = Promise.promise();
+            Promise<Void> promise = Promise.promise();
             promises.add(promise.future());
+
             ac.listConsumerGroupOffsets(parameters.getGroupId())
-                    .compose(consumerGroupOffsets -> {
+                    .onSuccess(consumerGroupOffsets -> {
                         consumerGroupOffsets.entrySet().forEach(offset -> {
                             topicPartitionsToReset.add(offset.getKey());
                         });
-                        return Future.succeededFuture(topicPartitionsToReset);
-                    }).onComplete(topicPartitions -> {
                         promise.complete();
-                    });
+                    })
+                    .onFailure(promise::fail);
         } else {
             parameters.getTopics().forEach(paramPartition -> {
                 Promise promise = Promise.promise();
@@ -156,7 +156,8 @@ public class ConsumerGroupOperations {
                         });
                         promise.complete();
                         return Future.succeededFuture(topicPartitionsToReset);
-                    });
+                    })
+                    .onFailure(promise::fail);
                 } else {
                     paramPartition.getPartitions().forEach(numPartition -> {
                         topicPartitionsToReset.add(new TopicPartition(paramPartition.getTopic(), numPartition));
@@ -318,7 +319,7 @@ public class ConsumerGroupOperations {
                     topicDescribe.complete();
                 })
                 .onFailure(error -> {
-                    if (error instanceof UnknownTopicOrPartitionException) {
+                    if (CommonHandler.isCausedBy(error, UnknownTopicOrPartitionException.class)) {
                         topicDescribe.fail(new IllegalArgumentException("Request contained an unknown topic"));
                     } else {
                         topicDescribe.fail(error);

@@ -1,13 +1,11 @@
 package org.bf2.admin.kafka.systemtest.plain;
 
-import io.quarkus.test.common.QuarkusTestResource;
 import io.quarkus.test.junit.QuarkusTest;
 import io.quarkus.test.junit.TestProfile;
 import org.bf2.admin.kafka.admin.KafkaAdminConfigRetriever;
 import org.bf2.admin.kafka.systemtest.TestPlainProfile;
-import org.bf2.admin.kafka.systemtest.deployment.KafkaUnsecuredResourceManager;
-import org.bf2.admin.kafka.systemtest.utils.ConsumerGroupUtils;
-import org.eclipse.microprofile.config.inject.ConfigProperty;
+import org.bf2.admin.kafka.systemtest.utils.ConsumerUtils;
+import org.eclipse.microprofile.config.Config;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -42,7 +40,6 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @QuarkusTest
-@QuarkusTestResource(KafkaUnsecuredResourceManager.class)
 @TestProfile(TestPlainProfile.class)
 class ConsumerGroupsEndpointTestIT {
 
@@ -50,14 +47,15 @@ class ConsumerGroupsEndpointTestIT {
     static final String CONSUMER_GROUP_PATH = "/rest/consumer-groups/{groupId}";
 
     @Inject
-    @ConfigProperty(name = KafkaAdminConfigRetriever.BOOTSTRAP_SERVERS)
-    String bootstrapServers;
+    Config config;
 
-    ConsumerGroupUtils groupUtils;
+    String bootstrapServers;
+    ConsumerUtils groupUtils;
 
     @BeforeEach
-    public void setup() {
-        groupUtils = new ConsumerGroupUtils(bootstrapServers, null);
+    void setup() {
+        bootstrapServers = config.getValue(KafkaAdminConfigRetriever.BOOTSTRAP_SERVERS, String.class);
+        groupUtils = new ConsumerUtils(bootstrapServers, null);
     }
 
     @Test
@@ -66,17 +64,18 @@ class ConsumerGroupsEndpointTestIT {
         String groupId = "g-" + UUID.randomUUID().toString();
         String clientId = "c-" + UUID.randomUUID().toString();
 
-        groupUtils.createConsumerGroup(groupId, topicName, clientId, 2, true);
+        groupUtils.consume(groupId, topicName, clientId, 2, true);
         String groupPath = String.format("items.find { it.groupId == '%s' }", groupId);
 
         given()
+            .log().ifValidationFails()
             .queryParam("group-id-filter", groupId)
         .when()
             .get(CONSUMER_GROUP_COLLECTION_PATH)
         .then()
             .log().ifValidationFails()
             .statusCode(Status.OK.getStatusCode())
-            .assertThat()
+        .assertThat()
             .body("items.size()", equalTo(1))
             .body(groupPath + ".state", equalToIgnoringCase("empty")) // Consumer is closed
             .body(groupPath + ".consumers", hasSize(2))
@@ -179,7 +178,7 @@ class ConsumerGroupsEndpointTestIT {
                 String groupId = prefix + "-g-" + suffix;
                 String topicName = "t-" + suffix;
                 String clientId = "c-" + suffix;
-                groupUtils.createConsumerGroup(groupId, topicName, clientId, 2, true);
+                groupUtils.consume(groupId, topicName, clientId, 2, true);
                 return groupId;
             })
             .sorted(comparator)
@@ -225,7 +224,7 @@ class ConsumerGroupsEndpointTestIT {
                 String groupId = prefix + "-g-" + suffix;
                 String topicName = "t-" + suffix;
                 String clientId = "c-" + suffix;
-                groupUtils.createConsumerGroup(groupId, topicName, clientId, 2, true);
+                groupUtils.consume(groupId, topicName, clientId, 2, true);
                 return groupId;
             })
             .collect(Collectors.toList());
@@ -254,7 +253,7 @@ class ConsumerGroupsEndpointTestIT {
         String groupId = "g-" + UUID.randomUUID().toString();
         String clientId = "c-" + UUID.randomUUID().toString();
 
-        try (var consumer = groupUtils.createConsumerGroup(groupId, topicName, clientId, 2, false)) {
+        try (var consumer = groupUtils.consume(groupId, topicName, clientId, 2, false)) {
             when()
                 .delete(CONSUMER_GROUP_PATH, Map.of("groupId", groupId))
             .then()
@@ -294,7 +293,7 @@ class ConsumerGroupsEndpointTestIT {
         String groupId = "g-" + UUID.randomUUID().toString();
         String clientId = "c-" + UUID.randomUUID().toString();
 
-        try (var consumer = groupUtils.createConsumerGroup(groupId, topicName, clientId, 2, false)) {
+        try (var consumer = groupUtils.consume(groupId, topicName, clientId, 2, false)) {
             when()
                 .get(CONSUMER_GROUP_PATH, Map.of("groupId", groupId))
             .then()
@@ -352,10 +351,10 @@ class ConsumerGroupsEndpointTestIT {
     })
     void testConsumerGroupsListFilteredWithoutAuthentication(String topicFilter, String groupFilter, int expectedCount) throws Exception {
         String batchId = UUID.randomUUID().toString();
-        groupUtils.createConsumerGroup("group1-W-bat" + batchId, "topic-1-A-bat" + batchId, UUID.randomUUID().toString(), 1, false);
-        groupUtils.createConsumerGroup("group1-X-bat" + batchId, "topic-1-B-bat" + batchId, UUID.randomUUID().toString(), 1, false);
-        groupUtils.createConsumerGroup("group2-Y-bat" + batchId, "topic-2-C-bat" + batchId, UUID.randomUUID().toString(), 1, false);
-        groupUtils.createConsumerGroup("group2-Z-bat" + batchId, "topic-2-D-bat" + batchId, UUID.randomUUID().toString(), 1, false);
+        groupUtils.consume("group1-W-bat" + batchId, "topic-1-A-bat" + batchId, UUID.randomUUID().toString(), 1, false);
+        groupUtils.consume("group1-X-bat" + batchId, "topic-1-B-bat" + batchId, UUID.randomUUID().toString(), 1, false);
+        groupUtils.consume("group2-Y-bat" + batchId, "topic-2-C-bat" + batchId, UUID.randomUUID().toString(), 1, false);
+        groupUtils.consume("group2-Z-bat" + batchId, "topic-2-D-bat" + batchId, UUID.randomUUID().toString(), 1, false);
 
         Map<String, String> queryParams = new HashMap<>();
         queryParams.put("page", "1");
