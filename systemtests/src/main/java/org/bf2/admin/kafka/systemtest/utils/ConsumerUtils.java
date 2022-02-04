@@ -5,13 +5,14 @@ import org.apache.kafka.clients.admin.Admin;
 import org.apache.kafka.clients.admin.NewTopic;
 import org.apache.kafka.clients.consumer.Consumer;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
-import org.apache.kafka.clients.consumer.ConsumerRecords;
+import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerRecord;
 
 import java.io.Closeable;
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Properties;
 import java.util.concurrent.CompletableFuture;
@@ -92,7 +93,7 @@ public class ConsumerUtils {
 
     public class ConsumerResponse implements Closeable {
         Consumer<String, String> consumer;
-        ConsumerRecords<String, String> records;
+        List<ConsumerRecord<String, String>> records = new ArrayList<>();
 
         @Override
         public void close() {
@@ -105,14 +106,21 @@ public class ConsumerUtils {
             return consumer;
         }
 
-        public ConsumerRecords<String, String> records() {
+        public List<ConsumerRecord<String, String>> records() {
             return records;
         }
     }
 
     @SuppressWarnings("resource")
     public Consumer<String, String> consume(String groupId, String topicName, String clientId, int numPartitions, boolean autoClose) {
-        return request().groupId(groupId).topic(topicName, numPartitions).clientId(clientId).autoClose(autoClose).consume().consumer;
+        return request()
+                .groupId(groupId)
+                .topic(topicName, numPartitions)
+                .clientId(clientId)
+                .produceMessages(1)
+                .autoClose(autoClose)
+                .consume()
+                .consumer;
     }
 
     ConsumerResponse consume(ConsumerRequest consumerRequest, boolean autoClose) {
@@ -163,7 +171,22 @@ public class ConsumerUtils {
                 .thenRun(() -> {
                     try {
                         response.consumer.subscribe(List.of(consumerRequest.topicName));
-                        response.records = response.consumer.poll(Duration.ofSeconds(10));
+
+                        if (consumerRequest.consumeMessages < 1 && consumerRequest.produceMessages < 1) {
+                            var records = response.consumer.poll(Duration.ofSeconds(5));
+                            records.forEach(response.records::add);
+                        } else {
+                            int pollCount = 0;
+                            int fetchCount = consumerRequest.consumeMessages > 0 ?
+                                consumerRequest.consumeMessages :
+                                consumerRequest.produceMessages;
+
+                            while (response.records.size() < fetchCount && pollCount++ < 10) {
+                                var records = response.consumer.poll(Duration.ofSeconds(1));
+                                records.forEach(response.records::add);
+                            }
+                        }
+
                         response.consumer.commitSync();
                     } catch (Exception e) {
                         throw new RuntimeException(e);

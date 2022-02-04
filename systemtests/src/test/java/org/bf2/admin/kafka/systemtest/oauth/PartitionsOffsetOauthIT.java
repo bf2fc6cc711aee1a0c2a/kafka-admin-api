@@ -3,8 +3,6 @@ package org.bf2.admin.kafka.systemtest.oauth;
 import io.quarkus.test.junit.QuarkusTest;
 import io.quarkus.test.junit.TestProfile;
 import io.restassured.http.ContentType;
-import org.apache.kafka.clients.consumer.ConsumerRecord;
-import org.apache.kafka.common.TopicPartition;
 import org.bf2.admin.kafka.admin.KafkaAdminConfigRetriever;
 import org.bf2.admin.kafka.systemtest.TestOAuthProfile;
 import org.bf2.admin.kafka.systemtest.deployment.DeploymentManager.UserType;
@@ -19,9 +17,6 @@ import org.junit.jupiter.params.provider.CsvSource;
 
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
 import java.util.UUID;
 
 import javax.inject.Inject;
@@ -217,7 +212,7 @@ class PartitionsOffsetOauthIT {
             .autoClose(true)
             .consume();
 
-        assertEquals(expectedMessageConsumeCount, consumer.records().count());
+        assertEquals(expectedMessageConsumeCount, consumer.records().size());
     }
 
     @Test
@@ -281,7 +276,7 @@ class PartitionsOffsetOauthIT {
             .autoClose(true)
             .consume();
 
-        assertEquals(secondBatchSize, consumer.records().count());
+        assertEquals(secondBatchSize, consumer.records().size());
     }
 
     @Test
@@ -299,11 +294,7 @@ class PartitionsOffsetOauthIT {
             .autoClose(true)
             .consume();
 
-        Map<TopicPartition, List<ConsumerRecord<String, String>>> records = new HashMap<>();
-
-        consumer1.records()
-            .partitions()
-            .forEach(partition -> records.put(partition, consumer1.records().records(partition)));
+        assertEquals(20, consumer1.records().size());
 
         given()
             .log().ifValidationFails()
@@ -340,12 +331,10 @@ class PartitionsOffsetOauthIT {
             .autoClose(true)
             .consume();
 
-        assertEquals(20, consumer2.records().count());
+        assertEquals(20, consumer2.records().size());
 
-        for (Map.Entry<TopicPartition, List<ConsumerRecord<String, String>>> part : records.entrySet()) {
-            // ConsumerRecord does not implement equals - string representation (brittle...)
-            assertEquals(part.getValue().toString(), consumer2.records().records(part.getKey()).toString());
-        }
+        // ConsumerRecord does not implement equals - string representation (brittle...)
+        assertEquals(consumer1.records().toString(), consumer2.records().toString());
     }
 
 }
