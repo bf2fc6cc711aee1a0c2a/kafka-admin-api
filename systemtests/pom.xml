@@ -54,7 +54,6 @@
                                 <include>**/ST*.java</include>
                                 <include>**/*ST.java</include>
                             </includes>
-                            <forkCount>2</forkCount>
                             <redirectTestOutputToFile>true</redirectTestOutputToFile>
                             <systemProperties>
                                 <keycloak.image>${keycloak.image}</keycloak.image>

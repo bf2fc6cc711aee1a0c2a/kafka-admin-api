@@ -128,21 +128,7 @@ public class ConsumerUtils {
             ClientsConfig.getAdminConfigOauth(token, bootstrapServers) :
             ClientsConfig.getAdminConfig(bootstrapServers);
 
-        Properties producerConfig = token != null ?
-            ClientsConfig.getProducerConfigOauth(bootstrapServers, token) :
-            ClientsConfig.getProducerConfig(bootstrapServers);
-
-        Properties consumerConfig = token != null ?
-            ClientsConfig.getConsumerConfigOauth(bootstrapServers, consumerRequest.groupId, token) :
-            ClientsConfig.getConsumerConfig(bootstrapServers, consumerRequest.groupId);
-        consumerConfig.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
-        consumerConfig.put(CommonClientConfigs.CLIENT_ID_CONFIG, consumerRequest.clientId);
-        if (consumerRequest.consumeMessages > 0) {
-            consumerConfig.put(ConsumerConfig.MAX_POLL_RECORDS_CONFIG, String.valueOf(consumerRequest.consumeMessages));
-        }
-
         ConsumerResponse response = new ConsumerResponse();
-        response.consumer = new KafkaConsumer<>(consumerConfig);
 
         try (Admin admin = Admin.create(adminConfig)) {
             CompletionStage<Void> initial;
@@ -155,55 +141,76 @@ public class ConsumerUtils {
                 initial = CompletableFuture.completedStage(null);
             }
 
-            initial.thenRun(() -> {
-                    if (consumerRequest.produceMessages < 1) {
-                        return;
-                    }
-
-                    try (var producer = new KafkaProducer<String, String>(producerConfig)) {
-                        for (int i = 0; i < consumerRequest.produceMessages; i++) {
-                            producer.send(new ProducerRecord<>(consumerRequest.topicName, "message-" + i)).get();
-                        }
-                    } catch (InterruptedException | ExecutionException e) {
-                        throw new RuntimeException(e);
-                    }
-                })
-                .thenRun(() -> {
-                    try {
-                        response.consumer.subscribe(List.of(consumerRequest.topicName));
-
-                        if (consumerRequest.consumeMessages < 1 && consumerRequest.produceMessages < 1) {
-                            var records = response.consumer.poll(Duration.ofSeconds(5));
-                            records.forEach(response.records::add);
-                        } else {
-                            int pollCount = 0;
-                            int fetchCount = consumerRequest.consumeMessages > 0 ?
-                                consumerRequest.consumeMessages :
-                                consumerRequest.produceMessages;
-
-                            while (response.records.size() < fetchCount && pollCount++ < 10) {
-                                var records = response.consumer.poll(Duration.ofSeconds(1));
-                                records.forEach(response.records::add);
-                            }
-                        }
-
-                        response.consumer.commitSync();
-                    } catch (Exception e) {
-                        throw new RuntimeException(e);
-                    }
-                })
+            initial
+                .thenRun(() -> produceMessages(consumerRequest))
+                .thenRun(() -> consumeMessages(consumerRequest, response))
                 .toCompletableFuture()
                 .get(15, TimeUnit.SECONDS);
         } catch (Exception e) {
-            response.consumer.close();
+            response.close();
             throw new RuntimeException(e);
         }
 
         if (autoClose) {
-            response.consumer.close();
+            response.close();
         }
 
         return response;
     }
 
+    void produceMessages(ConsumerRequest consumerRequest) {
+        Properties producerConfig = token != null ?
+            ClientsConfig.getProducerConfigOauth(bootstrapServers, token) :
+            ClientsConfig.getProducerConfig(bootstrapServers);
+
+        if (consumerRequest.produceMessages < 1) {
+            return;
+        }
+
+        try (var producer = new KafkaProducer<String, String>(producerConfig)) {
+            for (int i = 0; i < consumerRequest.produceMessages; i++) {
+                producer.send(new ProducerRecord<>(consumerRequest.topicName, "message-" + i)).get();
+            }
+        } catch (InterruptedException | ExecutionException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    void consumeMessages(ConsumerRequest consumerRequest, ConsumerResponse response) {
+        Properties consumerConfig = token != null ?
+            ClientsConfig.getConsumerConfigOauth(bootstrapServers, consumerRequest.groupId, token) :
+            ClientsConfig.getConsumerConfig(bootstrapServers, consumerRequest.groupId);
+
+        consumerConfig.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
+        consumerConfig.put(CommonClientConfigs.CLIENT_ID_CONFIG, consumerRequest.clientId);
+
+        if (consumerRequest.consumeMessages > 0) {
+            consumerConfig.put(ConsumerConfig.MAX_POLL_RECORDS_CONFIG, String.valueOf(consumerRequest.consumeMessages));
+        }
+
+        response.consumer = new KafkaConsumer<>(consumerConfig);
+
+        try {
+            response.consumer.subscribe(List.of(consumerRequest.topicName));
+
+            if (consumerRequest.consumeMessages < 1 && consumerRequest.produceMessages < 1) {
+                var records = response.consumer.poll(Duration.ofSeconds(5));
+                records.forEach(response.records::add);
+            } else {
+                int pollCount = 0;
+                int fetchCount = consumerRequest.consumeMessages > 0 ?
+                    consumerRequest.consumeMessages :
+                    consumerRequest.produceMessages;
+
+                while (response.records.size() < fetchCount && pollCount++ < 10) {
+                    var records = response.consumer.poll(Duration.ofSeconds(1));
+                    records.forEach(response.records::add);
+                }
+            }
+
+            response.consumer.commitSync();
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+    }
 }
