@@ -142,6 +142,7 @@ public class CommonHandler {
             errorMessage = "invalid JSON";
         } else if (failureCause instanceof IllegalStateException) {
             status = Status.UNAUTHORIZED;
+            log.errorf(failureCause, "%s %s", failureCause.getClass(), failureCause.getMessage());
         } else if (failureCause instanceof DecodeException
                 || failureCause instanceof UnknownMemberIdException
                 || failureCause instanceof LeaderNotAvailableException) {

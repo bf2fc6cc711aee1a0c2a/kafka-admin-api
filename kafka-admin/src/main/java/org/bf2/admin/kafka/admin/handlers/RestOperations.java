@@ -2,9 +2,17 @@ package org.bf2.admin.kafka.admin.handlers;
 
 import io.micrometer.core.annotation.Counted;
 import io.micrometer.core.annotation.Timed;
+import io.smallrye.common.annotation.Blocking;
 import io.vertx.core.Vertx;
 import io.vertx.kafka.admin.KafkaAdminClient;
 import org.apache.kafka.clients.admin.AdminClient;
+import org.apache.kafka.clients.consumer.Consumer;
+import org.apache.kafka.clients.producer.Producer;
+import org.apache.kafka.clients.producer.ProducerRecord;
+import org.apache.kafka.common.PartitionInfo;
+import org.apache.kafka.common.TopicPartition;
+import org.apache.kafka.common.errors.AuthorizationException;
+import org.apache.kafka.common.header.Header;
 import org.bf2.admin.kafka.admin.AccessControlOperations;
 import org.bf2.admin.kafka.admin.ConsumerGroupOperations;
 import org.bf2.admin.kafka.admin.KafkaAdminConfigRetriever;
@@ -15,8 +23,19 @@ import org.eclipse.microprofile.context.ThreadContext;
 import org.jboss.logging.Logger;
 
 import javax.inject.Inject;
+import javax.json.Json;
+import javax.json.JsonArrayBuilder;
+import javax.json.JsonObject;
+import javax.json.JsonObjectBuilder;
+import javax.json.JsonString;
+import javax.json.JsonValue;
 import javax.ws.rs.BadRequestException;
+import javax.ws.rs.DefaultValue;
+import javax.ws.rs.GET;
+import javax.ws.rs.POST;
 import javax.ws.rs.Path;
+import javax.ws.rs.PathParam;
+import javax.ws.rs.QueryParam;
 import javax.ws.rs.core.MultivaluedMap;
 import javax.ws.rs.core.Response;
 import javax.ws.rs.core.Response.ResponseBuilder;
@@ -24,12 +43,20 @@ import javax.ws.rs.core.Response.Status;
 import javax.ws.rs.core.UriBuilder;
 import javax.ws.rs.core.UriInfo;
 
+import java.time.Duration;
+import java.time.Instant;
+import java.time.ZoneOffset;
+import java.time.ZonedDateTime;
 import java.util.Collections;
+import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.function.Function;
+import java.util.function.Supplier;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 @Path("/rest")
 public class RestOperations implements OperationsHandler {
@@ -123,6 +150,152 @@ public class RestOperations implements OperationsHandler {
 
         return withAdminClient(client -> topicOperations.getTopicList(KafkaAdminClient.create(vertx, client), pattern, pageParams, orderBy))
                .thenApply(topicList -> Response.ok().entity(topicList).build());
+    }
+
+    @GET
+    @Path("topics/{topicName}/records")
+    @Blocking
+    public Response consumeRecords(@PathParam("topicName") String topicName,
+                                   @QueryParam("partition") Integer partition,
+                                   @QueryParam("offset") Integer offset,
+                                   @QueryParam("timestamp") String timestamp,
+                                   @QueryParam("limit") @DefaultValue("20") Integer limit,
+                                   @QueryParam("include") List<String> include,
+                                   UriInfo requestUri) {
+
+        try (Consumer<String, String> consumer = clientFactory.createConsumer(limit)) {
+            List<PartitionInfo> partitions = consumer.partitionsFor(topicName);
+
+            if (partitions.isEmpty()) {
+                return Response.status(Status.NOT_FOUND)
+                        .entity(Json.createObjectBuilder()
+                                .add("code", Status.NOT_FOUND.getStatusCode())
+                                .add("error_message", "No such topic")
+                                .build()
+                                .toString()) // FIXME: toString shouldn't be required
+                        .build();
+            }
+
+            List<TopicPartition> assignments = partitions.stream()
+                .filter(p -> partition == null || partition.equals(p.partition()))
+                .map(p -> new TopicPartition(p.topic(), p.partition()))
+                .collect(Collectors.toList());
+
+            if (assignments.isEmpty()) {
+                return Response.status(Status.BAD_REQUEST)
+                        .entity(Json.createObjectBuilder()
+                                .add("code", Status.BAD_REQUEST.getStatusCode())
+                                .add("error_message", String.format("No such partition for topic %s: %d", topicName, partition))
+                                .build()
+                                .toString()) // FIXME: toString shouldn't be required
+                        .build();
+            }
+
+            consumer.assign(assignments);
+
+            if (timestamp != null) {
+                Long tsMillis = ZonedDateTime.parse(timestamp).toInstant().toEpochMilli();
+                Map<TopicPartition, Long> timestampsToSearch =
+                        assignments.stream().collect(Collectors.toMap(Function.identity(), p -> tsMillis));
+                consumer.offsetsForTimes(timestampsToSearch)
+                    .forEach((p, tsOffset) -> consumer.seek(p, tsOffset.offset()));
+            } else if (offset != null) {
+                assignments.forEach(p -> consumer.seek(p, offset));
+            }
+
+            var records = consumer.poll(Duration.ofSeconds(2));
+            JsonArrayBuilder items = Json.createArrayBuilder();
+            records.forEach(rec -> {
+                JsonObjectBuilder item = Json.createObjectBuilder();
+
+                addField("partition", include, item, rec::partition);
+                addField("offset", include, item, rec::offset);
+                addField("timestamp", include, item, () -> Instant.ofEpochMilli(rec.timestamp()).atZone(ZoneOffset.UTC).toString());
+                addField("timestampType", include, item, rec::timestampType);
+                addField("key", include, item, () -> rec.key() != null ? Json.createValue(rec.key()) : JsonValue.NULL);
+
+                if (include.isEmpty() || include.contains("headers")) {
+                    JsonObjectBuilder headers = Json.createObjectBuilder();
+                    rec.headers().forEach(h -> headers.add(h.key(), new String(h.value())));
+                    item.add("headers", headers);
+                }
+
+                addField("value", include, item, rec::value);
+                items.add(item);
+            });
+
+            return Response.ok()
+                    .entity(Json.createObjectBuilder()
+                            .add("size", records.count())
+                            .add("items", items)
+                            .build()
+                            .toString()) // FIXME: toString shouldn't be required
+                    .build();
+        } catch (Exception e) {
+            if (e instanceof AuthorizationException) {
+                throw (RuntimeException) e;
+            }
+
+            log.errorf(e, "Error consuming messages");
+            return Response.serverError()
+                    .entity(Json.createObjectBuilder()
+                            .add("code", 500)
+                            .add("error_message", e.getMessage())
+                            .build()
+                            .toString()) // FIXME: toString shouldn't be required
+                    .build();
+        }
+    }
+
+    void addField(String fieldName, List<String> include, JsonObjectBuilder item, Supplier<Object> source) {
+        if (include.isEmpty() || include.contains(fieldName)) {
+            item.add(fieldName, String.valueOf(source.get()));
+        }
+    }
+
+    @POST
+    @Path("topics/{topicName}/records")
+    @Blocking
+    public Response produceRecord(@PathParam("topicName") String topicName, JsonObject recordJson, UriInfo requestUri) {
+        try (Producer<String, String> producer = clientFactory.createProducer()) {
+            String key = recordJson.containsKey("key") ? recordJson.getString("key") : null;
+            List<Header> headers = recordJson.containsKey("headers") ? recordJson.getJsonObject("headers")
+                .entrySet()
+                .stream()
+                .map(h -> new Header() {
+                    @Override
+                    public String key() {
+                        return h.getKey();
+                    }
+
+                    @Override
+                    public byte[] value() {
+                        return ((JsonString) h.getValue()).getString().getBytes();
+                    }
+                })
+                .collect(Collectors.toList()) : Collections.emptyList();
+
+            var meta = producer.send(new ProducerRecord<>(topicName, recordJson.getInt("partition"), key, recordJson.getString("value"), headers)).get();
+            return Response.ok()
+                    .entity(Json.createObjectBuilder()
+                            .add("partition", meta.partition())
+                            .add("offset", meta.offset())
+                            .add("timestamp", Instant.ofEpochMilli(meta.timestamp()).atZone(ZoneOffset.UTC).toString())
+                            .add("key", recordJson.get("key"))
+                            .add("value", recordJson.getString("value"))
+                            .add("headers", recordJson.get("headers"))
+                            .build()
+                            .toString()) // FIXME: toString shouldn't be required
+                    .build();
+        } catch (Exception e) {
+            return Response.serverError()
+                    .entity(Json.createObjectBuilder()
+                            .add("code", 500)
+                            .add("error_message", e.getMessage())
+                            .build()
+                            .toString()) // FIXME: toString shouldn't be required
+                    .build();
+        }
     }
 
     @Override
@@ -310,7 +483,7 @@ public class RestOperations implements OperationsHandler {
                     try {
                         client.close();
                     } catch (Exception e) {
-                        log.warn("Exception closing Kafka AdminClient", e);
+                        log.warnf("Exception closing Kafka AdminClient", e);
                     }
                 });
     }
