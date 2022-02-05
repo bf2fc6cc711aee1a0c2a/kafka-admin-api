@@ -19,7 +19,6 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 import javax.inject.Inject;
-import javax.ws.rs.core.HttpHeaders;
 import javax.ws.rs.core.Response.Status;
 
 import static io.restassured.RestAssured.given;
@@ -123,7 +122,7 @@ class ConsumerGroupsOAuthTestIT {
 
         given()
             .log().ifValidationFails()
-            .header(HttpHeaders.AUTHORIZATION, "invalid.bearer.token")
+            .header(tokenUtils.invalidAuthorizationHeader())
         .when()
             .get(CONSUMER_GROUP_COLLECTION_PATH)
         .then()
@@ -226,7 +225,7 @@ class ConsumerGroupsOAuthTestIT {
 
             given()
                 .log().ifValidationFails()
-                .header(HttpHeaders.AUTHORIZATION, "invalid.bearer.token")
+                .header(tokenUtils.invalidAuthorizationHeader())
             .when()
                 .get(CONSUMER_GROUP_PATH, groupId)
             .then()
@@ -356,7 +355,7 @@ class ConsumerGroupsOAuthTestIT {
 
         given()
             .log().ifValidationFails()
-            .header(HttpHeaders.AUTHORIZATION, "invalid.bearer.token")
+            .header(tokenUtils.invalidAuthorizationHeader())
         .when()
             .delete(CONSUMER_GROUP_PATH, groupIds.get(0))
         .then()

@@ -12,6 +12,7 @@ import java.net.http.HttpResponse.BodyHandlers;
 import java.util.UUID;
 
 import javax.json.Json;
+import javax.json.JsonObject;
 import javax.json.JsonReader;
 import javax.ws.rs.core.HttpHeaders;
 
@@ -28,11 +29,19 @@ public class TokenUtils {
         return new Header(HttpHeaders.AUTHORIZATION, "Bearer " + getToken(username));
     }
 
+    public Header invalidAuthorizationHeader() {
+        return new Header(HttpHeaders.AUTHORIZATION, "Bearer invalid.bearer.token");
+    }
+
     public String getToken(String username) {
         if (username == null) {
             return UUID.randomUUID().toString();
         }
 
+        return getTokenObject(username).getString("access_token");
+    }
+
+    public JsonObject getTokenObject(String username) {
         final String payload = String.format("grant_type=password&username=%1$s&password=%1$s-password&client_id=kafka-cli", username);
 
         /*
@@ -55,7 +64,7 @@ public class TokenUtils {
                     .send(request, BodyHandlers.ofString());
 
             try (JsonReader reader = Json.createReader(new StringReader(response.body()))) {
-                return reader.readObject().getString("access_token");
+                return reader.readObject();
             }
         } catch (IOException | InterruptedException e) {
             throw new RuntimeException(e);

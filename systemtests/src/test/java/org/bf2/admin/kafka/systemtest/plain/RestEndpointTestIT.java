@@ -23,9 +23,6 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 import javax.inject.Inject;
-import javax.json.Json;
-import javax.json.JsonArrayBuilder;
-import javax.json.JsonObject;
 import javax.ws.rs.core.Response.Status;
 
 import static io.restassured.RestAssured.given;
@@ -38,9 +35,6 @@ import static org.hamcrest.Matchers.notNullValue;
 @QuarkusTest
 @TestProfile(TestPlainProfile.class)
 class RestEndpointTestIT {
-
-    static final String TOPIC_COLLECTION_PATH = "/rest/topics";
-    static final String TOPIC_PATH = "/rest/topics/{topicName}";
 
     @Inject
     Config config;
@@ -61,12 +55,12 @@ class RestEndpointTestIT {
                 .mapToObj(i -> UUID.randomUUID().toString())
                 .collect(Collectors.toList());
 
-        createTopics(topicNames, 1, Status.CREATED);
+        topicUtils.createTopics(topicNames, 1, Status.CREATED);
 
         given()
             .log().ifValidationFails()
         .when()
-            .get(TOPIC_COLLECTION_PATH)
+            .get(TopicUtils.TOPIC_COLLECTION_PATH)
         .then()
             .log().ifValidationFails()
             .statusCode(Status.OK.getStatusCode())
@@ -104,13 +98,13 @@ class RestEndpointTestIT {
                 .filter(name -> name.contains("-even-"))
                 .toArray(String[]::new);
 
-        createTopics(topicNames, 1, Status.CREATED);
+        topicUtils.createTopics(topicNames, 1, Status.CREATED);
 
         given()
             .queryParam("filter", "even")
             .log().ifValidationFails()
         .when()
-            .get(TOPIC_COLLECTION_PATH)
+            .get(TopicUtils.TOPIC_COLLECTION_PATH)
         .then()
             .log().ifValidationFails()
             .statusCode(Status.OK.getStatusCode())
@@ -136,14 +130,14 @@ class RestEndpointTestIT {
         int expectedEnd = expectedStart + pageSize;
         List<String> expectedNames = topicNames.subList(expectedStart, Math.min(expectedEnd, topicNames.size()));
 
-        createTopics(topicNames, 1, Status.CREATED);
+        topicUtils.createTopics(topicNames, 1, Status.CREATED);
 
         given()
             .queryParam("size", pageSize)
             .queryParam("page", page)
             .log().ifValidationFails()
         .when()
-            .get(TOPIC_COLLECTION_PATH)
+            .get(TopicUtils.TOPIC_COLLECTION_PATH)
         .then()
             .log().ifValidationFails()
             .statusCode(Status.OK.getStatusCode())
@@ -164,14 +158,14 @@ class RestEndpointTestIT {
                 .sorted() // API sorts by name by default
                 .collect(Collectors.toList());
 
-        createTopics(topicNames, 1, Status.CREATED);
+        topicUtils.createTopics(topicNames, 1, Status.CREATED);
 
         given()
             .queryParam("size", pageSize)
             .queryParam("page", page)
             .log().ifValidationFails()
         .when()
-            .get(TOPIC_COLLECTION_PATH)
+            .get(TopicUtils.TOPIC_COLLECTION_PATH)
         .then()
             .log().ifValidationFails()
             .statusCode(Status.BAD_REQUEST.getStatusCode());
@@ -188,13 +182,13 @@ class RestEndpointTestIT {
 
         List<String> expectedNames = topicNames.subList(0, limit);
 
-        createTopics(topicNames, 1, Status.CREATED);
+        topicUtils.createTopics(topicNames, 1, Status.CREATED);
 
         given()
             .queryParam("limit", limit)
             .log().ifValidationFails()
         .when()
-            .get(TOPIC_COLLECTION_PATH)
+            .get(TopicUtils.TOPIC_COLLECTION_PATH)
         .then()
             .log().ifValidationFails()
             .statusCode(Status.OK.getStatusCode())
@@ -219,14 +213,14 @@ class RestEndpointTestIT {
             topicNames.subList(offset, totalTopics).toArray(String[]::new) :
             null;
 
-        createTopics(topicNames, 1, Status.CREATED);
+        topicUtils.createTopics(topicNames, 1, Status.CREATED);
 
         var response =
             given()
                 .queryParam("offset", offset)
                 .log().ifValidationFails()
             .when()
-                .get(TOPIC_COLLECTION_PATH)
+                .get(TopicUtils.TOPIC_COLLECTION_PATH)
             .then()
                 .log().ifValidationFails();
 
@@ -250,13 +244,13 @@ class RestEndpointTestIT {
                 .mapToObj(i -> UUID.randomUUID().toString())
                 .collect(Collectors.toList());
 
-        createTopics(topicNames, 1, Status.CREATED);
+        topicUtils.createTopics(topicNames, 1, Status.CREATED);
 
         given()
             .queryParam("filter", "zcfsada.*")
             .log().ifValidationFails()
         .when()
-            .get(TOPIC_COLLECTION_PATH)
+            .get(TopicUtils.TOPIC_COLLECTION_PATH)
         .then()
             .log().ifValidationFails()
             .statusCode(Status.OK.getStatusCode())
@@ -278,13 +272,13 @@ class RestEndpointTestIT {
 
         List<String> expectedNames = topicNames.subList(0, Math.min(topicNames.size(), size));
 
-        createTopics(topicNames, 1, Status.CREATED);
+        topicUtils.createTopics(topicNames, 1, Status.CREATED);
 
         given()
             .queryParam("size", size)
             .log().ifValidationFails()
         .when()
-            .get(TOPIC_COLLECTION_PATH)
+            .get(TopicUtils.TOPIC_COLLECTION_PATH)
         .then()
             .log().ifValidationFails()
             .statusCode(Status.OK.getStatusCode())
@@ -305,14 +299,14 @@ class RestEndpointTestIT {
                 .sorted() // API sorts by name by default
                 .collect(Collectors.toList());
 
-        createTopics(topicNames, 1, Status.CREATED);
+        topicUtils.createTopics(topicNames, 1, Status.CREATED);
 
         var response =
             given()
                 .queryParam("page", page)
                 .log().ifValidationFails()
             .when()
-                .get(TOPIC_COLLECTION_PATH)
+                .get(TopicUtils.TOPIC_COLLECTION_PATH)
             .then()
                 .log().ifValidationFails();
 
@@ -338,12 +332,12 @@ class RestEndpointTestIT {
     void testDescribeSingleTopic() throws Exception {
         final String topicName = UUID.randomUUID().toString();
         final int numPartitions = 2;
-        createTopics(List.of(topicName), numPartitions, Status.CREATED);
+        topicUtils.createTopics(List.of(topicName), numPartitions, Status.CREATED);
 
         given()
             .log().ifValidationFails()
         .when()
-            .get(TOPIC_PATH, Map.of("topicName", topicName))
+            .get(TopicUtils.TOPIC_PATH, topicName)
         .then()
             .log().ifValidationFails()
             .statusCode(Status.OK.getStatusCode())
@@ -374,7 +368,7 @@ class RestEndpointTestIT {
         given()
             .log().ifValidationFails()
         .when()
-            .get(TOPIC_PATH, Map.of("topicName", "nosuchtopic-" + UUID.randomUUID().toString()))
+            .get(TopicUtils.TOPIC_PATH, "nosuchtopic-" + UUID.randomUUID().toString())
         .then()
             .log().ifValidationFails()
             .statusCode(Status.NOT_FOUND.getStatusCode());
@@ -387,11 +381,11 @@ class RestEndpointTestIT {
         String minInSyncReplicas = "1";
 
         given()
-            .body(buildNewTopicRequest(topicName, numPartitions, Map.of("min.insync.replicas", minInSyncReplicas)).toString())
+            .body(TopicUtils.buildNewTopicRequest(topicName, numPartitions, Map.of("min.insync.replicas", minInSyncReplicas)).toString())
             .contentType(ContentType.JSON)
             .log().ifValidationFails()
         .when()
-            .post(TOPIC_COLLECTION_PATH)
+            .post(TopicUtils.TOPIC_COLLECTION_PATH)
         .then()
             .log().ifValidationFails()
             .statusCode(Status.CREATED.getStatusCode())
@@ -432,7 +426,7 @@ class RestEndpointTestIT {
             .contentType(ContentType.JSON)
             .log().ifValidationFails()
         .when()
-            .post(TOPIC_COLLECTION_PATH)
+            .post(TopicUtils.TOPIC_COLLECTION_PATH)
         .then()
             .log().ifValidationFails()
             .statusCode(Status.BAD_REQUEST.getStatusCode())
@@ -440,17 +434,17 @@ class RestEndpointTestIT {
             .body("code", equalTo(Status.BAD_REQUEST.getStatusCode()))
             .body("error_message", notNullValue());
 
-        assertNoTopicsExist();
+        topicUtils.assertNoTopicsExist();
     }
 
     @Test
     void testCreateTopicWithInvalidName() {
         given()
-            .body(buildNewTopicRequest("testTopic3_9-=", 3, Collections.emptyMap()).toString())
+            .body(TopicUtils.buildNewTopicRequest("testTopic3_9-=", 3, Collections.emptyMap()).toString())
             .contentType(ContentType.JSON)
             .log().ifValidationFails()
         .when()
-            .post(TOPIC_COLLECTION_PATH)
+            .post(TopicUtils.TOPIC_COLLECTION_PATH)
         .then()
             .log().ifValidationFails()
             .statusCode(Status.BAD_REQUEST.getStatusCode())
@@ -458,18 +452,18 @@ class RestEndpointTestIT {
             .body("code", equalTo(Status.BAD_REQUEST.getStatusCode()))
             .body("error_message", notNullValue());
 
-        assertNoTopicsExist();
+        topicUtils.assertNoTopicsExist();
     }
 
     @Test
     void testCreateFaultTopic() {
         given()
             // Invalid value for configuration cleanup.policy: String must be one of: compact, delete
-            .body(buildNewTopicRequest(UUID.randomUUID().toString(), 3, Map.of("cleanup.policy", "true")).toString())
+            .body(TopicUtils.buildNewTopicRequest(UUID.randomUUID().toString(), 3, Map.of("cleanup.policy", "true")).toString())
             .contentType(ContentType.JSON)
             .log().ifValidationFails()
         .when()
-            .post(TOPIC_COLLECTION_PATH)
+            .post(TopicUtils.TOPIC_COLLECTION_PATH)
         .then()
             .log().ifValidationFails()
             .statusCode(Status.BAD_REQUEST.getStatusCode())
@@ -477,21 +471,21 @@ class RestEndpointTestIT {
             .body("code", equalTo(Status.BAD_REQUEST.getStatusCode()))
             .body("error_message", notNullValue());
 
-        assertNoTopicsExist();
+        topicUtils.assertNoTopicsExist();
     }
 
     @Test
     void testCreateDuplicatedTopic() {
         final String topicName = UUID.randomUUID().toString();
         final int numPartitions = 2;
-        createTopics(List.of(topicName), numPartitions, Status.CREATED);
+        topicUtils.createTopics(List.of(topicName), numPartitions, Status.CREATED);
 
         given()
-            .body(buildNewTopicRequest(topicName, 1, Collections.emptyMap()).toString())
+            .body(TopicUtils.buildNewTopicRequest(topicName, 1, Collections.emptyMap()).toString())
             .contentType(ContentType.JSON)
             .log().ifValidationFails()
         .when()
-            .post(TOPIC_COLLECTION_PATH)
+            .post(TopicUtils.TOPIC_COLLECTION_PATH)
         .then()
             .log().ifValidationFails()
             .statusCode(Status.CONFLICT.getStatusCode())
@@ -506,11 +500,11 @@ class RestEndpointTestIT {
         final String topicName = UUID.randomUUID().toString();
 
         given()
-            .body(buildNewTopicRequest(topicName, numPartitions, Collections.emptyMap()).toString())
+            .body(TopicUtils.buildNewTopicRequest(topicName, numPartitions, Collections.emptyMap()).toString())
             .contentType(ContentType.JSON)
             .log().ifValidationFails()
         .when()
-            .post(TOPIC_COLLECTION_PATH)
+            .post(TopicUtils.TOPIC_COLLECTION_PATH)
         .then()
             .log().ifValidationFails()
             .statusCode(Status.BAD_REQUEST.getStatusCode())
@@ -518,23 +512,23 @@ class RestEndpointTestIT {
             .body("code", equalTo(Status.BAD_REQUEST.getStatusCode()))
             .body("error_message", notNullValue());
 
-        assertNoTopicsExist();
+        topicUtils.assertNoTopicsExist();
     }
 
     @Test
     void testTopicDeleteSingle() {
         final String topicName = UUID.randomUUID().toString();
-        createTopics(List.of(topicName), 2, Status.CREATED);
+        topicUtils.createTopics(List.of(topicName), 2, Status.CREATED);
 
         given()
             .log().ifValidationFails()
         .when()
-            .delete(TOPIC_PATH, Map.of("topicName", topicName))
+            .delete(TopicUtils.TOPIC_PATH, topicName)
         .then()
             .log().ifValidationFails()
             .statusCode(Status.OK.getStatusCode());
 
-        assertNoTopicsExist();
+        topicUtils.assertNoTopicsExist();
     }
 
 //    @Test
@@ -560,7 +554,7 @@ class RestEndpointTestIT {
         given()
             .log().ifValidationFails()
         .when()
-            .delete(TOPIC_PATH, Map.of("topicName", "nosuchtopic-" + UUID.randomUUID().toString()))
+            .delete(TopicUtils.TOPIC_PATH, "nosuchtopic-" + UUID.randomUUID().toString())
         .then()
             .log().ifValidationFails()
             .statusCode(Status.NOT_FOUND.getStatusCode())
@@ -568,7 +562,7 @@ class RestEndpointTestIT {
             .body("code", equalTo(Status.NOT_FOUND.getStatusCode()))
             .body("error_message", notNullValue());
 
-        assertNoTopicsExist();
+        topicUtils.assertNoTopicsExist();
     }
 
     @Test
@@ -576,17 +570,17 @@ class RestEndpointTestIT {
         final String topicName = UUID.randomUUID().toString();
         final int numPartitions = 2;
 
-        createTopics(List.of(topicName), numPartitions, Status.CREATED);
+        topicUtils.createTopics(List.of(topicName), numPartitions, Status.CREATED);
 
         // Original value is "1" by `createTopics`
         String minInSyncReplicas = "2";
 
         given()
-            .body(buildUpdateTopicRequest(topicName, numPartitions, Map.of("min.insync.replicas", minInSyncReplicas)).toString())
+            .body(TopicUtils.buildUpdateTopicRequest(topicName, numPartitions, Map.of("min.insync.replicas", minInSyncReplicas)).toString())
             .contentType(ContentType.JSON)
             .log().ifValidationFails()
         .when()
-            .patch(TOPIC_PATH, Map.of("topicName", topicName))
+            .patch(TopicUtils.TOPIC_PATH, topicName)
         .then()
             .log().ifValidationFails()
             .statusCode(Status.OK.getStatusCode())
@@ -627,17 +621,17 @@ class RestEndpointTestIT {
         final int originalNumPartitions = 1;
         final int updatedNumPartitions = 3;
 
-        createTopics(List.of(topicName), originalNumPartitions, Status.CREATED);
+        topicUtils.createTopics(List.of(topicName), originalNumPartitions, Status.CREATED);
 
         // Original value is "1" by `createTopics`
         String minInSyncReplicas = "2";
 
         given()
-            .body(buildUpdateTopicRequest(topicName, updatedNumPartitions, Map.of("min.insync.replicas", minInSyncReplicas)).toString())
+            .body(TopicUtils.buildUpdateTopicRequest(topicName, updatedNumPartitions, Map.of("min.insync.replicas", minInSyncReplicas)).toString())
             .contentType(ContentType.JSON)
             .log().ifValidationFails()
         .when()
-            .patch(TOPIC_PATH, Map.of("topicName", topicName))
+            .patch(TopicUtils.TOPIC_PATH, topicName)
         .then()
             .log().ifValidationFails()
             .statusCode(Status.OK.getStatusCode())
@@ -654,14 +648,14 @@ class RestEndpointTestIT {
         final int originalNumPartitions = 3;
         final int updatedNumPartitions = 2;
 
-        createTopics(List.of(topicName), originalNumPartitions, Status.CREATED);
+        topicUtils.createTopics(List.of(topicName), originalNumPartitions, Status.CREATED);
 
         given()
-            .body(buildUpdateTopicRequest(topicName, updatedNumPartitions, Collections.emptyMap()).toString())
+            .body(TopicUtils.buildUpdateTopicRequest(topicName, updatedNumPartitions, Collections.emptyMap()).toString())
             .contentType(ContentType.JSON)
             .log().ifValidationFails()
         .when()
-            .patch(TOPIC_PATH, Map.of("topicName", topicName))
+            .patch(TopicUtils.TOPIC_PATH, topicName)
         .then()
             .log().ifValidationFails()
             .statusCode(Status.BAD_REQUEST.getStatusCode())
@@ -677,7 +671,7 @@ class RestEndpointTestIT {
             .header("Access-Control-Request-Method", "POST")
             .log().ifValidationFails()
             .when()
-                .options(TOPIC_COLLECTION_PATH)
+                .options(TopicUtils.TOPIC_COLLECTION_PATH)
             .then()
                 .log().ifValidationFails()
                 .statusCode(Status.OK.getStatusCode())
@@ -686,63 +680,4 @@ class RestEndpointTestIT {
                         equalTo(String.valueOf(Duration.ofHours(2).toSeconds())));
     }
 
-    static void createTopics(List<String> names, int numPartitions, Status expectedStatus) {
-        names.forEach(name -> {
-            given()
-                .body(buildNewTopicRequest(name, numPartitions, Map.of("min.insync.replicas", "1")).toString())
-                .contentType(ContentType.JSON)
-                .log().ifValidationFails()
-            .when()
-                .post(TOPIC_COLLECTION_PATH)
-            .then()
-                .log().ifValidationFails()
-                .statusCode(expectedStatus.getStatusCode());
-        });
-    }
-
-    static void assertNoTopicsExist() {
-        given()
-            .log().ifValidationFails()
-        .when()
-            .get(TOPIC_COLLECTION_PATH)
-        .then()
-            .log().ifValidationFails()
-            .statusCode(Status.OK.getStatusCode())
-        .assertThat()
-            .body("page", equalTo(1))
-            .body("size", equalTo(10))
-            .body("total", equalTo(0))
-            .body("items.size()", equalTo(0));
-    }
-
-    static JsonObject buildNewTopicRequest(String name, int numPartitions, Map<String, String> config) {
-        JsonArrayBuilder configBuilder = Json.createArrayBuilder();
-
-        config.forEach((key, value) ->
-            configBuilder.add(Json.createObjectBuilder()
-                              .add("key", key)
-                              .add("value", value)));
-
-        return Json.createObjectBuilder()
-            .add("name", name)
-            .add("settings", Json.createObjectBuilder()
-                 .add("numPartitions", numPartitions)
-                 .add("config", configBuilder))
-            .build();
-    }
-
-    static JsonObject buildUpdateTopicRequest(String name, int numPartitions, Map<String, String> config) {
-        JsonArrayBuilder configBuilder = Json.createArrayBuilder();
-
-        config.forEach((key, value) ->
-            configBuilder.add(Json.createObjectBuilder()
-                              .add("key", key)
-                              .add("value", value)));
-
-        return Json.createObjectBuilder()
-            .add("name", name)
-            .add("numPartitions", numPartitions)
-            .add("config", configBuilder)
-            .build();
-    }
 }

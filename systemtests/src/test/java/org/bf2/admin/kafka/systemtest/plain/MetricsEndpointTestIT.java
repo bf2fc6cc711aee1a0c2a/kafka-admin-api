@@ -5,18 +5,14 @@ import io.quarkus.test.junit.QuarkusTest;
 import io.quarkus.test.junit.TestProfile;
 import io.restassured.http.ContentType;
 import org.bf2.admin.kafka.systemtest.TestPlainProfile;
+import org.bf2.admin.kafka.systemtest.utils.MetricsUtils;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-import java.io.BufferedReader;
-import java.io.IOException;
-import java.io.InputStreamReader;
-import java.io.UncheckedIOException;
-import java.math.BigDecimal;
 import java.net.URL;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
@@ -36,21 +32,28 @@ class MetricsEndpointTestIT {
     @TestHTTPResource("/metrics")
     URL metricsUrl;
 
+    MetricsUtils metricsUtils;
+
+    @BeforeEach
+    void setup() {
+        this.metricsUtils = new MetricsUtils(metricsUrl);
+    }
+
     @Test
     void testListTopicMetrics() {
         final int number = 3;
-        List<String> preMetrics = getMetrics();
+        List<String> preMetrics = metricsUtils.getMetrics();
 
         listTopics(number, Status.OK);
 
-        List<String> postMetrics = getMetrics();
-        assertEquals(number, getMetricDiff(preMetrics, postMetrics, "^list_topics_requests_total[ {]").intValueExact());
+        List<String> postMetrics = metricsUtils.getMetrics();
+        assertEquals(number, metricsUtils.getMetricDiff(preMetrics, postMetrics, "^list_topics_requests_total[ {]").intValueExact());
     }
 
     @Test
     void testCreateTopicMetrics() {
         final int number = 4;
-        List<String> preMetrics = getMetrics();
+        List<String> preMetrics = metricsUtils.getMetrics();
 
         List<String> topicNames = IntStream.range(0, number)
                 .mapToObj(Integer::toString)
@@ -59,14 +62,14 @@ class MetricsEndpointTestIT {
 
         createTopics(topicNames, 1, Status.CREATED);
 
-        List<String> postMetrics = getMetrics();
-        assertEquals(number, getMetricDiff(preMetrics, postMetrics, "^create_topic_requests_total[ {]").intValueExact());
+        List<String> postMetrics = metricsUtils.getMetrics();
+        assertEquals(number, metricsUtils.getMetricDiff(preMetrics, postMetrics, "^create_topic_requests_total[ {]").intValueExact());
     }
 
     @Test
     void testDeleteTopicMetrics() {
         final int number = 2;
-        List<String> preMetrics = getMetrics();
+        List<String> preMetrics = metricsUtils.getMetrics();
 
         List<String> topicNames = IntStream.range(0, number)
                 .mapToObj(Integer::toString)
@@ -76,14 +79,14 @@ class MetricsEndpointTestIT {
         createTopics(topicNames, 1, Status.CREATED);
         deleteTopics(topicNames, Status.OK);
 
-        List<String> postMetrics = getMetrics();
-        assertEquals(number, getMetricDiff(preMetrics, postMetrics, "^delete_topic_requests_total[ {]").intValueExact());
+        List<String> postMetrics = metricsUtils.getMetrics();
+        assertEquals(number, metricsUtils.getMetricDiff(preMetrics, postMetrics, "^delete_topic_requests_total[ {]").intValueExact());
     }
 
     @Test
     void testDescribeTopicMetrics() throws Exception {
         final int number = 3;
-        List<String> preMetrics = getMetrics();
+        List<String> preMetrics = metricsUtils.getMetrics();
 
         List<String> topicNames = IntStream.range(0, number)
                 .mapToObj(Integer::toString)
@@ -93,14 +96,14 @@ class MetricsEndpointTestIT {
         createTopics(topicNames, 1, Status.CREATED);
         describeTopics(topicNames, Status.OK);
 
-        List<String> postMetrics = getMetrics();
-        assertEquals(number, getMetricDiff(preMetrics, postMetrics, "^describe_topic_requests_total[ {]").intValueExact());
+        List<String> postMetrics = metricsUtils.getMetrics();
+        assertEquals(number, metricsUtils.getMetricDiff(preMetrics, postMetrics, "^describe_topic_requests_total[ {]").intValueExact());
     }
 
     @Test
     void testUpdateTopicMetrics() {
         final int number = 2;
-        List<String> preMetrics = getMetrics();
+        List<String> preMetrics = metricsUtils.getMetrics();
 
         List<String> topicNames = IntStream.range(0, number)
                 .mapToObj(Integer::toString)
@@ -110,13 +113,13 @@ class MetricsEndpointTestIT {
         createTopics(topicNames, 1, Status.CREATED);
         updateTopics(topicNames);
 
-        List<String> postMetrics = getMetrics();
-        assertEquals(number, getMetricDiff(preMetrics, postMetrics, "^update_topic_requests_total[ {]").intValueExact());
+        List<String> postMetrics = metricsUtils.getMetrics();
+        assertEquals(number, metricsUtils.getMetricDiff(preMetrics, postMetrics, "^update_topic_requests_total[ {]").intValueExact());
     }
 
     @Test
     void testAdminSucceededAndFailedMetrics() {
-        List<String> preMetrics = getMetrics();
+        List<String> preMetrics = metricsUtils.getMetrics();
 
         Map<String, Integer> failedRequests = new HashMap<>();
         int successfulRequests = 0;
@@ -137,12 +140,12 @@ class MetricsEndpointTestIT {
         successfulRequests++;
 
         int totalFailedRequests = failedRequests.values().stream().mapToInt(Integer::intValue).sum();
-        List<String> postMetrics = getMetrics();
+        List<String> postMetrics = metricsUtils.getMetrics();
 
-        assertEquals(successfulRequests, getMetricDiff(preMetrics, postMetrics, "^succeeded_requests_total[ {]").intValueExact());
-        assertEquals(successfulRequests + totalFailedRequests, getMetricDiff(preMetrics, postMetrics, "^requests_total[ {]").intValueExact());
-        assertEquals(failedRequests.get("400"), getMetricDiff(preMetrics, postMetrics, "^failed_requests_total\\{.*status_code=\"400\"").intValueExact());
-        assertEquals(failedRequests.get("404"), getMetricDiff(preMetrics, postMetrics, "^failed_requests_total\\{.*status_code=\"404\"").intValueExact());
+        assertEquals(successfulRequests, metricsUtils.getMetricDiff(preMetrics, postMetrics, "^succeeded_requests_total[ {]").intValueExact());
+        assertEquals(successfulRequests + totalFailedRequests, metricsUtils.getMetricDiff(preMetrics, postMetrics, "^requests_total[ {]").intValueExact());
+        assertEquals(failedRequests.get("400"), metricsUtils.getMetricDiff(preMetrics, postMetrics, "^failed_requests_total\\{.*status_code=\"400\"").intValueExact());
+        assertEquals(failedRequests.get("404"), metricsUtils.getMetricDiff(preMetrics, postMetrics, "^failed_requests_total\\{.*status_code=\"404\"").intValueExact());
     }
 
     void listTopics(int times, Status expectedStatus) {
@@ -218,30 +221,5 @@ class MetricsEndpointTestIT {
             .build();
     }
 
-    List<String> getMetrics() {
-        try (BufferedReader in = new BufferedReader(new InputStreamReader(metricsUrl.openStream()))) {
-            return in.lines().collect(Collectors.toList());
-        } catch (IOException e) {
-            throw new UncheckedIOException(e);
-        }
-    }
 
-    BigDecimal getMetricDiff(List<String> preMetrics, List<String> postMetrics, String nameRegex) {
-        Pattern namePattern = Pattern.compile(nameRegex);
-        BigDecimal preValue = getMetricValue(preMetrics, namePattern);
-        BigDecimal postValue = getMetricValue(postMetrics, namePattern);
-        return postValue.subtract(preValue);
-    }
-
-    BigDecimal getMetricValue(List<String> metrics, Pattern namePattern) {
-        return metrics.stream()
-            .filter(record -> !record.startsWith("#"))
-            .filter(record -> namePattern.matcher(record).find())
-            .map(record -> record.split(" +"))
-            .map(fields -> {
-                return new BigDecimal(fields[1]);
-            })
-            .findFirst()
-            .orElse(BigDecimal.ZERO);
-    }
 }
