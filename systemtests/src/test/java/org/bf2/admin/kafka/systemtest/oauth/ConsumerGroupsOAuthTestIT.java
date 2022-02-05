@@ -1,198 +1,379 @@
 package org.bf2.admin.kafka.systemtest.oauth;
 
-import io.vertx.core.Vertx;
-import io.vertx.core.http.HttpClient;
-import io.vertx.core.http.HttpClientResponse;
-import io.vertx.core.http.HttpMethod;
-import io.vertx.junit5.VertxTestContext;
-import org.apache.kafka.clients.admin.ConsumerGroupDescription;
-import org.apache.kafka.clients.admin.ConsumerGroupListing;
-import org.apache.kafka.clients.consumer.OffsetAndMetadata;
-import org.apache.kafka.common.TopicPartition;
-import org.bf2.admin.kafka.admin.model.Types;
-import org.bf2.admin.kafka.systemtest.bases.OauthTestBase;
-import org.bf2.admin.kafka.systemtest.enums.ReturnCodes;
-import org.bf2.admin.kafka.systemtest.utils.SyncMessaging;
-import org.junit.jupiter.api.Disabled;
+import io.quarkus.test.junit.QuarkusTest;
+import io.quarkus.test.junit.TestProfile;
+import org.bf2.admin.kafka.admin.KafkaAdminConfigRetriever;
+import org.bf2.admin.kafka.systemtest.TestOAuthProfile;
+import org.bf2.admin.kafka.systemtest.deployment.DeploymentManager.UserType;
+import org.bf2.admin.kafka.systemtest.utils.ConsumerUtils;
+import org.bf2.admin.kafka.systemtest.utils.TokenUtils;
+import org.bf2.admin.kafka.systemtest.utils.TopicUtils;
+import org.eclipse.microprofile.config.Config;
+import org.hamcrest.Matchers;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-import java.util.Collections;
 import java.util.List;
-import java.util.Map;
-import java.util.Random;
-import java.util.concurrent.TimeUnit;
+import java.util.UUID;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
-import static org.assertj.core.api.Assertions.assertThat;
+import javax.inject.Inject;
+import javax.ws.rs.core.HttpHeaders;
+import javax.ws.rs.core.Response.Status;
 
-@Disabled("Pending migration to Quarkus test framework/restassured")
-class ConsumerGroupsOAuthTestIT extends OauthTestBase {
+import static io.restassured.RestAssured.given;
+import static org.hamcrest.Matchers.contains;
+import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.equalToIgnoringCase;
+import static org.hamcrest.Matchers.hasSize;
+import static org.hamcrest.Matchers.notNullValue;
+import static org.hamcrest.Matchers.startsWith;
 
-    @Test
-    void testConsumerGroupsListAuthorized(Vertx vertx, VertxTestContext testContext) throws Exception {
-        List<String> groupIDS = SyncMessaging.createConsumerGroups(kafkaClient, 2, externalBootstrap, testContext, token);
+@QuarkusTest
+@TestProfile(TestOAuthProfile.class)
+class ConsumerGroupsOAuthTestIT {
 
-        HttpClient client = createHttpClient(vertx);
-        client.request(HttpMethod.GET, publishedAdminPort, "localhost", "/rest/consumer-groups")
-                .compose(req -> req.putHeader("Authorization", "Bearer " + token).send().onSuccess(response -> {
-                    if (response.statusCode() != ReturnCodes.SUCCESS.code) {
-                        testContext.failNow("Status code not correct");
-                    }
-                }).onFailure(testContext::failNow).compose(HttpClientResponse::body))
-                .onComplete(testContext.succeeding(buffer -> testContext.verify(() -> {
-                    assertThat(testContext.failed()).isFalse();
-                    Types.ConsumerGroupList response = MODEL_DESERIALIZER.deserializeResponse(buffer, Types.ConsumerGroupList.class);
-                    List<String> responseGroupIDs = response.getItems().stream().map(cg -> cg.getGroupId()).collect(Collectors.toList());
-                    assertThat(groupIDS).hasSameElementsAs(responseGroupIDs);
-                    testContext.completeNow();
-                })));
-        assertThat(testContext.awaitCompletion(1, TimeUnit.MINUTES)).isTrue();
+    static final String CONSUMER_GROUP_COLLECTION_PATH = "/rest/consumer-groups";
+    static final String CONSUMER_GROUP_PATH = "/rest/consumer-groups/{groupId}";
+
+    @Inject
+    Config config;
+
+    String bootstrapServers;
+    TokenUtils tokenUtils;
+    TopicUtils topicUtils;
+    ConsumerUtils groupUtils;
+    String batchId;
+
+    @BeforeEach
+    void setup() {
+        bootstrapServers = config.getValue(KafkaAdminConfigRetriever.BOOTSTRAP_SERVERS, String.class);
+        tokenUtils = new TokenUtils(config.getValue(KafkaAdminConfigRetriever.OAUTH_TOKEN_ENDPOINT_URI, String.class));
+        String token = tokenUtils.getToken(UserType.OWNER.getUsername());
+        topicUtils = new TopicUtils(bootstrapServers, token);
+        topicUtils.deleteAllTopics();
+        groupUtils = new ConsumerUtils(bootstrapServers, token);
+        batchId = UUID.randomUUID().toString();
     }
 
     @Test
-    void testConsumerGroupsListUnauthorized(Vertx vertx, VertxTestContext testContext) throws Exception {
-        List<String> groupIDS = SyncMessaging.createConsumerGroups(kafkaClient, 2, externalBootstrap, testContext, token);
-        changeTokenToUnauthorized(vertx, testContext);
-        HttpClient client = createHttpClient(vertx);
-        client.request(HttpMethod.GET, publishedAdminPort, "localhost", "/rest/consumer-groups")
-                .compose(req -> req.putHeader("Authorization", "Bearer " + token).send()
-                        .onSuccess(response -> testContext.verify(() -> {
-                            assertThat(response.statusCode()).isEqualTo(ReturnCodes.SUCCESS.code);
-                            testContext.completeNow();
-                        })));
-        assertThat(testContext.awaitCompletion(1, TimeUnit.MINUTES)).isTrue();
+    void testConsumerGroupsListAuthorized() throws Exception {
+        String consumerPath = "items.find { it.groupId == '%1$s' }.consumers.find { it.topic == '%2$s' && it.partition == %3$d }.memberId";
+        String topicName1 = "t1" + batchId;
+        String groupId1 = "g1 + batchId";
+        String clientId1 = "c1" + batchId;
+        String topicName2 = "t2" + batchId;
+        String groupId2 = "g2" + batchId;
+        String clientId2 = "c2" + batchId;
+
+        groupUtils.consume(groupId1, topicName1, clientId1, 2, true);
+
+        try (var openConsumer = groupUtils.consume(groupId2, topicName2, clientId2, 2, false)) {
+            given()
+                .log().ifValidationFails()
+                .header(tokenUtils.authorizationHeader(UserType.OWNER.getUsername()))
+            .when()
+                .get(CONSUMER_GROUP_COLLECTION_PATH)
+            .then()
+                .log().ifValidationFails()
+                .statusCode(Status.OK.getStatusCode())
+            .assertThat()
+                .body("items", hasSize(2))
+                .body("items.state", contains("EMPTY", "STABLE"))
+                .body("items.groupId", contains(groupId1, groupId2))
+                .body("items[0].consumers", hasSize(2))
+                .body("items[1].consumers", hasSize(2))
+                .body(String.format(consumerPath, groupId1, topicName1, 0), Matchers.nullValue()) // group 1 closed
+                .body(String.format(consumerPath, groupId1, topicName1, 1), Matchers.nullValue()) // group 1 closed
+                .body(String.format(consumerPath, groupId2, topicName2, 0), startsWith(clientId2)) // group 2 open
+                .body(String.format(consumerPath, groupId2, topicName2, 1), startsWith(clientId2)); // group 2 open
+        }
     }
 
     @Test
-    void testConsumerGroupsListWithInvalidToken(Vertx vertx, VertxTestContext testContext) throws Exception {
-        List<String> groupIDS = SyncMessaging.createConsumerGroups(kafkaClient, 1, externalBootstrap, testContext, token);
-        kafkaClient.close();
-        String invalidToken = new Random().ints(97, 98)
-                .limit(token.length())
-                .collect(StringBuilder::new, StringBuilder::appendCodePoint, StringBuilder::append)
-                .toString();
-        HttpClient client = createHttpClient(vertx);
-        client.request(HttpMethod.GET, publishedAdminPort, "localhost", "/rest/consumer-groups")
-                .compose(req -> req.putHeader("Authorization", "Bearer " + invalidToken).send()
-                        .onSuccess(response -> testContext.verify(() -> {
-                            assertThat(response.statusCode()).isEqualTo(ReturnCodes.UNAUTHORIZED.code);
-                            testContext.completeNow();
-                        })));
-        assertThat(testContext.awaitCompletion(1, TimeUnit.MINUTES)).isTrue();
+    void testConsumerGroupsListUnauthorized() throws Exception {
+        String topicName1 = "t1" + batchId;
+        String groupId1 = "g1" + batchId;
+        String clientId1 = "c1" + batchId;
+        groupUtils.consume(groupId1, topicName1, clientId1, 2, true);
+
+        given()
+            .log().ifValidationFails()
+            .header(tokenUtils.authorizationHeader(UserType.OTHER.getUsername()))
+        .when()
+            .get(CONSUMER_GROUP_COLLECTION_PATH)
+        .then()
+            .log().ifValidationFails()
+            // User not authorized to view the group, therefore the list is empty
+            .statusCode(Status.OK.getStatusCode())
+        .assertThat()
+            .body("items", hasSize(0))
+            .body("page", equalTo(1))
+            .body("size", equalTo(10))
+            .body("total", equalTo(0));
     }
 
     @Test
-    void testConsumerGroupsDescribeAuthorized(Vertx vertx, VertxTestContext testContext) throws Exception {
-        List<String> groupIDS = SyncMessaging.createConsumerGroups(kafkaClient, 1, externalBootstrap, testContext, token);
+    void testConsumerGroupsListWithInvalidToken() throws Exception {
+        String topicName1 = "t1" + batchId;
+        String groupId1 = "g1" + batchId;
+        String clientId1 = "c1" + batchId;
+        groupUtils.consume(groupId1, topicName1, clientId1, 2, true);
 
-        HttpClient client = createHttpClient(vertx);
-        client.request(HttpMethod.GET, publishedAdminPort, "localhost", "/rest/consumer-groups/" + groupIDS.get(0))
-                .compose(req -> req.putHeader("Authorization", "Bearer " + token).send().onSuccess(response -> {
-                    if (response.statusCode() != ReturnCodes.SUCCESS.code) {
-                        testContext.failNow("Status code not correct. Got: " + response.statusCode() + "expected: " + ReturnCodes.SUCCESS.code);
-                    }
-                }).onFailure(testContext::failNow).compose(HttpClientResponse::body))
-                .onComplete(testContext.succeeding(buffer -> testContext.verify(() -> {
-                    assertThat(testContext.failed()).isFalse();
-                    ConsumerGroupDescription description = kafkaClient.describeConsumerGroups(Collections.singletonList(groupIDS.get(0))).describedGroups().get(groupIDS.get(0)).get();
-                    Map<TopicPartition, OffsetAndMetadata> assignedPartitions = kafkaClient.listConsumerGroupOffsets(groupIDS.get(0)).partitionsToOffsetAndMetadata().get();
-                    Types.ConsumerGroupDescription cG = MODEL_DESERIALIZER.deserializeResponse(buffer, Types.ConsumerGroupDescription.class);
-                    assertThat(cG.getConsumers().size()).isEqualTo(assignedPartitions.size());
-                    assertThat(cG.getState()).isEqualTo(description.state().name());
-                    testContext.completeNow();
-                })));
-        assertThat(testContext.awaitCompletion(1, TimeUnit.MINUTES)).isTrue();
+        given()
+            .log().ifValidationFails()
+            .header(HttpHeaders.AUTHORIZATION, "invalid.bearer.token")
+        .when()
+            .get(CONSUMER_GROUP_COLLECTION_PATH)
+        .then()
+            .log().ifValidationFails()
+            .statusCode(Status.UNAUTHORIZED.getStatusCode());
     }
 
     @Test
-    void testConsumerGroupsDescribeUnauthorized(Vertx vertx, VertxTestContext testContext) throws Exception {
-        List<String> groupIDS = SyncMessaging.createConsumerGroups(kafkaClient, 1, externalBootstrap, testContext, token);
-        changeTokenToUnauthorized(vertx, testContext);
-        HttpClient client = createHttpClient(vertx);
-        client.request(HttpMethod.GET, publishedAdminPort, "localhost", "/rest/consumer-groups/" + groupIDS.get(0))
-                .compose(req -> req.putHeader("Authorization", "Bearer " + token).send()
-                        .onSuccess(response -> testContext.verify(() -> {
-                            assertThat(response.statusCode()).isEqualTo(ReturnCodes.FORBIDDEN.code);
-                            testContext.completeNow();
-                        })));
-        assertThat(testContext.awaitCompletion(1, TimeUnit.MINUTES)).isTrue();
+    void testConsumerGroupsListWithMissingToken() throws Exception {
+        String topicName1 = "t1" + batchId;
+        String groupId1 = "g1" + batchId;
+        String clientId1 = "c1" + batchId;
+        groupUtils.consume(groupId1, topicName1, clientId1, 2, true);
+
+        given()
+            .log().ifValidationFails()
+        .when()
+            .get(CONSUMER_GROUP_COLLECTION_PATH)
+        .then()
+            .log().ifValidationFails()
+            .statusCode(Status.UNAUTHORIZED.getStatusCode());
     }
 
     @Test
-    void testDescribeWithInvalidToken(Vertx vertx, VertxTestContext testContext) throws Exception {
-        List<String> groupIDS = SyncMessaging.createConsumerGroups(kafkaClient, 2, externalBootstrap, testContext, token);
-        kafkaClient.close();
-        String invalidToken = new Random().ints(97, 98)
-                .limit(token.length())
-                .collect(StringBuilder::new, StringBuilder::appendCodePoint, StringBuilder::append)
-                .toString();
-        HttpClient client = createHttpClient(vertx);
-        client.request(HttpMethod.GET, publishedAdminPort, "localhost", "/rest/consumer-groups/" + groupIDS.get(0))
-                .compose(req -> req.putHeader("Authorization", "Bearer " + invalidToken).send()
-                        .onSuccess(response -> testContext.verify(() -> {
-                            assertThat(response.statusCode()).isEqualTo(ReturnCodes.UNAUTHORIZED.code);
-                            testContext.completeNow();
-                        })));
-        assertThat(testContext.awaitCompletion(1, TimeUnit.MINUTES)).isTrue();
+    void testConsumerGroupsDescribeAuthorized() throws Exception {
+        String topicName = "t1" + batchId;
+        String groupId = "g1" + batchId;
+        String clientId = "c1" + batchId;
+        int numPartitions = 2;
+
+        try (var consumer = groupUtils.request()
+                .groupId(groupId)
+                .topic(topicName, numPartitions)
+                .clientId(clientId)
+                .messagesPerTopic(2)
+                .consume()) {
+
+            given()
+                .log().ifValidationFails()
+                .header(tokenUtils.authorizationHeader(UserType.OWNER.getUsername()))
+            .when()
+                .get(CONSUMER_GROUP_PATH, groupId)
+            .then()
+                .log().ifValidationFails()
+                // User not authorized to view the group, therefore the list is empty
+                .statusCode(Status.OK.getStatusCode())
+            .assertThat()
+                .body("groupId", equalTo(groupId))
+                .body("state", equalToIgnoringCase("stable")) // Consumer is still open
+                .body("consumers", hasSize(numPartitions))
+                .body("consumers.findAll { it }.groupId", contains(groupId, groupId))
+                .body("consumers.findAll { it }.topic", contains(topicName, topicName))
+                .body("consumers.findAll { it }.partition", contains(0, 1))
+                .body("consumers.findAll { it }.memberId", contains(startsWith(clientId), startsWith(clientId)));
+        }
     }
 
     @Test
-    void testConsumerGroupsDeleteAuthorized(Vertx vertx, VertxTestContext testContext) throws Exception {
-        List<String> groupIDS = SyncMessaging.createConsumerGroups(kafkaClient, 2, externalBootstrap, testContext, token);
+    void testConsumerGroupsDescribeUnauthorized() {
+        String topicName = "t1" + batchId;
+        String groupId = "g1" + batchId;
+        String clientId = "c1" + batchId;
+        int numPartitions = 2;
 
-        HttpClient client = createHttpClient(vertx);
-        client.request(HttpMethod.DELETE, publishedAdminPort, "localhost", "/rest/consumer-groups/" + groupIDS.get(0))
-                .compose(req -> req.putHeader("Authorization", "Bearer " + token).send().onSuccess(response -> {
-                    if (response.statusCode() != ReturnCodes.GROUP_DELETED.code) {
-                        testContext.failNow("Status code not correct, was: " + response.statusCode() + " expected: " + ReturnCodes.GROUP_DELETED.code);
-                    }
-                }).onFailure(testContext::failNow).compose(HttpClientResponse::body))
-                .onComplete(testContext.succeeding(buffer -> testContext.verify(() -> {
-                    groupIDS.remove(0);
-                    assertThat(testContext.failed()).isFalse();
-                    List<String> consumerGroups = kafkaClient.listConsumerGroups().all().get().stream().map(ConsumerGroupListing::groupId).collect(Collectors.toList());
-                    assertThat(consumerGroups).hasSameElementsAs(groupIDS);
-                    testContext.completeNow();
-                })));
-        assertThat(testContext.awaitCompletion(1, TimeUnit.MINUTES)).isTrue();
+        try (var consumer = groupUtils.request()
+                .groupId(groupId)
+                .topic(topicName, numPartitions)
+                .clientId(clientId)
+                .messagesPerTopic(2)
+                .consume()) {
+
+            given()
+                .log().ifValidationFails()
+                .header(tokenUtils.authorizationHeader(UserType.OTHER.getUsername()))
+            .when()
+                .get(CONSUMER_GROUP_PATH, groupId)
+            .then()
+                .log().ifValidationFails()
+                // User not authorized to view the group, therefore the list is empty
+                .statusCode(Status.FORBIDDEN.getStatusCode())
+            .assertThat()
+                .body("code", equalTo(Status.FORBIDDEN.getStatusCode()))
+                .body("error_message", notNullValue());
+        }
     }
 
     @Test
-    void testConsumerGroupsDeleteUnauthorized(Vertx vertx, VertxTestContext testContext) throws Exception {
-        List<String> groupIDS = SyncMessaging.createConsumerGroups(kafkaClient, 2, externalBootstrap, testContext, token);
-        changeTokenToUnauthorized(vertx, testContext);
-        HttpClient client = createHttpClient(vertx);
-        client.request(HttpMethod.DELETE, publishedAdminPort, "localhost", "/rest/consumer-groups/" + groupIDS.get(0))
-                .compose(req -> req.putHeader("Authorization", "Bearer " + token).send().onSuccess(response -> {
-                    if (response.statusCode() !=  ReturnCodes.FORBIDDEN.code) {
-                        testContext.failNow("Status code " + response.statusCode() + " is not correct");
-                    }
-                }).onFailure(testContext::failNow).compose(HttpClientResponse::body))
-                .onComplete(testContext.succeeding(buffer -> testContext.verify(() -> {
-                    assertThat(testContext.failed()).isFalse();
-                    List<String> ids = kafkaClient.listConsumerGroups().all().get().stream().map(ConsumerGroupListing::groupId).collect(Collectors.toList());
-                    assertThat(ids).hasSameElementsAs(groupIDS);
-                    testContext.completeNow();
-                })));
-        assertThat(testContext.awaitCompletion(1, TimeUnit.MINUTES)).isTrue();
+    void testDescribeWithInvalidToken() {
+        String topicName = "t1" + batchId;
+        String groupId = "g1" + batchId;
+        String clientId = "c1" + batchId;
+        int numPartitions = 2;
+
+        try (var consumer = groupUtils.request()
+                .groupId(groupId)
+                .topic(topicName, numPartitions)
+                .clientId(clientId)
+                .messagesPerTopic(2)
+                .consume()) {
+
+            given()
+                .log().ifValidationFails()
+                .header(HttpHeaders.AUTHORIZATION, "invalid.bearer.token")
+            .when()
+                .get(CONSUMER_GROUP_PATH, groupId)
+            .then()
+                .log().ifValidationFails()
+                .statusCode(Status.UNAUTHORIZED.getStatusCode());
+        }
     }
 
     @Test
-    void testDeleteWithInvalidToken(Vertx vertx, VertxTestContext testContext) throws Exception {
-        List<String> groupIDS = SyncMessaging.createConsumerGroups(kafkaClient, 2, externalBootstrap, testContext, token);
-        kafkaClient.close();
-        String invalidToken = new Random().ints(97, 98)
-                .limit(token.length())
-                .collect(StringBuilder::new, StringBuilder::appendCodePoint, StringBuilder::append)
-                .toString();
-        HttpClient client = createHttpClient(vertx);
-        client.request(HttpMethod.DELETE, publishedAdminPort, "localhost", "/rest/consumer-groups/" + groupIDS.get(0))
-                .compose(req -> req.putHeader("Authorization", "Bearer " + invalidToken).send()
-                        .onSuccess(response -> testContext.verify(() -> {
-                            assertThat(response.statusCode()).isEqualTo(ReturnCodes.UNAUTHORIZED.code);
-                            testContext.completeNow();
-                        })));
-        assertThat(testContext.awaitCompletion(1, TimeUnit.MINUTES)).isTrue();
+    void testDescribeWithMissingToken() {
+        String topicName = "t1" + batchId;
+        String groupId = "g1" + batchId;
+        String clientId = "c1" + batchId;
+        int numPartitions = 2;
+
+        try (var consumer = groupUtils.request()
+                .groupId(groupId)
+                .topic(topicName, numPartitions)
+                .clientId(clientId)
+                .messagesPerTopic(2)
+                .consume()) {
+
+            given()
+                .log().ifValidationFails()
+            .when()
+                .get(CONSUMER_GROUP_PATH, groupId)
+            .then()
+                .log().ifValidationFails()
+                .statusCode(Status.UNAUTHORIZED.getStatusCode());
+        }
+    }
+
+    @Test
+    void testConsumerGroupsDeleteAuthorized() throws Exception {
+        int groupCount = 5;
+        String prefix = UUID.randomUUID().toString();
+
+        List<String> groupIds = IntStream.range(0, groupCount)
+            .mapToObj(i -> String.format("-%03d-%s", i, UUID.randomUUID().toString()))
+            .map(suffix -> {
+                String groupId = prefix + "-g-" + suffix;
+                String topicName = "t-" + suffix;
+                String clientId = "c-" + suffix;
+                groupUtils.consume(groupId, topicName, clientId, 2, true);
+                return groupId;
+            })
+            .collect(Collectors.toList());
+
+        given()
+            .log().ifValidationFails()
+            .header(tokenUtils.authorizationHeader(UserType.OWNER.getUsername()))
+        .when()
+            .delete(CONSUMER_GROUP_PATH, groupIds.get(0))
+        .then()
+            .log().ifValidationFails()
+            .statusCode(Status.NO_CONTENT.getStatusCode());
+
+        given()
+            .queryParam("group-id-filter", prefix + "-g-")
+            .header(tokenUtils.authorizationHeader(UserType.OWNER.getUsername()))
+        .when()
+            .get(CONSUMER_GROUP_COLLECTION_PATH)
+        .then()
+            .log().ifValidationFails()
+            .statusCode(Status.OK.getStatusCode())
+            .assertThat()
+                .body("items.size()", equalTo(groupCount - 1))
+                .body("items.findAll { it }.groupId", contains(groupIds.subList(1, groupCount).toArray(String[]::new)));
+    }
+
+    @Test
+    void testConsumerGroupsDeleteUnauthorized() throws Exception {
+        int groupCount = 5;
+        String prefix = UUID.randomUUID().toString();
+
+        List<String> groupIds = IntStream.range(0, groupCount)
+            .mapToObj(i -> String.format("-%03d-%s", i, UUID.randomUUID().toString()))
+            .map(suffix -> {
+                String groupId = prefix + "-g-" + suffix;
+                String topicName = "t-" + suffix;
+                String clientId = "c-" + suffix;
+                groupUtils.consume(groupId, topicName, clientId, 2, true);
+                return groupId;
+            })
+            .collect(Collectors.toList());
+
+        given()
+            .log().ifValidationFails()
+            .header(tokenUtils.authorizationHeader(UserType.OTHER.getUsername()))
+        .when()
+            .delete(CONSUMER_GROUP_PATH, groupIds.get(0))
+        .then()
+            .log().ifValidationFails()
+            .statusCode(Status.FORBIDDEN.getStatusCode())
+        .assertThat()
+            .body("code", equalTo(Status.FORBIDDEN.getStatusCode()))
+            .body("error_message", notNullValue());
+
+        given()
+            .queryParam("group-id-filter", prefix + "-g-")
+            .header(tokenUtils.authorizationHeader(UserType.OWNER.getUsername()))
+        .when()
+            .get(CONSUMER_GROUP_COLLECTION_PATH)
+        .then()
+            .log().ifValidationFails()
+            .statusCode(Status.OK.getStatusCode())
+            .assertThat()
+                .body("items.size()", equalTo(groupCount))
+                .body("items.findAll { it }.groupId", contains(groupIds.toArray(String[]::new)));
+    }
+
+    @Test
+    void testDeleteWithInvalidToken() throws Exception {
+        int groupCount = 5;
+        String prefix = UUID.randomUUID().toString();
+
+        List<String> groupIds = IntStream.range(0, groupCount)
+            .mapToObj(i -> String.format("-%03d-%s", i, UUID.randomUUID().toString()))
+            .map(suffix -> {
+                String groupId = prefix + "-g-" + suffix;
+                String topicName = "t-" + suffix;
+                String clientId = "c-" + suffix;
+                groupUtils.consume(groupId, topicName, clientId, 2, true);
+                return groupId;
+            })
+            .collect(Collectors.toList());
+
+        given()
+            .log().ifValidationFails()
+            .header(HttpHeaders.AUTHORIZATION, "invalid.bearer.token")
+        .when()
+            .delete(CONSUMER_GROUP_PATH, groupIds.get(0))
+        .then()
+            .log().ifValidationFails()
+            .statusCode(Status.UNAUTHORIZED.getStatusCode());
+
+        given()
+            .queryParam("group-id-filter", prefix + "-g-")
+            .header(tokenUtils.authorizationHeader(UserType.OWNER.getUsername()))
+        .when()
+            .get(CONSUMER_GROUP_COLLECTION_PATH)
+        .then()
+            .log().ifValidationFails()
+            .statusCode(Status.OK.getStatusCode())
+            .assertThat()
+                .body("items.size()", equalTo(groupCount))
+                .body("items.findAll { it }.groupId", contains(groupIds.toArray(String[]::new)));
     }
 
 }

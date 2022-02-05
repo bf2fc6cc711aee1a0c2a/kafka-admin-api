@@ -55,7 +55,7 @@ class PartitionsOffsetOauthIT {
         final String groupId = "g-" + batchId;
         final String clientId = "c-" + batchId;
 
-        try (var consumer = consumerUtils.request().groupId(groupId).topic(topicName).clientId(clientId).produceMessages(5).consume()) {
+        try (var consumer = consumerUtils.request().groupId(groupId).topic(topicName).clientId(clientId).messagesPerTopic(5).consume()) {
             given()
                 .log().ifValidationFails()
                 .contentType(ContentType.JSON)
@@ -96,7 +96,7 @@ class PartitionsOffsetOauthIT {
             .groupId(groupId)
             .topic(topicName)
             .clientId(clientId)
-            .produceMessages(1)
+            .messagesPerTopic(1)
             .autoClose(true)
             .consume();
 
@@ -134,7 +134,7 @@ class PartitionsOffsetOauthIT {
             .groupId(groupId)
             .topic(topicName)
             .clientId(clientId)
-            .produceMessages(10)
+            .messagesPerTopic(10)
             .autoClose(true)
             .consume();
 
@@ -176,7 +176,7 @@ class PartitionsOffsetOauthIT {
             .groupId(groupId)
             .topic(topicName)
             .clientId(clientId)
-            .produceMessages(produceCount)
+            .messagesPerTopic(produceCount)
             .consumeMessages(consumeCount)
             .autoClose(true)
             .consume();
@@ -228,7 +228,7 @@ class PartitionsOffsetOauthIT {
             .groupId(groupId)
             .topic(topicName)
             .clientId(clientId)
-            .produceMessages(firstBatchSize)
+            .messagesPerTopic(firstBatchSize)
             .autoClose(true)
             .consume();
 
@@ -241,7 +241,7 @@ class PartitionsOffsetOauthIT {
             .topic(topicName)
             .createTopic(false)
             .clientId(clientId)
-            .produceMessages(secondBatchSize)
+            .messagesPerTopic(secondBatchSize)
             .autoClose(true)
             .consume();
 
@@ -290,7 +290,7 @@ class PartitionsOffsetOauthIT {
             .groupId(groupId)
             .topic(topicName, 3)
             .clientId(clientId)
-            .produceMessages(20)
+            .messagesPerTopic(20)
             .autoClose(true)
             .consume();
 

@@ -230,7 +230,7 @@ class ConsumerGroupsEndpointTestIT {
             .collect(Collectors.toList());
 
         when()
-            .delete(CONSUMER_GROUP_PATH, Map.of("groupId", groupIds.get(0)))
+            .delete(CONSUMER_GROUP_PATH, groupIds.get(0))
         .then()
             .log().ifValidationFails()
             .statusCode(Status.NO_CONTENT.getStatusCode());
@@ -255,13 +255,13 @@ class ConsumerGroupsEndpointTestIT {
 
         try (var consumer = groupUtils.consume(groupId, topicName, clientId, 2, false)) {
             when()
-                .delete(CONSUMER_GROUP_PATH, Map.of("groupId", groupId))
+                .delete(CONSUMER_GROUP_PATH, groupId)
             .then()
                 .log().ifValidationFails()
                 .statusCode(423);
 
             when()
-                .get(CONSUMER_GROUP_PATH, Map.of("groupId", groupId))
+                .get(CONSUMER_GROUP_PATH, groupId)
             .then()
                 .log().ifValidationFails()
                 .statusCode(Status.OK.getStatusCode())
@@ -295,7 +295,7 @@ class ConsumerGroupsEndpointTestIT {
 
         try (var consumer = groupUtils.consume(groupId, topicName, clientId, 2, false)) {
             when()
-                .get(CONSUMER_GROUP_PATH, Map.of("groupId", groupId))
+                .get(CONSUMER_GROUP_PATH, groupId)
             .then()
                 .log().ifValidationFails()
                 .statusCode(Status.OK.getStatusCode())
@@ -330,7 +330,7 @@ class ConsumerGroupsEndpointTestIT {
     @Test
     void testDescribeNonExistingConsumerGroup() throws Exception {
         when()
-            .get(CONSUMER_GROUP_PATH, Map.of("groupId", UUID.randomUUID().toString()))
+            .get(CONSUMER_GROUP_PATH, UUID.randomUUID().toString())
         .then()
             .log().ifValidationFails()
             .statusCode(Status.NOT_FOUND.getStatusCode())

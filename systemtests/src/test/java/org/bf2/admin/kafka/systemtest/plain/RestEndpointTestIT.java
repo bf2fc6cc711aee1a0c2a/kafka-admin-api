@@ -3,12 +3,10 @@ package org.bf2.admin.kafka.systemtest.plain;
 import io.quarkus.test.junit.QuarkusTest;
 import io.quarkus.test.junit.TestProfile;
 import io.restassured.http.ContentType;
-import org.apache.kafka.clients.admin.Admin;
-import org.apache.kafka.clients.admin.TopicListing;
 import org.bf2.admin.kafka.admin.KafkaAdminConfigRetriever;
 import org.bf2.admin.kafka.systemtest.TestPlainProfile;
 import org.bf2.admin.kafka.systemtest.deployment.KafkaUnsecuredResourceManager;
-import org.bf2.admin.kafka.systemtest.utils.RequestUtils;
+import org.bf2.admin.kafka.systemtest.utils.TopicUtils;
 import org.eclipse.microprofile.config.Config;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -47,24 +45,14 @@ class RestEndpointTestIT {
     @Inject
     Config config;
 
+    TopicUtils topicUtils;
     String bootstrapServers;
 
     @BeforeEach
     void setup() {
         bootstrapServers = config.getValue(KafkaAdminConfigRetriever.BOOTSTRAP_SERVERS, String.class);
-
-        // Tests assume a clean slate - remove any existing topics
-        try (Admin admin = Admin.create(RequestUtils.getKafkaAdminConfig(bootstrapServers))) {
-            admin.listTopics()
-                .listings()
-                .toCompletionStage()
-                .thenApply(topics -> topics.stream().map(TopicListing::name).collect(Collectors.toList()))
-                .thenApply(topicNames -> admin.deleteTopics(topicNames).all().toCompletionStage())
-                .toCompletableFuture()
-                .get();
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
+        topicUtils = new TopicUtils(bootstrapServers, null);
+        topicUtils.deleteAllTopics();
     }
 
     @Test

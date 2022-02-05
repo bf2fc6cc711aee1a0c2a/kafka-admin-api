@@ -60,6 +60,9 @@ public class AdminClientFactory {
         if (config.isOauthEnabled()) {
             if (token.isResolvable()) {
                 final String accessToken = token.get().getRawToken();
+                if (accessToken == null) {
+                    throw new NotAuthorizedException(Response.status(Status.UNAUTHORIZED));
+                }
                 acConfig.put(SaslConfigs.SASL_JAAS_CONFIG, String.format(SASL_OAUTH_CONFIG_TEMPLATE, accessToken));
             } else {
                 log.warn("OAuth is enabled, but there is no JWT principal");

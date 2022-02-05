@@ -19,6 +19,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 
 public class ConsumerUtils {
 
@@ -38,21 +39,19 @@ public class ConsumerUtils {
     public class ConsumerRequest {
         String groupId;
         String clientId;
-        String topicName;
+        List<NewTopic> topics = new ArrayList<>();
         boolean createTopic = true;
-        int numPartitions = 1;
-        int produceMessages = 0;
+        int messagesPerTopic = 0;
         int consumeMessages = 0;
         boolean autoClose = false;
 
         public ConsumerRequest topic(String topicName, int numPartitions) {
-            this.topicName = topicName;
-            this.numPartitions = numPartitions;
+            this.topics.add(new NewTopic(topicName, numPartitions, (short) 1));
             return this;
         }
 
         public ConsumerRequest topic(String topicName) {
-            this.topicName = topicName;
+            this.topics.add(new NewTopic(topicName, 1, (short) 1));
             return this;
         }
 
@@ -71,8 +70,8 @@ public class ConsumerUtils {
             return this;
         }
 
-        public ConsumerRequest produceMessages(int produceMessages) {
-            this.produceMessages = produceMessages;
+        public ConsumerRequest messagesPerTopic(int messagesPerTopic) {
+            this.messagesPerTopic = messagesPerTopic;
             return this;
         }
 
@@ -117,7 +116,7 @@ public class ConsumerUtils {
                 .groupId(groupId)
                 .topic(topicName, numPartitions)
                 .clientId(clientId)
-                .produceMessages(1)
+                .messagesPerTopic(1)
                 .autoClose(autoClose)
                 .consume()
                 .consumer;
@@ -134,7 +133,7 @@ public class ConsumerUtils {
             CompletionStage<Void> initial;
 
             if (consumerRequest.createTopic) {
-                initial = admin.createTopics(List.of(new NewTopic(consumerRequest.topicName, consumerRequest.numPartitions, (short) 1)))
+                initial = admin.createTopics(consumerRequest.topics)
                     .all()
                     .toCompletionStage();
             } else {
@@ -163,13 +162,15 @@ public class ConsumerUtils {
             ClientsConfig.getProducerConfigOauth(bootstrapServers, token) :
             ClientsConfig.getProducerConfig(bootstrapServers);
 
-        if (consumerRequest.produceMessages < 1) {
+        if (consumerRequest.messagesPerTopic < 1) {
             return;
         }
 
         try (var producer = new KafkaProducer<String, String>(producerConfig)) {
-            for (int i = 0; i < consumerRequest.produceMessages; i++) {
-                producer.send(new ProducerRecord<>(consumerRequest.topicName, "message-" + i)).get();
+            for (int i = 0; i < consumerRequest.messagesPerTopic; i++) {
+                for (NewTopic topic : consumerRequest.topics) {
+                    producer.send(new ProducerRecord<>(topic.name(), "message-" + i)).get();
+                }
             }
         } catch (InterruptedException | ExecutionException e) {
             throw new RuntimeException(e);
@@ -191,16 +192,16 @@ public class ConsumerUtils {
         response.consumer = new KafkaConsumer<>(consumerConfig);
 
         try {
-            response.consumer.subscribe(List.of(consumerRequest.topicName));
+            response.consumer.subscribe(consumerRequest.topics.stream().map(NewTopic::name).collect(Collectors.toList()));
 
-            if (consumerRequest.consumeMessages < 1 && consumerRequest.produceMessages < 1) {
+            if (consumerRequest.consumeMessages < 1 && consumerRequest.messagesPerTopic < 1) {
                 var records = response.consumer.poll(Duration.ofSeconds(5));
                 records.forEach(response.records::add);
             } else {
                 int pollCount = 0;
                 int fetchCount = consumerRequest.consumeMessages > 0 ?
                     consumerRequest.consumeMessages :
-                    consumerRequest.produceMessages;
+                    (consumerRequest.messagesPerTopic * consumerRequest.topics.size());
 
                 while (response.records.size() < fetchCount && pollCount++ < 10) {
                     var records = response.consumer.poll(Duration.ofSeconds(1));
