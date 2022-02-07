@@ -719,6 +719,38 @@ paths:
         '500':
           $ref: '#/components/responses/ServerError'
   /: {}
+
+  /v1/errors/{id}:
+    get:
+      operationId: getErrorById
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Get error by Id
+      summary: Returns the error by id
+      tags:
+        - errors
+      parameters:
+        - $ref: "#/components/parameters/id"
+
+    /v1/errors:
+      get:
+        operationId: getErrors
+        responses:
+          "200":
+            content:
+              application/json:
+                schema:
+                  $ref: '#/components/schemas/ErrorList'
+            description: List of possible errors
+        summary: Returns the list of possible API errors
+        tags:
+          - errors
+
+
 components:
   schemas:
     AclBinding:
@@ -1321,18 +1353,56 @@ components:
         size:
           description: Number of entries per page (returned for fetch requests)
           type: number
-    Error:
-      description: General error response
+    List:
+      required:
+        - page
+        - size
+        - total
+        - items
       type: object
       properties:
-        code:
+        kind:
+          type: string
+        page:
           type: integer
-          format: int32
-        error_message:
-          type: string
-        class:
-          type: string
+        size:
+          type: integer
+        total:
+          type: integer
+    Error:
+        - type: object
+          properties:
+            code:
+              type: string
+            reason:
+              type: string
+            operation_id:
+              type: string
+            error_message:
+              type: string
+              description: Error message to the user. Use reason instead
+              deprecated: true
+            class:
+              type: string
+              description: Error class. Use code instead
+              deprecated: true
+    ErrorList:
+      allOf:
+        - $ref: "#/components/schemas/List"
+        - type: object
+          properties:
+            items:
+              type: array
+              items:
+                $ref: "#/components/schemas/Error"
   parameters:
+    id:
+      name: id
+      description: The ID of record
+      schema:
+        type: string
+      in: path
+      required: true
     AclResourceTypeFilter:
       name: resourceType
       in: query
