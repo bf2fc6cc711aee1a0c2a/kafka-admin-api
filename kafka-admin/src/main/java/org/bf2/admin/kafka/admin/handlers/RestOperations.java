@@ -11,7 +11,7 @@ import org.bf2.admin.kafka.admin.KafkaAdminConfigRetriever;
 import org.bf2.admin.kafka.admin.TopicOperations;
 import org.bf2.admin.kafka.admin.model.Types;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
-import org.eclipse.microprofile.context.ManagedExecutor;
+import org.eclipse.microprofile.context.ThreadContext;
 import org.jboss.logging.Logger;
 
 import javax.inject.Inject;
@@ -28,7 +28,6 @@ import java.util.Collections;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
-import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 import java.util.regex.Pattern;
 
@@ -59,7 +58,7 @@ public class RestOperations implements OperationsHandler {
     TopicOperations topicOperations;
 
     @Inject
-    ManagedExecutor contextualExecutor;
+    ThreadContext threadContext;
 
     @Override
     @Counted("create_topic_requests")
@@ -304,22 +303,16 @@ public class RestOperations implements OperationsHandler {
     }
 
     <R> CompletionStage<R> withAdminClient(Function<AdminClient, CompletionStage<R>> function) {
-        AtomicReference<AdminClient> openClient = new AtomicReference<>();
+        final AdminClient client = clientFactory.createAdminClient();
 
-        return contextualExecutor.supplyAsync(clientFactory::createAdminClient)
-            .thenApply(client -> openClient.updateAndGet(nothing -> client))
-            .thenCompose(function)
-            .whenComplete((result, error) -> {
-                AdminClient client = openClient.get();
-
-                if (client != null) {
+        return threadContext.withContextCapture(function.apply(client))
+                .whenComplete((result, error) -> {
                     try {
                         client.close();
                     } catch (Exception e) {
                         log.warn("Exception closing Kafka AdminClient", e);
                     }
-                }
-            });
+                });
     }
 
     CompletionStage<Response> badRequest(String message) {
