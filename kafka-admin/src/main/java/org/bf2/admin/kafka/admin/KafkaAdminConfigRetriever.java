@@ -6,9 +6,8 @@ import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.common.config.SaslConfigs;
 import org.apache.kafka.common.config.SslConfigs;
 import org.apache.kafka.common.security.auth.SecurityProtocol;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
+import org.jboss.logging.Logger;
 
 import javax.annotation.PostConstruct;
 import javax.inject.Inject;
@@ -29,7 +28,7 @@ import java.util.Optional;
 @Singleton
 public class KafkaAdminConfigRetriever {
 
-    protected final Logger log = LogManager.getLogger(KafkaAdminConfigRetriever.class);
+    protected final Logger log = Logger.getLogger(KafkaAdminConfigRetriever.class);
 
     private static final String PREFIX = "kafka.admin.";
     private static final String OAUTHBEARER = "OAUTHBEARER";
@@ -148,7 +147,7 @@ public class KafkaAdminConfigRetriever {
     private void logConfiguration() {
         log.info("AdminClient configuration:");
         acConfig.entrySet().forEach(entry -> {
-            log.info("\t{} = {}", entry.getKey(), entry.getValue());
+            log.infof("\t%s = %s", entry.getKey(), entry.getValue());
         });
     }
 
@@ -172,9 +171,9 @@ public class KafkaAdminConfigRetriever {
                 return Files.readString(certPath);
             }
         } catch (InvalidPathException e) {
-            log.debug("Value of {} was not a valid Path: {}", BROKER_TRUSTED_CERT, e.getMessage());
+            log.debugf("Value of %s was not a valid Path: %s", BROKER_TRUSTED_CERT, e.getMessage());
         } catch (Exception e) {
-            log.warn("Exception loading value of {} as a file: {}", BROKER_TRUSTED_CERT, e.getMessage());
+            log.warnf("Exception loading value of %s as a file: %s", BROKER_TRUSTED_CERT, e.getMessage());
         }
 
         String value = null;
@@ -183,7 +182,7 @@ public class KafkaAdminConfigRetriever {
             value = new String(Base64.getDecoder().decode(certConfig), StandardCharsets.UTF_8);
             log.debug("Successfully decoded base-64 cert config value");
         } catch (IllegalArgumentException e) {
-            log.debug("Cert config value was not base-64 encoded: {}", e.getMessage());
+            log.debugf("Cert config value was not base-64 encoded: %s", e.getMessage());
         }
 
         return value;

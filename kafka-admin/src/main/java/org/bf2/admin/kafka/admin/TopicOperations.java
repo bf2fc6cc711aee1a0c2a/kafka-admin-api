@@ -10,8 +10,6 @@ import io.vertx.kafka.admin.NewTopic;
 import io.vertx.kafka.admin.TopicDescription;
 import io.vertx.kafka.client.common.ConfigResource;
 import org.apache.kafka.common.errors.InvalidRequestException;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
 import org.bf2.admin.kafka.admin.handlers.CommonHandler;
 import org.bf2.admin.kafka.admin.model.Types;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
@@ -31,7 +29,6 @@ import java.util.stream.Collectors;
 
 @ApplicationScoped
 public class TopicOperations {
-    protected static final Logger log = LogManager.getLogger(TopicOperations.class);
 
     public static final short DEFAULT_PARTITIONS = 1;
 

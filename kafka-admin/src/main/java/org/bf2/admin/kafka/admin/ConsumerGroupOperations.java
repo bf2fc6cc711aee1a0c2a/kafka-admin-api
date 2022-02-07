@@ -14,12 +14,11 @@ import io.vertx.kafka.client.consumer.OffsetAndMetadata;
 import org.apache.kafka.common.errors.GroupIdNotFoundException;
 import org.apache.kafka.common.errors.InvalidRequestException;
 import org.apache.kafka.common.errors.UnknownTopicOrPartitionException;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
 import org.bf2.admin.kafka.admin.handlers.CommonHandler;
 import org.bf2.admin.kafka.admin.model.Types;
 import org.bf2.admin.kafka.admin.model.Types.PagedResponse;
 import org.bf2.admin.kafka.admin.model.Types.TopicPartitionResetResult;
+import org.jboss.logging.Logger;
 
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
@@ -45,7 +44,7 @@ import java.util.stream.Stream;
 @SuppressWarnings({"checkstyle:CyclomaticComplexity", "checkstyle:NPathComplexity"})
 public class ConsumerGroupOperations {
 
-    protected static final Logger log = LogManager.getLogger(ConsumerGroupOperations.class);
+    protected static final Logger log = Logger.getLogger(ConsumerGroupOperations.class);
     private static final DateTimeFormatter DATE_TIME_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ssz");
     private static final Pattern MATCH_ALL = Pattern.compile(".*");
     private static final Types.OrderByInput BLANK_ORDER = new Types.OrderByInput();
@@ -213,7 +212,7 @@ public class ConsumerGroupOperations {
                         entry -> entry.getKey(),
                         entry -> {
                             if (entry.getValue().getOffset() < Long.parseLong(parameters.getValue())) {
-                                log.warn("Selected offset {} is larger than latest {}", parameters.getValue(), entry.getValue().getOffset());
+                                log.warnf("Selected offset %s is larger than latest %d", parameters.getValue(), entry.getValue().getOffset());
                             }
                             return new ListOffsetsResultInfo(Long.parseLong(parameters.getValue()), entry.getValue().getTimestamp(), entry.getValue().getLeaderEpoch());
                         })));

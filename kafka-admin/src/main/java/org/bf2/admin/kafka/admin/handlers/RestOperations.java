@@ -5,8 +5,6 @@ import io.micrometer.core.annotation.Timed;
 import io.vertx.core.Vertx;
 import io.vertx.kafka.admin.KafkaAdminClient;
 import org.apache.kafka.clients.admin.AdminClient;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
 import org.bf2.admin.kafka.admin.AccessControlOperations;
 import org.bf2.admin.kafka.admin.ConsumerGroupOperations;
 import org.bf2.admin.kafka.admin.KafkaAdminConfigRetriever;
@@ -14,6 +12,7 @@ import org.bf2.admin.kafka.admin.TopicOperations;
 import org.bf2.admin.kafka.admin.model.Types;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.eclipse.microprofile.context.ManagedExecutor;
+import org.jboss.logging.Logger;
 
 import javax.inject.Inject;
 import javax.ws.rs.BadRequestException;
@@ -36,7 +35,7 @@ import java.util.regex.Pattern;
 @Path("/rest")
 public class RestOperations implements OperationsHandler {
 
-    private static final Logger log = LogManager.getLogger(RestOperations.class);
+    private static final Logger log = Logger.getLogger(RestOperations.class);
 
     private static final Pattern MATCH_ALL = Pattern.compile(".*");
 
@@ -135,7 +134,7 @@ public class RestOperations implements OperationsHandler {
         Types.OrderByInput orderBy = getOrderByInput(requestUri);
 
         if (log.isDebugEnabled()) {
-            log.debug("listGroups orderBy: field: {}, order: {}", orderBy.getField(), orderBy.getOrder());
+            log.debugf("listGroups orderBy: field: %s, order: %s", orderBy.getField(), orderBy.getOrder());
         }
 
         final Pattern topicPattern = filterPattern(topicFilter);

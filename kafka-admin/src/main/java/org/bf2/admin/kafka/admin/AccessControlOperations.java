@@ -9,11 +9,10 @@ import org.apache.kafka.clients.admin.Admin;
 import org.apache.kafka.common.KafkaFuture;
 import org.apache.kafka.common.acl.AclBinding;
 import org.apache.kafka.common.security.auth.KafkaPrincipal;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
 import org.bf2.admin.kafka.admin.model.Types;
 import org.bf2.admin.kafka.admin.model.Types.PagedResponse;
 import org.bf2.admin.kafka.admin.model.Types.SortDirectionEnum;
+import org.jboss.logging.Logger;
 
 import javax.annotation.PostConstruct;
 import javax.enterprise.context.ApplicationScoped;
@@ -37,7 +36,7 @@ public class AccessControlOperations {
 
     public static final String INVALID_ACL_RESOURCE_OPERATION = "Invalid ACL binding resourceType or operation";
 
-    private static final Logger log = LogManager.getLogger(AccessControlOperations.class);
+    private static final Logger log = Logger.getLogger(AccessControlOperations.class);
     private static final String WILDCARD_PRINCIPAL = KafkaPrincipal.USER_TYPE + ":*";
 
     private static final TypeReference<Map<String, List<String>>> TYPEREF_MAP_LIST_STRING =
