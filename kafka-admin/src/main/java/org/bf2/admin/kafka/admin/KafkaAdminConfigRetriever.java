@@ -176,7 +176,7 @@ public class KafkaAdminConfigRetriever {
             log.warnf("Exception loading value of %s as a file: %s", BROKER_TRUSTED_CERT, e.getMessage());
         }
 
-        String value = null;
+        String value = certConfig;
 
         try {
             value = new String(Base64.getDecoder().decode(certConfig), StandardCharsets.UTF_8);
