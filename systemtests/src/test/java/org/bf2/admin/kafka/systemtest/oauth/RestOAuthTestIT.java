@@ -4,7 +4,6 @@ import io.quarkus.test.common.http.TestHTTPResource;
 import io.quarkus.test.junit.QuarkusTest;
 import io.quarkus.test.junit.TestProfile;
 import io.restassured.http.ContentType;
-import org.bf2.admin.kafka.admin.KafkaAdminConfigRetriever;
 import org.bf2.admin.kafka.systemtest.TestOAuthProfile;
 import org.bf2.admin.kafka.systemtest.deployment.DeploymentManager.UserType;
 import org.bf2.admin.kafka.systemtest.utils.MetricsUtils;
@@ -50,13 +49,12 @@ class RestOAuthTestIT {
     @Inject
     Config config;
 
-    String bootstrapServers;
     TopicUtils topicUtils;
     MetricsUtils metricsUtils;
 
     @BeforeAll
     static void initialize() {
-        tokenUtils = new TokenUtils(ConfigProvider.getConfig().getValue(KafkaAdminConfigRetriever.OAUTH_TOKEN_ENDPOINT_URI, String.class));
+        tokenUtils = new TokenUtils(ConfigProvider.getConfig());
         JsonObject token = tokenUtils.getTokenObject(UserType.OWNER.getUsername());
 
         // Fetch one token before the tests begin to minimize wait time in expired token test
@@ -66,10 +64,8 @@ class RestOAuthTestIT {
 
     @BeforeEach
     void setup() {
-        bootstrapServers = config.getValue(KafkaAdminConfigRetriever.BOOTSTRAP_SERVERS, String.class);
-        //tokenUtils = new TokenUtils(config.getValue(KafkaAdminConfigRetriever.OAUTH_TOKEN_ENDPOINT_URI, String.class));
         String token = tokenUtils.getToken(UserType.OWNER.getUsername());
-        topicUtils = new TopicUtils(bootstrapServers, token);
+        topicUtils = new TopicUtils(config, token);
         topicUtils.deleteAllTopics();
         this.metricsUtils = new MetricsUtils(metricsUrl);
     }

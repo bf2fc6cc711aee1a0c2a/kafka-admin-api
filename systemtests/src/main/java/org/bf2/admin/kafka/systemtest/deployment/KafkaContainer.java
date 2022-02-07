@@ -8,6 +8,4 @@ interface KafkaContainer<SELF extends GenericContainer<SELF>> extends Startable,
 
     String getBootstrapServers();
 
-    String getInternalBootstrapServers();
-
 }

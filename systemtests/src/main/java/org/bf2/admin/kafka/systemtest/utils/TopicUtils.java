@@ -4,6 +4,7 @@ import io.restassured.http.ContentType;
 import io.vertx.core.http.HttpHeaders;
 import org.apache.kafka.clients.admin.Admin;
 import org.apache.kafka.clients.admin.TopicListing;
+import org.eclipse.microprofile.config.Config;
 import org.jboss.logging.Logger;
 
 import java.util.Collections;
@@ -28,17 +29,17 @@ public class TopicUtils {
     public static final String TOPIC_PATH = "/rest/topics/{topicName}";
 
     static final Logger log = Logger.getLogger(TopicUtils.class);
-    final String bootstrapServers;
+    final Config config;
     final String token;
     final Properties adminConfig;
 
-    public TopicUtils(String bootstrapServers, String token) {
-        this.bootstrapServers = bootstrapServers;
+    public TopicUtils(Config config, String token) {
+        this.config = config;
         this.token = token;
 
         adminConfig = token != null ?
-            ClientsConfig.getAdminConfigOauth(token, bootstrapServers) :
-            ClientsConfig.getAdminConfig(bootstrapServers);
+            ClientsConfig.getAdminConfigOauth(config, token) :
+            ClientsConfig.getAdminConfig(config);
     }
 
     public void deleteAllTopics() {

@@ -12,6 +12,7 @@ import org.apache.kafka.common.errors.InvalidConfigurationException;
 import org.apache.kafka.common.errors.InvalidPartitionsException;
 import org.apache.kafka.common.errors.InvalidReplicationFactorException;
 import org.apache.kafka.common.errors.InvalidRequestException;
+import org.apache.kafka.common.errors.InvalidTopicException;
 import org.apache.kafka.common.errors.LeaderNotAvailableException;
 import org.apache.kafka.common.errors.PolicyViolationException;
 import org.apache.kafka.common.errors.SaslAuthenticationException;
@@ -20,8 +21,6 @@ import org.apache.kafka.common.errors.TimeoutException;
 import org.apache.kafka.common.errors.TopicExistsException;
 import org.apache.kafka.common.errors.UnknownMemberIdException;
 import org.apache.kafka.common.errors.UnknownTopicOrPartitionException;
-import org.bf2.admin.kafka.admin.InvalidConsumerGroupException;
-import org.bf2.admin.kafka.admin.InvalidTopicException;
 import org.bf2.admin.kafka.admin.model.Types;
 import org.jboss.logging.Logger;
 
@@ -126,7 +125,7 @@ public class CommonHandler {
             || (failureCause.getCause() instanceof SaslAuthenticationException
                     && failureCause.getCause().getMessage().contains("Authentication failed due to an invalid token"))) {
             status = Status.UNAUTHORIZED;
-        } else if (failureCause instanceof org.apache.kafka.common.errors.InvalidTopicException
+        } else if (failureCause instanceof InvalidTopicException
                 || failureCause instanceof PolicyViolationException
                 || failureCause instanceof InvalidReplicationFactorException) {
             status = Status.BAD_REQUEST;
@@ -144,9 +143,7 @@ public class CommonHandler {
         } else if (failureCause instanceof IllegalStateException) {
             status = Status.UNAUTHORIZED;
         } else if (failureCause instanceof DecodeException
-                || failureCause instanceof InvalidTopicException
                 || failureCause instanceof UnknownMemberIdException
-                || failureCause instanceof InvalidConsumerGroupException
                 || failureCause instanceof LeaderNotAvailableException) {
             status = Status.BAD_REQUEST;
         } else if (failureCause instanceof KafkaException) {

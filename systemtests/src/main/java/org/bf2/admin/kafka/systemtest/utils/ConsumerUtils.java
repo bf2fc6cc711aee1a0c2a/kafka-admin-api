@@ -9,6 +9,7 @@ import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerRecord;
+import org.eclipse.microprofile.config.Config;
 
 import java.io.Closeable;
 import java.time.Duration;
@@ -23,12 +24,11 @@ import java.util.stream.Collectors;
 
 public class ConsumerUtils {
 
-    final String bootstrapServers;
+    final Config config;
     final String token;
 
-    public ConsumerUtils(String bootstrapServers, String token) {
-        super();
-        this.bootstrapServers = bootstrapServers;
+    public ConsumerUtils(Config config, String token) {
+        this.config = config;
         this.token = token;
     }
 
@@ -124,8 +124,8 @@ public class ConsumerUtils {
 
     ConsumerResponse consume(ConsumerRequest consumerRequest, boolean autoClose) {
         Properties adminConfig = token != null ?
-            ClientsConfig.getAdminConfigOauth(token, bootstrapServers) :
-            ClientsConfig.getAdminConfig(bootstrapServers);
+            ClientsConfig.getAdminConfigOauth(config, token) :
+            ClientsConfig.getAdminConfig(config);
 
         ConsumerResponse response = new ConsumerResponse();
 
@@ -158,13 +158,13 @@ public class ConsumerUtils {
     }
 
     void produceMessages(ConsumerRequest consumerRequest) {
-        Properties producerConfig = token != null ?
-            ClientsConfig.getProducerConfigOauth(bootstrapServers, token) :
-            ClientsConfig.getProducerConfig(bootstrapServers);
-
         if (consumerRequest.messagesPerTopic < 1) {
             return;
         }
+
+        Properties producerConfig = token != null ?
+            ClientsConfig.getProducerConfigOauth(config, token) :
+            ClientsConfig.getProducerConfig(config);
 
         try (var producer = new KafkaProducer<String, String>(producerConfig)) {
             for (int i = 0; i < consumerRequest.messagesPerTopic; i++) {
@@ -179,8 +179,8 @@ public class ConsumerUtils {
 
     void consumeMessages(ConsumerRequest consumerRequest, ConsumerResponse response) {
         Properties consumerConfig = token != null ?
-            ClientsConfig.getConsumerConfigOauth(bootstrapServers, consumerRequest.groupId, token) :
-            ClientsConfig.getConsumerConfig(bootstrapServers, consumerRequest.groupId);
+            ClientsConfig.getConsumerConfigOauth(config, consumerRequest.groupId, token) :
+            ClientsConfig.getConsumerConfig(config, consumerRequest.groupId);
 
         consumerConfig.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
         consumerConfig.put(CommonClientConfigs.CLIENT_ID_CONFIG, consumerRequest.clientId);

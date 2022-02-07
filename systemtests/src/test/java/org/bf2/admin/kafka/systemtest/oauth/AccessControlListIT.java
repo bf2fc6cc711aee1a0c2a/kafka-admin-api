@@ -30,6 +30,7 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Properties;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
@@ -57,15 +58,13 @@ class AccessControlListIT {
     @Inject
     Config config;
 
-    String bootstrapServers;
     String validResourceOperations;
     TokenUtils tokenUtils;
 
     @BeforeEach
     void setup() {
-        bootstrapServers = config.getValue(KafkaAdminConfigRetriever.BOOTSTRAP_SERVERS, String.class);
         validResourceOperations = config.getValue(KafkaAdminConfigRetriever.ACL_RESOURCE_OPERATIONS, String.class);
-        tokenUtils = new TokenUtils(config.getValue(KafkaAdminConfigRetriever.OAUTH_TOKEN_ENDPOINT_URI, String.class));
+        tokenUtils = new TokenUtils(config);
     }
 
     @AfterEach
@@ -312,11 +311,13 @@ class AccessControlListIT {
         final int pageSize = expectedTotal + 1;
         final var queryParams = Map.of("page", "1", "size", String.valueOf(pageSize), "orderKey", orderKey, "order", order);
 
+        Properties adminConfig = ClientsConfig.getAdminConfigOauth(config, tokenUtils.getToken(UserType.OWNER.getUsername()));
+
         /*
          * Due to the number of ACLs created for this case (> 200), using the
          * bulk API directly is necessary.
          */
-        try (Admin admin = Admin.create(ClientsConfig.getAdminConfigOauth(tokenUtils.getToken(UserType.OWNER.getUsername()), bootstrapServers))) {
+        try (Admin admin = Admin.create(adminConfig)) {
             admin.createAcls(newBindings.stream()
                                .map(Types.AclBinding::fromJsonObject)
                                .map(Types.AclBinding::toKafkaBinding)

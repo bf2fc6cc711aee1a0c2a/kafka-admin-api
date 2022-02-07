@@ -2,7 +2,6 @@ package org.bf2.admin.kafka.systemtest.oauth;
 
 import io.quarkus.test.junit.QuarkusTest;
 import io.quarkus.test.junit.TestProfile;
-import org.bf2.admin.kafka.admin.KafkaAdminConfigRetriever;
 import org.bf2.admin.kafka.systemtest.TestOAuthProfile;
 import org.bf2.admin.kafka.systemtest.deployment.DeploymentManager.UserType;
 import org.bf2.admin.kafka.systemtest.utils.ConsumerUtils;
@@ -39,7 +38,6 @@ class ConsumerGroupsOAuthTestIT {
     @Inject
     Config config;
 
-    String bootstrapServers;
     TokenUtils tokenUtils;
     TopicUtils topicUtils;
     ConsumerUtils groupUtils;
@@ -47,12 +45,11 @@ class ConsumerGroupsOAuthTestIT {
 
     @BeforeEach
     void setup() {
-        bootstrapServers = config.getValue(KafkaAdminConfigRetriever.BOOTSTRAP_SERVERS, String.class);
-        tokenUtils = new TokenUtils(config.getValue(KafkaAdminConfigRetriever.OAUTH_TOKEN_ENDPOINT_URI, String.class));
+        tokenUtils = new TokenUtils(config);
         String token = tokenUtils.getToken(UserType.OWNER.getUsername());
-        topicUtils = new TopicUtils(bootstrapServers, token);
+        topicUtils = new TopicUtils(config, token);
         topicUtils.deleteAllTopics();
-        groupUtils = new ConsumerUtils(bootstrapServers, token);
+        groupUtils = new ConsumerUtils(config, token);
         batchId = UUID.randomUUID().toString();
     }
 

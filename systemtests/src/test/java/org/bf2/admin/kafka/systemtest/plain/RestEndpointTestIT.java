@@ -3,7 +3,6 @@ package org.bf2.admin.kafka.systemtest.plain;
 import io.quarkus.test.junit.QuarkusTest;
 import io.quarkus.test.junit.TestProfile;
 import io.restassured.http.ContentType;
-import org.bf2.admin.kafka.admin.KafkaAdminConfigRetriever;
 import org.bf2.admin.kafka.systemtest.TestPlainProfile;
 import org.bf2.admin.kafka.systemtest.deployment.KafkaUnsecuredResourceManager;
 import org.bf2.admin.kafka.systemtest.utils.TopicUtils;
@@ -40,12 +39,10 @@ class RestEndpointTestIT {
     Config config;
 
     TopicUtils topicUtils;
-    String bootstrapServers;
 
     @BeforeEach
     void setup() {
-        bootstrapServers = config.getValue(KafkaAdminConfigRetriever.BOOTSTRAP_SERVERS, String.class);
-        topicUtils = new TopicUtils(bootstrapServers, null);
+        topicUtils = new TopicUtils(config, null);
         topicUtils.deleteAllTopics();
     }
 

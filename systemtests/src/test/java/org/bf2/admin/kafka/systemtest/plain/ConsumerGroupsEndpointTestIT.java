@@ -2,7 +2,6 @@ package org.bf2.admin.kafka.systemtest.plain;
 
 import io.quarkus.test.junit.QuarkusTest;
 import io.quarkus.test.junit.TestProfile;
-import org.bf2.admin.kafka.admin.KafkaAdminConfigRetriever;
 import org.bf2.admin.kafka.systemtest.TestPlainProfile;
 import org.bf2.admin.kafka.systemtest.utils.ConsumerUtils;
 import org.eclipse.microprofile.config.Config;
@@ -49,13 +48,11 @@ class ConsumerGroupsEndpointTestIT {
     @Inject
     Config config;
 
-    String bootstrapServers;
     ConsumerUtils groupUtils;
 
     @BeforeEach
     void setup() {
-        bootstrapServers = config.getValue(KafkaAdminConfigRetriever.BOOTSTRAP_SERVERS, String.class);
-        groupUtils = new ConsumerUtils(bootstrapServers, null);
+        groupUtils = new ConsumerUtils(config, null);
     }
 
     @Test

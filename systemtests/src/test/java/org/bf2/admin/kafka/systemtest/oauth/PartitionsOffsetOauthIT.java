@@ -3,7 +3,6 @@ package org.bf2.admin.kafka.systemtest.oauth;
 import io.quarkus.test.junit.QuarkusTest;
 import io.quarkus.test.junit.TestProfile;
 import io.restassured.http.ContentType;
-import org.bf2.admin.kafka.admin.KafkaAdminConfigRetriever;
 import org.bf2.admin.kafka.systemtest.TestOAuthProfile;
 import org.bf2.admin.kafka.systemtest.deployment.DeploymentManager.UserType;
 import org.bf2.admin.kafka.systemtest.utils.ConsumerUtils;
@@ -37,15 +36,13 @@ class PartitionsOffsetOauthIT {
     @Inject
     Config config;
 
-    String bootstrapServers;
     TokenUtils tokenUtils;
     ConsumerUtils consumerUtils;
 
     @BeforeEach
     void setup() {
-        bootstrapServers = config.getValue(KafkaAdminConfigRetriever.BOOTSTRAP_SERVERS, String.class);
-        tokenUtils = new TokenUtils(config.getValue(KafkaAdminConfigRetriever.OAUTH_TOKEN_ENDPOINT_URI, String.class));
-        consumerUtils = new ConsumerUtils(bootstrapServers, tokenUtils.getToken(UserType.OWNER.getUsername()));
+        tokenUtils = new TokenUtils(config);
+        consumerUtils = new ConsumerUtils(config, tokenUtils.getToken(UserType.OWNER.getUsername()));
     }
 
     @Test

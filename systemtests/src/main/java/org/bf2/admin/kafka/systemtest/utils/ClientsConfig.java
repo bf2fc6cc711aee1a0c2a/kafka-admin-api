@@ -5,15 +5,19 @@ import org.apache.kafka.clients.admin.AdminClientConfig;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.common.config.SaslConfigs;
+import org.apache.kafka.common.config.SslConfigs;
 import org.apache.kafka.common.serialization.StringDeserializer;
+import org.bf2.admin.kafka.admin.KafkaAdminConfigRetriever;
+import org.eclipse.microprofile.config.Config;
 
+import java.util.Base64;
 import java.util.Properties;
 import java.util.UUID;
 
 public class ClientsConfig {
-    public static Properties getConsumerConfig(String bootstrap, String groupID) {
+    public static Properties getConsumerConfig(Config config, String groupID) {
         Properties props = new Properties();
-        props.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrap);
+        props.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, config.getValue(KafkaAdminConfigRetriever.BOOTSTRAP_SERVERS, String.class));
         props.put(ConsumerConfig.GROUP_ID_CONFIG, groupID == null ? UUID.randomUUID().toString() : groupID);
         props.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class.getName());
         props.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class.getName());
@@ -21,51 +25,61 @@ public class ClientsConfig {
         return props;
     }
 
-    public static Properties getProducerConfig(String bootstrap) {
+    public static Properties getProducerConfig(Config config) {
         Properties props = new Properties();
-        props.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrap);
+        props.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, config.getValue(KafkaAdminConfigRetriever.BOOTSTRAP_SERVERS, String.class));
         props.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, "org.apache.kafka.common.serialization.StringSerializer");
         props.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, "org.apache.kafka.common.serialization.StringSerializer");
         props.put(ProducerConfig.ACKS_CONFIG, "all");
         return props;
     }
 
-    public static Properties getAdminConfigOauth(String token, String bootstrapServers) {
+    public static Properties getAdminConfigOauth(Config config, String token) {
         Properties props = new Properties();
-        props.put(CommonClientConfigs.SECURITY_PROTOCOL_CONFIG, "SASL_PLAINTEXT");
+
+        props.put(AdminClientConfig.BOOTSTRAP_SERVERS_CONFIG, config.getValue(KafkaAdminConfigRetriever.BOOTSTRAP_SERVERS, String.class));
         props.put(AdminClientConfig.METADATA_MAX_AGE_CONFIG, "30000");
-        props.put(SaslConfigs.SASL_LOGIN_CALLBACK_HANDLER_CLASS, "io.strimzi.kafka.oauth.client.JaasClientOauthLoginCallbackHandler");
-        props.put(SaslConfigs.SASL_MECHANISM, "OAUTHBEARER");
         props.put(AdminClientConfig.REQUEST_TIMEOUT_MS_CONFIG, "10000");
-        props.put(SaslConfigs.SASL_JAAS_CONFIG, "org.apache.kafka.common.security.oauthbearer.OAuthBearerLoginModule required oauth.access.token=\"" + token + "\";");
-        props.put(AdminClientConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
         props.put(AdminClientConfig.DEFAULT_API_TIMEOUT_MS_CONFIG, "30000");
+
+        addOauthConfig(config, props, token);
+
         return props;
     }
 
-    public static Properties getAdminConfig(String bootstrap) {
+    public static Properties getAdminConfig(Config config) {
         Properties conf = new Properties();
-        conf.put(AdminClientConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrap);
+        conf.put(AdminClientConfig.BOOTSTRAP_SERVERS_CONFIG, config.getValue(KafkaAdminConfigRetriever.BOOTSTRAP_SERVERS, String.class));
         conf.put(AdminClientConfig.REQUEST_TIMEOUT_MS_CONFIG, "5000");
         return conf;
     }
 
-    private static void getOauthConfig(Properties props, String token) {
+    private static void addOauthConfig(Config config, Properties props, String token) {
         props.put(SaslConfigs.SASL_MECHANISM, "OAUTHBEARER");
-        props.put(CommonClientConfigs.SECURITY_PROTOCOL_CONFIG, "SASL_PLAINTEXT");
+
+        config.getOptionalValue(KafkaAdminConfigRetriever.BROKER_TRUSTED_CERT, String.class)
+            // Value is base64 encoded to simulate configuration via Kubernetes env secret
+            .map(Base64.getDecoder()::decode)
+            .map(String::new)
+            .ifPresentOrElse(trustedCert -> {
+                props.put(CommonClientConfigs.SECURITY_PROTOCOL_CONFIG, "SASL_SSL");
+                props.put(SslConfigs.SSL_TRUSTSTORE_CERTIFICATES_CONFIG, trustedCert);
+                props.put(SslConfigs.SSL_TRUSTSTORE_TYPE_CONFIG, "PEM");
+            }, () -> props.put(CommonClientConfigs.SECURITY_PROTOCOL_CONFIG, "SASL_PLAINTEXT"));
+
         props.put(SaslConfigs.SASL_JAAS_CONFIG, "org.apache.kafka.common.security.oauthbearer.OAuthBearerLoginModule required oauth.access.token=\"" + token + "\";");
         props.put(SaslConfigs.SASL_LOGIN_CALLBACK_HANDLER_CLASS, "io.strimzi.kafka.oauth.client.JaasClientOauthLoginCallbackHandler");
     }
 
-    public static Properties getConsumerConfigOauth(String bootstrap, String groupID, String token) {
-        Properties props = getConsumerConfig(bootstrap, groupID);
-        getOauthConfig(props, token);
+    public static Properties getConsumerConfigOauth(Config config, String groupID, String token) {
+        Properties props = getConsumerConfig(config, groupID);
+        addOauthConfig(config, props, token);
         return props;
     }
 
-    public static Properties getProducerConfigOauth(String bootstrap, String token) {
-        Properties props = getProducerConfig(bootstrap);
-        getOauthConfig(props, token);
+    public static Properties getProducerConfigOauth(Config config, String token) {
+        Properties props = getProducerConfig(config);
+        addOauthConfig(config, props, token);
         return props;
     }
 }

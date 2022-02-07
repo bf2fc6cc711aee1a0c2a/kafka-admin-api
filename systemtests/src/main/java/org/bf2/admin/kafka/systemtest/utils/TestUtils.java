@@ -1,19 +1,18 @@
 package org.bf2.admin.kafka.systemtest.utils;
 
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
 import org.bf2.admin.kafka.systemtest.Environment;
+import org.jboss.logging.Logger;
 import org.junit.jupiter.api.extension.ExtensionContext;
 
 import java.nio.file.Path;
 import java.nio.file.Paths;
 
 public class TestUtils {
-    protected static final Logger LOGGER = LogManager.getLogger(TestUtils.class);
+    protected static final Logger LOGGER = Logger.getLogger(TestUtils.class);
 
     public static void logWithSeparator(String pattern, String text) {
         LOGGER.info("=======================================================================");
-        LOGGER.info(pattern, text);
+        LOGGER.infof(pattern, text);
         LOGGER.info("=======================================================================");
     }
 

@@ -1,6 +1,8 @@
 package org.bf2.admin.kafka.systemtest.utils;
 
 import io.restassured.http.Header;
+import org.bf2.admin.kafka.admin.KafkaAdminConfigRetriever;
+import org.eclipse.microprofile.config.Config;
 
 import java.io.IOException;
 import java.io.StringReader;
@@ -20,9 +22,8 @@ public class TokenUtils {
 
     final String tokenEndpoint;
 
-    public TokenUtils(String tokenEndpoint) {
-        super();
-        this.tokenEndpoint = tokenEndpoint;
+    public TokenUtils(Config config) {
+        this.tokenEndpoint = config.getValue(KafkaAdminConfigRetriever.OAUTH_TOKEN_ENDPOINT_URI, String.class);
     }
 
     public Header authorizationHeader(String username) {
