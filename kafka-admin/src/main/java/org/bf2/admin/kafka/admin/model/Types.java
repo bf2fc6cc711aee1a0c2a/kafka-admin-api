@@ -17,6 +17,9 @@ import org.apache.kafka.common.resource.ResourcePattern;
 import org.apache.kafka.common.resource.ResourcePatternFilter;
 import org.apache.kafka.common.resource.ResourceType;
 
+import javax.json.JsonObject;
+import javax.json.JsonString;
+import javax.json.JsonValue.ValueType;
 import javax.validation.Valid;
 import javax.validation.constraints.NotBlank;
 import javax.validation.constraints.NotNull;
@@ -794,8 +797,13 @@ public class Types {
                   .orElse(null));
         }
 
-        public static AclBinding fromJsonObject(io.vertx.core.json.JsonObject jsonBinding) {
-            return fromSource(jsonBinding::getString);
+        public static AclBinding fromJsonObject(JsonObject jsonBinding) {
+            return fromSource(fieldName -> Optional.ofNullable(jsonBinding.get(fieldName))
+                  .filter(Objects::nonNull)
+                  .filter(value -> value.getValueType() == ValueType.STRING)
+                  .map(JsonString.class::cast)
+                  .map(JsonString::getString)
+                  .orElse(null));
         }
 
         public org.apache.kafka.common.acl.AclBinding toKafkaBinding() {

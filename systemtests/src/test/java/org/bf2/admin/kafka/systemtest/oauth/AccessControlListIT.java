@@ -4,8 +4,6 @@ import io.quarkus.test.junit.QuarkusTest;
 import io.quarkus.test.junit.TestProfile;
 import io.restassured.http.Method;
 import io.restassured.response.ValidatableResponse;
-import io.vertx.core.json.JsonArray;
-import io.vertx.core.json.JsonObject;
 import org.apache.kafka.clients.admin.Admin;
 import org.apache.kafka.common.acl.AclOperation;
 import org.apache.kafka.common.acl.AclPermissionType;
@@ -25,6 +23,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 
+import java.io.StringReader;
 import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.List;
@@ -38,6 +37,11 @@ import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
 import javax.inject.Inject;
+import javax.json.Json;
+import javax.json.JsonObject;
+import javax.json.JsonObjectBuilder;
+import javax.json.JsonString;
+import javax.json.JsonValue.ValueType;
 import javax.ws.rs.core.Response.Status;
 
 import static io.restassured.RestAssured.given;
@@ -158,7 +162,7 @@ class AccessControlListIT {
         var response = getAcls(UserType.OWNER, Map.of("principal", principal));
         response.body("items", hasSize(2));
 
-        var bindings = new JsonObject(response.extract().asString()).getJsonArray("items");
+        var bindings = Json.createReader(response.extract().asInputStream()).readObject().getJsonArray("items");
 
         List<JsonObject> createdBindings = bindings.stream().map(JsonObject.class::cast).collect(Collectors.toList());
         assertTrue(newBindings.stream().allMatch(createdBindings::contains), () ->
@@ -177,7 +181,8 @@ class AccessControlListIT {
         var response = getAcls(UserType.OWNER, Map.of("principal", "User:*"));
         response.body("items", hasSize(1));
 
-        List<JsonObject> createdBindings = new JsonObject(response.extract().asString())
+        List<JsonObject> createdBindings = Json.createReader(response.extract().asInputStream())
+                .readObject()
                 .getJsonArray("items")
                 .stream()
                 .map(JsonObject.class::cast)
@@ -209,7 +214,8 @@ class AccessControlListIT {
             .body("total", equalTo(newBindings.size()))
             .body("items", hasSize(10));
 
-        List<JsonObject> createdBindings = new JsonObject(response.extract().asString())
+        List<JsonObject> createdBindings = Json.createReader(response.extract().asInputStream())
+                .readObject()
                 .getJsonArray("items")
                 .stream()
                 .map(JsonObject.class::cast)
@@ -258,9 +264,9 @@ class AccessControlListIT {
         Types.AclBinding.PROP_RESOURCE_NAME + "," + SORT_DESC,
     })
     void testGetAclsOrderByProperies(String orderKey, String order) throws Exception {
-        JsonObject allowedResourceOperations = new JsonObject(validResourceOperations);
+        JsonObject allowedResourceOperations = Json.createReader(new StringReader(validResourceOperations)).readObject();
 
-        List<JsonObject> newBindings = Stream.of(new JsonObject())
+        List<JsonObject> newBindings = Stream.of(Json.createObjectBuilder().build())
             .flatMap(binding -> join(binding, Types.AclBinding.PROP_PERMISSION, AclPermissionType.ALLOW, AclPermissionType.DENY))
             .flatMap(binding -> join(binding, Types.AclBinding.PROP_RESOURCE_TYPE, ResourceType.TOPIC, ResourceType.GROUP, ResourceType.CLUSTER, ResourceType.TRANSACTIONAL_ID))
             .flatMap(binding -> join(binding, Types.AclBinding.PROP_PATTERN_TYPE, PatternType.LITERAL, PatternType.PREFIXED))
@@ -271,13 +277,22 @@ class AccessControlListIT {
             .flatMap(binding -> join(binding, Types.AclBinding.PROP_PRINCIPAL, "User:{uuid}"))
             .flatMap(binding -> join(binding, Types.AclBinding.PROP_RESOURCE_NAME, "resource-{uuid}"))
             .filter(binding -> {
-                JsonArray operations = allowedResourceOperations.getJsonArray(binding.getString(Types.AclBinding.PROP_RESOURCE_TYPE).toLowerCase(Locale.US));
-                return operations.contains(binding.getString(Types.AclBinding.PROP_OPERATION).toLowerCase(Locale.US));
+                String resourceType = binding.getString(Types.AclBinding.PROP_RESOURCE_TYPE).toLowerCase(Locale.US);
+                String operation = binding.getString(Types.AclBinding.PROP_OPERATION).toLowerCase(Locale.US);
+
+                return allowedResourceOperations.getJsonArray(resourceType)
+                    .stream()
+                    .filter(value -> value.getValueType() == ValueType.STRING)
+                    .map(JsonString.class::cast)
+                    .map(JsonString::getString)
+                    .anyMatch(operation::equals);
             })
             .map(binding -> {
                 if (ResourceType.CLUSTER.name().equals(binding.getString(Types.AclBinding.PROP_RESOURCE_TYPE))) {
                     // Only value allowed is "kafka-cluster"
-                    binding.put(Types.AclBinding.PROP_RESOURCE_NAME, "kafka-cluster");
+                    binding = Json.createObjectBuilder(binding)
+                            .add(Types.AclBinding.PROP_RESOURCE_NAME, "kafka-cluster")
+                            .build();
                 }
                 return binding;
             })
@@ -333,7 +348,7 @@ class AccessControlListIT {
                             .body("page", equalTo(1))
                             .body("items", hasSize(expectedTotal));
 
-                        JsonObject responseBody = new JsonObject(response.extract().asString());
+                        JsonObject responseBody = Json.createReader(response.extract().asInputStream()).readObject();
                         List<JsonObject> responseValues = responseBody.getJsonArray("items")
                             .stream()
                             .map(JsonObject.class::cast)
@@ -405,28 +420,29 @@ class AccessControlListIT {
                           String principal,
                           AclOperation operation,
                           AclPermissionType permission) {
-        return new JsonObject()
-                .put(Types.AclBinding.PROP_RESOURCE_TYPE, resourceType.name())
-                .put(Types.AclBinding.PROP_RESOURCE_NAME, resourceName)
-                .put(Types.AclBinding.PROP_PATTERN_TYPE, patternType.name())
-                .put(Types.AclBinding.PROP_PRINCIPAL, principal)
-                .put(Types.AclBinding.PROP_OPERATION, operation.name())
-                .put(Types.AclBinding.PROP_PERMISSION, permission.name());
+        return Json.createObjectBuilder()
+                .add(Types.AclBinding.PROP_RESOURCE_TYPE, resourceType.name())
+                .add(Types.AclBinding.PROP_RESOURCE_NAME, resourceName)
+                .add(Types.AclBinding.PROP_PATTERN_TYPE, patternType.name())
+                .add(Types.AclBinding.PROP_PRINCIPAL, principal)
+                .add(Types.AclBinding.PROP_OPERATION, operation.name())
+                .add(Types.AclBinding.PROP_PERMISSION, permission.name())
+                .build();
     }
 
     Stream<JsonObject> join(JsonObject base, String newKey, Object... values) {
         List<JsonObject> results = new ArrayList<>(values.length);
 
         for (Object value : values) {
-            JsonObject copy = base.copy();
+            JsonObjectBuilder copy = Json.createObjectBuilder(base);
             String newValue = value.toString();
 
             if (newValue != null && newValue.contains("{uuid}")) {
                 newValue = newValue.replace("{uuid}", UUID.randomUUID().toString());
             }
 
-            copy.put(newKey, newValue);
-            results.add(copy);
+            copy.add(newKey, newValue);
+            results.add(copy.build());
         }
 
         return results.stream();

@@ -1,7 +1,6 @@
 package org.bf2.admin.kafka.systemtest.utils;
 
 import io.restassured.http.ContentType;
-import io.vertx.core.http.HttpHeaders;
 import org.apache.kafka.clients.admin.Admin;
 import org.apache.kafka.clients.admin.TopicListing;
 import org.eclipse.microprofile.config.Config;
@@ -17,6 +16,7 @@ import java.util.stream.Collectors;
 import javax.json.Json;
 import javax.json.JsonArrayBuilder;
 import javax.json.JsonObject;
+import javax.ws.rs.core.HttpHeaders;
 import javax.ws.rs.core.Response.Status;
 
 import static io.restassured.RestAssured.given;
