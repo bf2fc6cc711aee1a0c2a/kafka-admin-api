@@ -16,6 +16,7 @@ import org.junit.jupiter.params.provider.CsvSource;
 
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.UUID;
 
 import javax.inject.Inject;
@@ -231,7 +232,7 @@ class PartitionsOffsetOauthIT {
 
         Thread.sleep(3000);
 
-        String resetTimestamp = ZonedDateTime.now(ZoneOffset.UTC).withNano(0).toString();
+        String resetTimestamp = DateTimeFormatter.ISO_DATE_TIME.format(ZonedDateTime.now(ZoneOffset.UTC).withNano(0));
 
         consumerUtils.request()
             .groupId(groupId)
