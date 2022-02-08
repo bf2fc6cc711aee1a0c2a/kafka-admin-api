@@ -59,13 +59,14 @@ class LoggingConfigWatcherTest {
                     return null;
             }
 
-            return ws.poll(5, TimeUnit.SECONDS);
+            // Longer poll time to account for potentially slow CI environment
+            return ws.poll(15, TimeUnit.SECONDS);
         });
 
         assertTrue(dirExists);
         assertEquals(3, loopCount.get());
         assertFalse(override.exists());
-        assertTrue(watcher.overriddenLoggers.isEmpty());
+        assertTrue(watcher.overriddenLoggers.isEmpty(), () -> "overriddenLoggers not empty: " + watcher.overriddenLoggers);
         assertEquals(originalLevelValue, context.getLogger(logger).getLevel());
     }
 
