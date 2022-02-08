@@ -47,7 +47,7 @@ class MetricsEndpointTestIT {
         listTopics(number, Status.OK);
 
         List<String> postMetrics = metricsUtils.getMetrics();
-        assertEquals(number, metricsUtils.getMetricDiff(preMetrics, postMetrics, "^list_topics_requests_total[ {]").intValueExact());
+        assertMetricDiff(number, preMetrics, postMetrics, "^list_topics_requests_total[ {]");
     }
 
     @Test
@@ -63,7 +63,7 @@ class MetricsEndpointTestIT {
         createTopics(topicNames, 1, Status.CREATED);
 
         List<String> postMetrics = metricsUtils.getMetrics();
-        assertEquals(number, metricsUtils.getMetricDiff(preMetrics, postMetrics, "^create_topic_requests_total[ {]").intValueExact());
+        assertMetricDiff(number, preMetrics, postMetrics, "^create_topic_requests_total[ {]");
     }
 
     @Test
@@ -80,7 +80,7 @@ class MetricsEndpointTestIT {
         deleteTopics(topicNames, Status.OK);
 
         List<String> postMetrics = metricsUtils.getMetrics();
-        assertEquals(number, metricsUtils.getMetricDiff(preMetrics, postMetrics, "^delete_topic_requests_total[ {]").intValueExact());
+        assertMetricDiff(number, preMetrics, postMetrics, "^delete_topic_requests_total[ {]");
     }
 
     @Test
@@ -97,7 +97,7 @@ class MetricsEndpointTestIT {
         describeTopics(topicNames, Status.OK);
 
         List<String> postMetrics = metricsUtils.getMetrics();
-        assertEquals(number, metricsUtils.getMetricDiff(preMetrics, postMetrics, "^describe_topic_requests_total[ {]").intValueExact());
+        assertMetricDiff(number, preMetrics, postMetrics, "^describe_topic_requests_total[ {]");
     }
 
     @Test
@@ -114,7 +114,7 @@ class MetricsEndpointTestIT {
         updateTopics(topicNames);
 
         List<String> postMetrics = metricsUtils.getMetrics();
-        assertEquals(number, metricsUtils.getMetricDiff(preMetrics, postMetrics, "^update_topic_requests_total[ {]").intValueExact());
+        assertMetricDiff(number, preMetrics, postMetrics, "^update_topic_requests_total[ {]");
     }
 
     @Test
@@ -142,10 +142,20 @@ class MetricsEndpointTestIT {
         int totalFailedRequests = failedRequests.values().stream().mapToInt(Integer::intValue).sum();
         List<String> postMetrics = metricsUtils.getMetrics();
 
-        assertEquals(successfulRequests, metricsUtils.getMetricDiff(preMetrics, postMetrics, "^succeeded_requests_total[ {]").intValueExact());
-        assertEquals(successfulRequests + totalFailedRequests, metricsUtils.getMetricDiff(preMetrics, postMetrics, "^requests_total[ {]").intValueExact());
-        assertEquals(failedRequests.get("400"), metricsUtils.getMetricDiff(preMetrics, postMetrics, "^failed_requests_total\\{.*status_code=\"400\"").intValueExact());
-        assertEquals(failedRequests.get("404"), metricsUtils.getMetricDiff(preMetrics, postMetrics, "^failed_requests_total\\{.*status_code=\"404\"").intValueExact());
+        assertMetricDiff(successfulRequests, preMetrics, postMetrics, "^succeeded_requests_total[ {]");
+        assertMetricDiff(successfulRequests + totalFailedRequests, preMetrics, postMetrics, "^requests_total[ {]");
+        assertMetricDiff(failedRequests.get("400"), preMetrics, postMetrics, "^failed_requests_total\\{.*status_code=\"400\"");
+        assertMetricDiff(failedRequests.get("404"), preMetrics, postMetrics, "^failed_requests_total\\{.*status_code=\"404\"");
+    }
+
+    void assertMetricDiff(int expectedDiff, List<String> preMetrics, List<String> postMetrics, String nameRegex) {
+        int actualDiff = metricsUtils.getMetricDiff(preMetrics, postMetrics, nameRegex).intValueExact();
+        assertEquals(expectedDiff, actualDiff,
+            () -> {
+                String preMsg = String.join("\n\t", preMetrics);
+                String postMsg = String.join("\n\t", postMetrics);
+                return String.format("Unexpected metrics diff for /%s/.\nPre-metrics: %s\nPost-metrics: %s", nameRegex, preMsg, postMsg);
+            });
     }
 
     void listTopics(int times, Status expectedStatus) {

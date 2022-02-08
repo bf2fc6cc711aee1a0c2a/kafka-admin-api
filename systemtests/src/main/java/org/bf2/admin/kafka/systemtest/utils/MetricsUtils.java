@@ -41,7 +41,6 @@ public class MetricsUtils {
             .map(fields -> {
                 return new BigDecimal(fields[1]);
             })
-            .findFirst()
-            .orElse(BigDecimal.ZERO);
+            .reduce(BigDecimal.ZERO, BigDecimal::add);
     }
 }
