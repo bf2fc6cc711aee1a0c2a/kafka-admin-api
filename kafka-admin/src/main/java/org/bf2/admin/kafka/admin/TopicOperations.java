@@ -41,7 +41,7 @@ public class TopicOperations {
         Promise<Types.Topic> prom = Promise.promise();
 
         Map<String, String> config = new HashMap<>();
-        List<Types.NewTopicConfigEntry> configObject = inputTopic.getSettings().getConfig();
+        List<Types.ConfigEntry> configObject = inputTopic.getSettings().getConfig();
         if (configObject != null) {
             configObject.forEach(item -> {
                 config.put(item.getKey(), item.getValue());
@@ -111,7 +111,7 @@ public class TopicOperations {
         return result;
     }
 
-    public CompletionStage<Types.TopicList> getTopicList(KafkaAdminClient ac, Pattern pattern, Types.PageRequest pageRequest, Types.OrderByInput orderByInput) {
+    public CompletionStage<Types.TopicList> getTopicList(KafkaAdminClient ac, Pattern pattern, Types.DeprecatedPageRequest pageRequest, Types.TopicSortParams orderByInput) {
         Promise<Set<String>> describeTopicsNamesPromise = Promise.promise();
         Promise<Map<String, io.vertx.kafka.admin.TopicDescription>> describeTopicsPromise = Promise.promise();
         Promise<Map<ConfigResource, Config>> describeTopicConfigPromise = Promise.promise();
@@ -208,7 +208,7 @@ public class TopicOperations {
         return prom.future().toCompletionStage();
     }
 
-    public CompletionStage<Types.Topic> updateTopic(KafkaAdminClient ac, Types.UpdatedTopic topicToUpdate) {
+    public CompletionStage<Types.Topic> updateTopic(KafkaAdminClient ac, String topicName, Types.TopicSettings topicToUpdate) {
         Promise<Types.Topic> prom = Promise.promise();
         List<ConfigEntry> ceList = new ArrayList<>();
         if (topicToUpdate.getConfig() != null) {
@@ -219,10 +219,10 @@ public class TopicOperations {
         }
         Config cfg = new Config(ceList);
 
-        ConfigResource resource = new ConfigResource(org.apache.kafka.common.config.ConfigResource.Type.TOPIC, topicToUpdate.getName());
+        ConfigResource resource = new ConfigResource(org.apache.kafka.common.config.ConfigResource.Type.TOPIC, topicName);
 
         // we have to describe first, otherwise we cannot determine whether the topic exists or not (alterConfigs returns just server error)
-        getTopicDescAndConf(ac, topicToUpdate.getName()).future()
+        getTopicDescAndConf(ac, topicName).future()
                 .compose(topic -> {
                     Promise<Void> updateTopicPartitions = Promise.promise();
                     if (topicToUpdate.getNumPartitions() != null && topicToUpdate.getNumPartitions() != topic.getPartitions().size()) {
@@ -237,7 +237,7 @@ public class TopicOperations {
                     ac.alterConfigs(Collections.singletonMap(resource, cfg), updateTopicConfigPromise);
                     return updateTopicConfigPromise.future();
                 })
-                .compose(update -> getTopicDescAndConf(ac, topicToUpdate.getName()).future())
+                .compose(update -> getTopicDescAndConf(ac, topicName).future())
                 .onComplete(desc -> {
                     if (desc.failed()) {
                         prom.fail(desc.cause());

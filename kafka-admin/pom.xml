@@ -28,6 +28,45 @@
 
     <profiles>
         <profile>
+            <id>openapi-generate</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>io.smallrye</groupId>
+                        <artifactId>smallrye-open-api-maven-plugin</artifactId>
+                        <!-- <version>${smallrye-openapi.version}</version> -->
+                        <version>2.1.19-SNAPSHOT</version>
+                        <executions>
+                            <execution>
+                                <goals>
+                                    <goal>generate-schema</goal>
+                                </goals>
+                                <configuration>
+                                    <systemPropertyVariables>
+                                        <kafka.admin.oauth.enabled>true</kafka.admin.oauth.enabled>
+                                        <kafka.admin.oauth.token.endpoint.uri>/token</kafka.admin.oauth.token.endpoint.uri>
+                                        <kafka.admin.num.partitions.max>100</kafka.admin.num.partitions.max>
+                                    </systemPropertyVariables>
+
+                                    <filter>org.bf2.admin.kafka.admin.handlers.OASModelFilter</filter>
+                                    <infoVersion>${project.version}</infoVersion>
+                                    <outputDirectory>${project.basedir}/.openapi</outputDirectory>
+                                </configuration>
+                            </execution>
+                        </executions>
+                        <dependencies>
+                            <dependency>
+                                <groupId>io.smallrye.config</groupId>
+                                <artifactId>smallrye-config</artifactId>
+                                <version>2.5.1</version>
+                            </dependency>
+                        </dependencies>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+
+        <profile>
             <id>jib</id>
             <properties>
                 <quarkus.container-image.build>true</quarkus.container-image.build>
@@ -164,6 +203,10 @@
             <artifactId>jackson-databind</artifactId>
         </dependency>
         <dependency>
+            <groupId>com.fasterxml.jackson.dataformat</groupId>
+            <artifactId>jackson-dataformat-yaml</artifactId>
+        </dependency>
+        <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>
             <artifactId>jackson-annotations</artifactId>
         </dependency>
@@ -182,6 +225,22 @@
         <dependency>
             <groupId>org.junit.jupiter</groupId>
             <artifactId>junit-jupiter</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>io.quarkus</groupId>
+            <artifactId>quarkus-junit5</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>io.rest-assured</groupId>
+            <artifactId>rest-assured</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.skyscreamer</groupId>
+            <artifactId>jsonassert</artifactId>
+            <version>1.5.0</version>
             <scope>test</scope>
         </dependency>
     </dependencies>

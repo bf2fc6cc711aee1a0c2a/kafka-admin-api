@@ -15,9 +15,8 @@ import org.eclipse.microprofile.context.ThreadContext;
 import org.jboss.logging.Logger;
 
 import javax.inject.Inject;
-import javax.ws.rs.BadRequestException;
+import javax.ws.rs.BeanParam;
 import javax.ws.rs.Path;
-import javax.ws.rs.core.MultivaluedMap;
 import javax.ws.rs.core.Response;
 import javax.ws.rs.core.Response.ResponseBuilder;
 import javax.ws.rs.core.Response.Status;
@@ -85,16 +84,14 @@ public class RestOperations implements OperationsHandler {
     @Override
     @Counted("update_topic_requests")
     @Timed("update_topic_request_time")
-    public CompletionStage<Response> updateTopic(String topicToUpdate, Types.UpdatedTopic updatedTopic) {
+    public CompletionStage<Response> updateTopic(String topicName, Types.TopicSettings updatedTopic) {
         if (!numPartitionsLessThanMax(updatedTopic, maxPartitions)) {
             return badRequest(String.format("Number of partitions for topic %s must between 1 and %d (inclusive)",
-                                            topicToUpdate,
+                                            topicName,
                                             maxPartitions));
         }
 
-        updatedTopic.setName(topicToUpdate);
-
-        return withAdminClient(client -> topicOperations.updateTopic(KafkaAdminClient.create(vertx, client), updatedTopic))
+        return withAdminClient(client -> topicOperations.updateTopic(KafkaAdminClient.create(vertx, client), topicName, updatedTopic))
                 .thenApply(topic -> Response.ok().entity(topic).build());
     }
 
@@ -109,7 +106,7 @@ public class RestOperations implements OperationsHandler {
     @Override
     @Counted("list_topics_requests")
     @Timed("list_topics_request_time")
-    public CompletionStage<Response> listTopics(String filter, UriInfo requestUri) {
+    public CompletionStage<Response> listTopics(String filter, Types.DeprecatedPageRequest pageParams, Types.TopicSortParams sortParams) {
         final Pattern pattern;
 
         if (filter != null && !filter.isEmpty()) {
@@ -118,38 +115,31 @@ public class RestOperations implements OperationsHandler {
             pattern = null;
         }
 
-        Types.PageRequest pageParams = parsePageRequest(requestUri);
-        Types.OrderByInput orderBy = getOrderByInput(requestUri);
+        sortParams.setDefaultsIfNecessary();
 
-        return withAdminClient(client -> topicOperations.getTopicList(KafkaAdminClient.create(vertx, client), pattern, pageParams, orderBy))
+        return withAdminClient(client -> topicOperations.getTopicList(KafkaAdminClient.create(vertx, client), pattern, pageParams, sortParams))
                .thenApply(topicList -> Response.ok().entity(topicList).build());
     }
 
     @Override
     @Counted("list_groups_requests")
     @Timed("list_groups_request_time")
-    public CompletionStage<Response> listGroups(String consumerGroupIdFilter, String topicFilter, UriInfo requestUri) {
-        Types.PageRequest pageParams = parsePageRequest(requestUri);
-        Types.OrderByInput orderBy = getOrderByInput(requestUri);
-
-        if (log.isDebugEnabled()) {
-            log.debugf("listGroups orderBy: field: %s, order: %s", orderBy.getField(), orderBy.getOrder());
-        }
-
+    public CompletionStage<Response> listGroups(String consumerGroupIdFilter, String topicFilter, Types.DeprecatedPageRequest pageParams, Types.ConsumerGroupSortParams sortParams, UriInfo requestUri) {
         final Pattern topicPattern = filterPattern(topicFilter);
         final Pattern groupPattern = filterPattern(consumerGroupIdFilter);
 
-        return withAdminClient(client -> ConsumerGroupOperations.getGroupList(KafkaAdminClient.create(vertx, client), topicPattern, groupPattern, pageParams, orderBy))
+        return withAdminClient(client -> ConsumerGroupOperations.getGroupList(KafkaAdminClient.create(vertx, client), topicPattern, groupPattern, pageParams, sortParams))
                 .thenApply(groupList -> Response.ok().entity(groupList).build());
     }
 
     @Override
     @Counted("get_group_requests")
     @Timed("describe_group_request_time")
-    public CompletionStage<Response> describeGroup(String groupToDescribe, Optional<Integer> partitionFilter, UriInfo requestUri) {
-        Types.OrderByInput orderBy = getOrderByInput(requestUri);
+    public CompletionStage<Response> describeGroup(String groupToDescribe, Optional<Integer> partitionFilter, String topicFilter, @BeanParam Types.ConsumerGroupDescriptionSortParams sortParams) {
+        // FIXME: topicFilter exposed in API but not implemented
+        sortParams.setDefaultsIfNecessary();
 
-        return withAdminClient(client -> ConsumerGroupOperations.describeGroup(KafkaAdminClient.create(vertx, client), groupToDescribe, orderBy, partitionFilter.orElse(-1)))
+        return withAdminClient(client -> ConsumerGroupOperations.describeGroup(KafkaAdminClient.create(vertx, client), groupToDescribe, sortParams, partitionFilter.orElse(-1)))
                 .thenApply(consumerGroup -> Response.ok().entity(consumerGroup).build());
     }
 
@@ -181,10 +171,10 @@ public class RestOperations implements OperationsHandler {
     @Override
     @Counted("describe_acls_requests")
     @Timed("describe_acls_request_time")
-    public CompletionStage<Response> describeAcls(UriInfo requestUri) {
-        var filter = Types.AclBinding.fromQueryParams(requestUri.getQueryParameters());
+    public CompletionStage<Response> describeAcls(Types.AclBindingFilterParams filterParams, Types.PageRequest pageParams, Types.AclBindingSortParams sortParams) {
+        sortParams.setDefaultsIfNecessary();
 
-        return withAdminClient(client -> aclOperations.getAcls(client, filter, parsePageRequest(requestUri), getOrderByInput(requestUri, Types.AclBinding.DEFAULT_ORDER)))
+        return withAdminClient(client -> aclOperations.getAcls(client, filterParams, pageParams, sortParams))
                 .thenApply(aclList -> Response.ok().entity(aclList).build());
     }
 
@@ -200,9 +190,8 @@ public class RestOperations implements OperationsHandler {
     @Override
     @Counted("delete_acls_requests")
     @Timed("delete_acls_request_time")
-    public CompletionStage<Response> deleteAcls(UriInfo requestUri) {
-        var filter = Types.AclBinding.fromQueryParams(requestUri.getQueryParameters());
-        return withAdminClient(client -> aclOperations.deleteAcls(client, filter))
+    public CompletionStage<Response> deleteAcls(@BeanParam Types.AclBindingFilterParams filterParams) {
+        return withAdminClient(client -> aclOperations.deleteAcls(client, filterParams))
                 .thenApply(aclList -> Response.ok().entity(aclList).build());
     }
 
@@ -211,7 +200,7 @@ public class RestOperations implements OperationsHandler {
                 .path(OperationsHandler.class, methodName);
     }
 
-    private boolean numPartitionsValid(Types.NewTopicInput settings, int maxPartitions) {
+    private boolean numPartitionsValid(Types.TopicSettings settings, int maxPartitions) {
         int partitions = settings.getNumPartitions() != null ?
                 settings.getNumPartitions() :
                     TopicOperations.DEFAULT_PARTITIONS;
@@ -219,79 +208,13 @@ public class RestOperations implements OperationsHandler {
         return partitions > 0 && partitions <= maxPartitions;
     }
 
-    private boolean numPartitionsLessThanMax(Types.UpdatedTopic settings, int maxPartitions) {
+    private boolean numPartitionsLessThanMax(Types.TopicSettings settings, int maxPartitions) {
         if (settings.getNumPartitions() != null) {
             return settings.getNumPartitions() <= maxPartitions;
         } else {
             // user did not change the partitions
             return true;
         }
-    }
-
-    private Types.OrderByInput getOrderByInput(UriInfo requestUri, Types.OrderByInput defaultOrderBy) {
-        final String paramOrderKey = requestUri.getQueryParameters().getFirst("orderKey");
-        final String paramOrder = requestUri.getQueryParameters().getFirst("order");
-
-        if (paramOrderKey == null && paramOrder == null) {
-            return defaultOrderBy;
-        }
-
-        Types.SortDirectionEnum sortReverse = paramOrder == null ? defaultOrderBy.getOrder() : Types.SortDirectionEnum.fromString(paramOrder);
-        String sortKey = paramOrderKey == null ? defaultOrderBy.getField() : paramOrderKey;
-
-        Types.OrderByInput orderBy = new Types.OrderByInput();
-        orderBy.setField(sortKey);
-        orderBy.setOrder(sortReverse);
-        return orderBy;
-    }
-
-    private Types.OrderByInput getOrderByInput(UriInfo requestUri) {
-        return getOrderByInput(requestUri, new Types.OrderByInput("name", Types.SortDirectionEnum.ASC));
-    }
-
-    private Types.PageRequest parsePageRequest(UriInfo requestUri) {
-        Types.PageRequest pageRequest = new Types.PageRequest();
-        var queryParams = requestUri.getQueryParameters();
-
-        boolean deprecatedPaginationUsed = false;
-        if (queryParams.get("offset") != null || queryParams.get("limit") != null) {
-            deprecatedPaginationUsed = true;
-        }
-        pageRequest.setDeprecatedFormat(deprecatedPaginationUsed);
-
-        if (deprecatedPaginationUsed) {
-            Integer offsetInt = parseParameter(queryParams, "offset", 0);
-            Integer limitInt = parseParameter(queryParams, "limit", 10);
-            pageRequest.setOffset(offsetInt);
-            pageRequest.setLimit(limitInt);
-        } else {
-            Integer pageInt = parseParameter(queryParams, "page", 1);
-            Integer sizeInt = parseParameter(queryParams, "size", 10);
-            pageRequest.setPage(pageInt);
-            pageRequest.setSize(sizeInt);
-
-            if (sizeInt < 1 || pageInt < 1) {
-                throw new BadRequestException(Response.status(Status.BAD_REQUEST)
-                      .entity(new Types.Error(Status.BAD_REQUEST.getStatusCode(), "Size and page have to be positive integers."))
-                      .build());
-            }
-        }
-
-        return pageRequest;
-    }
-
-    private Integer parseParameter(MultivaluedMap<String, String> queryParams, String name, int defaultValue) {
-        if (queryParams.containsKey(name)) {
-            try {
-                return Integer.valueOf(queryParams.getFirst(name));
-            } catch (Exception e) {
-                throw new BadRequestException(Response.status(Status.BAD_REQUEST)
-                                              .entity(new Types.Error(Status.BAD_REQUEST.getStatusCode(), "Invalid parameter value for `" + name + "`"))
-                                              .build());
-            }
-        }
-
-        return defaultValue;
     }
 
     private Pattern filterPattern(String filter) {
