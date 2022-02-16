@@ -2,8 +2,7 @@ package org.bf2.admin.kafka.systemtest.deployment;
 
 import com.github.dockerjava.api.command.InspectContainerResponse;
 import com.github.dockerjava.api.model.ContainerNetwork;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
+import org.jboss.logging.Logger;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.images.builder.Transferable;
 
@@ -13,19 +12,16 @@ import java.util.Collection;
 class KeycloakSecuredKafkaContainer extends GenericContainer<KeycloakSecuredKafkaContainer>
         implements KafkaContainer<KeycloakSecuredKafkaContainer> {
 
-    protected static final Logger LOGGER = LogManager.getLogger(KeycloakSecuredKafkaContainer.class);
+    protected static final Logger LOGGER = Logger.getLogger(KeycloakSecuredKafkaContainer.class);
     private static final String STARTER_SCRIPT = "/testcontainers_start.sh";
     private static final int KAFKA_PORT = 9092;
-    private static final int KAFKA_INTERNAL_PORT = 9093;
     private static final int ZOOKEEPER_PORT = 2181;
 
     private int kafkaExposedPort;
     private StringBuilder advertisedListeners;
-    private final String internalHost;
 
-    KeycloakSecuredKafkaContainer(String internalHost, String version) {
+    KeycloakSecuredKafkaContainer(String version) {
         super("quay.io/strimzi/kafka:" + version);
-        this.internalHost = internalHost;
         withExposedPorts(KAFKA_PORT);
     }
 
@@ -47,10 +43,9 @@ class KeycloakSecuredKafkaContainer extends GenericContainer<KeycloakSecuredKafk
 
         kafkaExposedPort = getMappedPort(KAFKA_PORT);
 
-        LOGGER.info("This is mapped port {}", kafkaExposedPort);
+        LOGGER.infof("This is mapped port %s", kafkaExposedPort);
 
         advertisedListeners = new StringBuilder(getBootstrapServers());
-        advertisedListeners.append("," + "INTERNAL://").append(getInternalBootstrapServers());
 
         Collection<ContainerNetwork> cns = containerInfo.getNetworkSettings().getNetworks().values();
 
@@ -58,15 +53,15 @@ class KeycloakSecuredKafkaContainer extends GenericContainer<KeycloakSecuredKafk
             advertisedListeners.append("," + "REPLICATION://").append(cn.getIpAddress()).append(":9091");
         }
 
-        LOGGER.info("This is all advertised listeners for Kafka {}", advertisedListeners);
+        LOGGER.infof("This is all advertised listeners for Kafka %s", advertisedListeners);
 
         String command = "#!/bin/bash \n";
         command += "bin/zookeeper-server-start.sh ./config/zookeeper.properties &\n";
         command += "/bin/bash /opt/kafka/start.sh"
-                + " --override listeners=REPLICATION://0.0.0.0:9091,INTERNAL://0.0.0.0:" + KAFKA_INTERNAL_PORT + ",PLAINTEXT://0.0.0.0:" + KAFKA_PORT
+                + " --override listeners=REPLICATION://0.0.0.0:9091,SECURE://0.0.0.0:" + KAFKA_PORT
                 + " --override advertised.listeners=" + advertisedListeners.toString()
                 + " --override zookeeper.connect=localhost:" + ZOOKEEPER_PORT
-                + " --override listener.security.protocol.map=REPLICATION:SSL,PLAINTEXT:SASL_PLAINTEXT,INTERNAL:SASL_SSL"
+                + " --override listener.security.protocol.map=REPLICATION:SSL,SECURE:SASL_SSL"
                 + " --override inter.broker.listener.name=REPLICATION\n";
 
         LOGGER.info("Copying command to 'STARTER_SCRIPT' script.");
@@ -79,11 +74,6 @@ class KeycloakSecuredKafkaContainer extends GenericContainer<KeycloakSecuredKafk
 
     @Override
     public String getBootstrapServers() {
-        return String.format("PLAINTEXT://%s:%s", getContainerIpAddress(), kafkaExposedPort);
-    }
-
-    @Override
-    public String getInternalBootstrapServers() {
-        return this.internalHost + ":" + KAFKA_INTERNAL_PORT;
+        return String.format("SECURE://%s:%s", getContainerIpAddress(), kafkaExposedPort);
     }
 }

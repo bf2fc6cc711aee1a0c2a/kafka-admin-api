@@ -1,21 +1,9 @@
 package org.bf2.admin.kafka.systemtest.deployment;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.github.dockerjava.api.model.ContainerNetwork;
 import io.strimzi.StrimziKafkaContainer;
-import io.vertx.core.Future;
-import io.vertx.core.Vertx;
-import io.vertx.core.http.HttpClientResponse;
-import io.vertx.core.http.HttpMethod;
-import org.apache.kafka.clients.admin.AdminClient;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
 import org.bf2.admin.kafka.admin.KafkaAdminConfigRetriever;
 import org.bf2.admin.kafka.systemtest.Environment;
-import org.bf2.admin.kafka.systemtest.json.TokenModel;
-import org.bf2.admin.kafka.systemtest.utils.ClientsConfig;
-import org.bf2.admin.kafka.systemtest.utils.RequestUtils;
+import org.jboss.logging.Logger;
 import org.slf4j.LoggerFactory;
 import org.testcontainers.containers.BindMode;
 import org.testcontainers.containers.GenericContainer;
@@ -40,7 +28,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 import java.util.UUID;
-import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
 
 import static org.bf2.admin.kafka.systemtest.Environment.CONFIG;
@@ -48,8 +35,7 @@ import static org.bf2.admin.kafka.systemtest.Environment.CONFIG;
 @SuppressWarnings("resource")
 public class DeploymentManager {
 
-    protected static final Logger LOGGER = LogManager.getLogger(DeploymentManager.class);
-    private static final String KAFKA_ALIAS = "kafka";
+    protected static final Logger LOGGER = Logger.getLogger(DeploymentManager.class);
 
     public enum UserType {
         OWNER("alice"),
@@ -140,7 +126,7 @@ public class DeploymentManager {
 
     public GenericContainer<?> getAdminContainer() {
         if (adminContainer == null) {
-            adminContainer = deployAdminContainer(kafkaContainer.getInternalBootstrapServers());
+            adminContainer = deployAdminContainer(kafkaContainer.getBootstrapServers());
         }
 
         return adminContainer;
@@ -151,63 +137,6 @@ public class DeploymentManager {
             adminContainer.stop();
             adminContainer = null;
         }
-    }
-
-    public AdminClient createKafkaAdmin() {
-        return AdminClient.create(RequestUtils.getKafkaAdminConfig(getExternalBootstrapServers()));
-    }
-
-    public AdminClient createKafkaAdmin(String accessToken) {
-        return AdminClient.create(ClientsConfig.getAdminConfigOauth(accessToken, getExternalBootstrapServers()));
-    }
-
-    public String getAccessTokenNow(Vertx vertx, UserType userType) {
-        try {
-            return getAccessToken(vertx, userType)
-                    .toCompletionStage()
-                    .toCompletableFuture()
-                    .get();
-        } catch (InterruptedException | ExecutionException e) {
-            throw new RuntimeException(e);
-        }
-    }
-
-    public TokenModel getTokenNow(Vertx vertx, UserType userType) {
-        try {
-            return getAccessToken(vertx, userType.username)
-                    .toCompletionStage()
-                    .toCompletableFuture()
-                    .get();
-        } catch (InterruptedException | ExecutionException e) {
-            throw new RuntimeException(e);
-        }
-    }
-
-    public Future<String> getAccessToken(Vertx vertx, UserType userType) {
-        if (userType == UserType.INVALID) {
-            return Future.succeededFuture(UUID.randomUUID().toString());
-        }
-        return getAccessToken(vertx, userType.username).map(TokenModel::getAccessToken);
-    }
-
-    private Future<TokenModel> getAccessToken(Vertx vertx, String username) {
-        final String payload = String.format("grant_type=password&username=%1$s&password=%1$s-password&client_id=kafka-cli", username);
-        int port = keycloakContainer.getMappedPort(8080);
-
-        return vertx.createHttpClient()
-            .request(HttpMethod.POST, port, "localhost", "/auth/realms/kafka-authz/protocol/openid-connect/token")
-            .map(req ->
-                req.putHeader("Host", "keycloak:8080")
-                   .putHeader("Content-Type", "application/x-www-form-urlencoded"))
-            .compose(req -> req.send(payload))
-            .compose(HttpClientResponse::body)
-            .map(buffer -> {
-                try {
-                    return new ObjectMapper().readValue(buffer.toString(), TokenModel.class);
-                } catch (JsonProcessingException e) {
-                    throw new UncheckedIOException(e);
-                }
-            });
     }
 
     public String getExternalBootstrapServers() {
@@ -242,6 +171,7 @@ public class DeploymentManager {
         envMap.put("KAFKA_ADMIN_API_TIMEOUT_MS_CONFIG", "7000");
         envMap.put("KAFKA_ADMIN_REQUEST_TIMEOUT_MS_CONFIG", "6000");
         envMap.put("KAFKA_ADMIN_OAUTH_ENABLED", Boolean.toString(oauthEnabled));
+        envMap.put("QUARKUS_SMALLRYE_JWT_ENABLED", Boolean.toString(oauthEnabled));
         envMap.put("KAFKA_ADMIN_REPLICATION_FACTOR", "1");
         envMap.put("KAFKA_ADMIN_ACL_RESOURCE_OPERATIONS", CONFIG.getProperty("systemtests.kafka.admin.acl.resource-operations"));
 
@@ -292,9 +222,9 @@ public class DeploymentManager {
         Integer configuredDebugPort = Integer.getInteger("debugPort");
 
         if (configuredDebugPort != null) {
-            container.addExposedPort(configuredDebugPort);
-            container.addFixedExposedPort(configuredDebugPort, configuredDebugPort);
-            container.addEnv("KAFKA_ADMIN_DEBUG", String.format("-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:%d", configuredDebugPort));
+            //container.addExposedPort(configuredDebugPort);
+            container.addFixedExposedPort(configuredDebugPort, 5005);
+            container.addEnv("JAVA_DEBUG", "true");
         }
 
         String customLogConfig = System.getProperty("customLogConfig");
@@ -367,13 +297,12 @@ public class DeploymentManager {
 
         String imageTag = System.getProperty("strimzi-kafka.tag");
 
-        var container = new KeycloakSecuredKafkaContainer(KAFKA_ALIAS, imageTag)
+        var container = new KeycloakSecuredKafkaContainer(imageTag)
                 .withLabels(Collections.singletonMap("test-ident", Environment.TEST_CONTAINER_LABEL))
                 .withLogConsumer(new Slf4jLogConsumer(LoggerFactory.getLogger("systemtests.oauth-kafka"), true))
                 .withCreateContainerCmdModifier(cmd -> cmd.withName(name("oauth-kafka")))
                 .withEnv(env)
                 .withNetwork(testNetwork)
-                .withNetworkAliases(KAFKA_ALIAS)
                 .withClasspathResourceMapping("/certs/cluster.keystore.p12", "/opt/kafka/certs/cluster.keystore.p12", BindMode.READ_ONLY)
                 .withClasspathResourceMapping("/certs/cluster.truststore.p12", "/opt/kafka/certs/cluster.truststore.p12", BindMode.READ_ONLY)
                 .withClasspathResourceMapping("/kafka-oauth/config/", "/opt/kafka/config/strimzi/", BindMode.READ_ONLY)
@@ -394,21 +323,6 @@ public class DeploymentManager {
             StrimziPlainKafkaContainer(String version) {
                 super(version);
             }
-
-            @Override
-            public String getInternalBootstrapServers() {
-                // Obtain the container's IP address on the test bridge network
-                return getContainerInfo()
-                        .getNetworkSettings()
-                        .getNetworks()
-                        .entrySet()
-                        .stream()
-                        .map(Map.Entry::getValue)
-                        .filter(net -> net.getAliases().contains(KAFKA_ALIAS))
-                        .findFirst()
-                        .map(ContainerNetwork::getIpAddress)
-                        .orElseThrow() + ":9093";
-            }
         }
 
         String imageTag = System.getProperty("strimzi-kafka.tag");
@@ -417,8 +331,7 @@ public class DeploymentManager {
                 .withLabels(Collections.singletonMap("test-ident", Environment.TEST_CONTAINER_LABEL))
                 .withLogConsumer(new Slf4jLogConsumer(LoggerFactory.getLogger("systemtests.plain-kafka"), true))
                 .withCreateContainerCmdModifier(cmd -> cmd.withName(name("plain-kafka")))
-                .withNetwork(testNetwork)
-                .withNetworkAliases(KAFKA_ALIAS);
+                .withNetwork(testNetwork);
 
         container.start();
         return (KafkaContainer<?>) container;

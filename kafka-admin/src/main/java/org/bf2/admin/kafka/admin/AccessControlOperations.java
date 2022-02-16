@@ -9,11 +9,14 @@ import org.apache.kafka.clients.admin.Admin;
 import org.apache.kafka.common.KafkaFuture;
 import org.apache.kafka.common.acl.AclBinding;
 import org.apache.kafka.common.security.auth.KafkaPrincipal;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
 import org.bf2.admin.kafka.admin.model.Types;
 import org.bf2.admin.kafka.admin.model.Types.PagedResponse;
 import org.bf2.admin.kafka.admin.model.Types.SortDirectionEnum;
+import org.jboss.logging.Logger;
+
+import javax.annotation.PostConstruct;
+import javax.enterprise.context.ApplicationScoped;
+import javax.inject.Inject;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -23,14 +26,17 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionStage;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
+@ApplicationScoped
 public class AccessControlOperations {
 
     public static final String INVALID_ACL_RESOURCE_OPERATION = "Invalid ACL binding resourceType or operation";
 
-    private static final Logger log = LogManager.getLogger(AccessControlOperations.class);
+    private static final Logger log = Logger.getLogger(AccessControlOperations.class);
     private static final String WILDCARD_PRINCIPAL = KafkaPrincipal.USER_TYPE + ":*";
 
     private static final TypeReference<Map<String, List<String>>> TYPEREF_MAP_LIST_STRING =
@@ -57,7 +63,10 @@ public class AccessControlOperations {
         SORT_KEYS = Collections.unmodifiableMap(sortKeys);
     }
 
-    private final Map<String, List<String>> resourceOperations;
+    @Inject
+    KafkaAdminConfigRetriever config;
+
+    private Map<String, List<String>> resourceOperations;
 
     static class AccessControlOperationException extends RuntimeException {
         private static final long serialVersionUID = 1L;
@@ -67,7 +76,8 @@ public class AccessControlOperations {
         }
     }
 
-    public AccessControlOperations(KafkaAdminConfigRetriever config) {
+    @PostConstruct
+    public void initialize() {
         try {
             this.resourceOperations = new ObjectMapper().readValue(config.getAclResourceOperations(), TYPEREF_MAP_LIST_STRING);
         } catch (JsonProcessingException e) {
@@ -76,11 +86,12 @@ public class AccessControlOperations {
         }
     }
 
-    public void createAcl(Admin client, Promise<Void> promise, Types.AclBinding binding) {
+    public CompletionStage<Void> createAcl(Admin client, Types.AclBinding binding) {
         if (!validAclBinding(binding)) {
-            promise.fail(new IllegalArgumentException(INVALID_ACL_RESOURCE_OPERATION));
-            return;
+            return CompletableFuture.failedStage(new IllegalArgumentException(INVALID_ACL_RESOURCE_OPERATION));
         }
+
+        Promise<Void> promise = Promise.promise();
 
         client.createAcls(List.of(binding.toKafkaBinding()))
             .all()
@@ -91,14 +102,16 @@ public class AccessControlOperations {
                     promise.complete();
                 }
             });
+
+        return promise.future().toCompletionStage();
     }
 
-    public void getAcls(Admin client,
-                        Promise<Types.PagedResponse<Types.AclBinding>> promise,
+    public CompletionStage<PagedResponse<Types.AclBinding>> getAcls(Admin client,
                         Types.AclBinding filter,
                         Types.PageRequest pageRequest,
                         Types.OrderByInput sortOrder) {
 
+        Promise<PagedResponse<Types.AclBinding>> promise = Promise.promise();
         var pendingResults = new ArrayList<KafkaFuture<Collection<AclBinding>>>(2);
 
         pendingResults.add(client.describeAcls(filter.toKafkaBindingFilter()).values());
@@ -117,11 +130,14 @@ public class AccessControlOperations {
                         PagedResponse.forPage(pageRequest, bindings)
                             .onFailure(promise::fail)
                             .onSuccess(promise::complete)));
+
+        return promise.future().toCompletionStage();
     }
 
-    public void deleteAcls(Admin client,
-                           Promise<Types.PagedResponse<Types.AclBinding>> promise,
+    public CompletionStage<PagedResponse<Types.AclBinding>> deleteAcls(Admin client,
                            Types.AclBinding filter) {
+
+        Promise<PagedResponse<Types.AclBinding>> promise = Promise.promise();
 
         client.deleteAcls(List.of(filter.toKafkaBindingFilter()))
             .all()
@@ -132,6 +148,8 @@ public class AccessControlOperations {
                         PagedResponse.forItems(bindings)
                             .onFailure(promise::fail)
                             .onSuccess(promise::complete)));
+
+        return promise.future().toCompletionStage();
     }
 
     private boolean validAclBinding(Types.AclBinding binding) {

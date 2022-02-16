@@ -14,11 +14,11 @@ import io.vertx.kafka.client.consumer.OffsetAndMetadata;
 import org.apache.kafka.common.errors.GroupIdNotFoundException;
 import org.apache.kafka.common.errors.InvalidRequestException;
 import org.apache.kafka.common.errors.UnknownTopicOrPartitionException;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
 import org.bf2.admin.kafka.admin.handlers.CommonHandler;
 import org.bf2.admin.kafka.admin.model.Types;
 import org.bf2.admin.kafka.admin.model.Types.PagedResponse;
+import org.bf2.admin.kafka.admin.model.Types.TopicPartitionResetResult;
+import org.jboss.logging.Logger;
 
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
@@ -33,6 +33,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
 import java.util.function.ToLongFunction;
@@ -43,12 +44,14 @@ import java.util.stream.Stream;
 @SuppressWarnings({"checkstyle:CyclomaticComplexity", "checkstyle:NPathComplexity"})
 public class ConsumerGroupOperations {
 
-    protected static final Logger log = LogManager.getLogger(ConsumerGroupOperations.class);
+    protected static final Logger log = Logger.getLogger(ConsumerGroupOperations.class);
     private static final DateTimeFormatter DATE_TIME_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ssz");
     private static final Pattern MATCH_ALL = Pattern.compile(".*");
     private static final Types.OrderByInput BLANK_ORDER = new Types.OrderByInput();
 
-    public static void getGroupList(KafkaAdminClient ac, Promise<PagedResponse<Types.ConsumerGroupDescription>> prom, Pattern topicPattern, Pattern groupIdPattern, Types.PageRequest pageRequest, Types.OrderByInput orderByInput) {
+    public static CompletionStage<PagedResponse<Types.ConsumerGroupDescription>> getGroupList(KafkaAdminClient ac, Pattern topicPattern, Pattern groupIdPattern, Types.PageRequest pageRequest, Types.OrderByInput orderByInput) {
+        Promise<PagedResponse<Types.ConsumerGroupDescription>> prom = Promise.promise();
+
         // Obtain list of all consumer groups
         ac.listConsumerGroups()
             .map(groups -> groups.stream()
@@ -95,9 +98,12 @@ public class ConsumerGroupOperations {
                 }
                 ac.close();
             });
+
+        return prom.future().toCompletionStage();
     }
 
-    public static void deleteGroup(KafkaAdminClient ac, List<String> groupsToDelete, Promise<List<String>> prom) {
+    public static CompletionStage<List<String>> deleteGroup(KafkaAdminClient ac, List<String> groupsToDelete) {
+        Promise<List<String>> prom = Promise.promise();
         ac.deleteConsumerGroups(groupsToDelete, res -> {
             if (res.failed()) {
                 prom.fail(res.cause());
@@ -106,10 +112,13 @@ public class ConsumerGroupOperations {
             }
             ac.close();
         });
+
+        return prom.future().toCompletionStage();
     }
 
     @SuppressWarnings({"checkstyle:JavaNCSS", "checkstyle:MethodLength"})
-    public static void resetGroupOffset(KafkaAdminClient ac, Types.ConsumerGroupOffsetResetParameters parameters, Promise<Types.PagedResponse<Types.TopicPartitionResetResult>> prom) {
+    public static CompletionStage<PagedResponse<TopicPartitionResetResult>> resetGroupOffset(KafkaAdminClient ac, Types.ConsumerGroupOffsetResetParameters parameters) {
+        Promise<PagedResponse<TopicPartitionResetResult>> prom = Promise.promise();
 
         if (!"latest".equals(parameters.getOffset()) && !"earliest".equals(parameters.getOffset()) && parameters.getValue() == null) {
             throw new InvalidRequestException("Value has to be set when " + parameters.getOffset() + " offset is used.");
@@ -122,17 +131,17 @@ public class ConsumerGroupOperations {
 
         if (parameters.getTopics() == null || parameters.getTopics().isEmpty()) {
             // reset everything
-            Promise promise = Promise.promise();
+            Promise<Void> promise = Promise.promise();
             promises.add(promise.future());
+
             ac.listConsumerGroupOffsets(parameters.getGroupId())
-                    .compose(consumerGroupOffsets -> {
+                    .onSuccess(consumerGroupOffsets -> {
                         consumerGroupOffsets.entrySet().forEach(offset -> {
                             topicPartitionsToReset.add(offset.getKey());
                         });
-                        return Future.succeededFuture(topicPartitionsToReset);
-                    }).onComplete(topicPartitions -> {
                         promise.complete();
-                    });
+                    })
+                    .onFailure(promise::fail);
         } else {
             parameters.getTopics().forEach(paramPartition -> {
                 Promise promise = Promise.promise();
@@ -146,7 +155,8 @@ public class ConsumerGroupOperations {
                         });
                         promise.complete();
                         return Future.succeededFuture(topicPartitionsToReset);
-                    });
+                    })
+                    .onFailure(promise::fail);
                 } else {
                     paramPartition.getPartitions().forEach(numPartition -> {
                         topicPartitionsToReset.add(new TopicPartition(paramPartition.getTopic(), numPartition));
@@ -202,7 +212,7 @@ public class ConsumerGroupOperations {
                         entry -> entry.getKey(),
                         entry -> {
                             if (entry.getValue().getOffset() < Long.parseLong(parameters.getValue())) {
-                                log.warn("Selected offset {} is larger than latest {}", parameters.getValue(), entry.getValue().getOffset());
+                                log.warnf("Selected offset %s is larger than latest %d", parameters.getValue(), entry.getValue().getOffset());
                             }
                             return new ListOffsetsResultInfo(Long.parseLong(parameters.getValue()), entry.getValue().getTimestamp(), entry.getValue().getLeaderEpoch());
                         })));
@@ -276,6 +286,8 @@ public class ConsumerGroupOperations {
             }
             ac.close();
         });
+
+        return prom.future().toCompletionStage();
     }
 
     static Future<Void> validatePartitionsResettable(KafkaAdminClient ac, String groupId, Set<TopicPartition> topicPartitionsToReset) {
@@ -306,7 +318,7 @@ public class ConsumerGroupOperations {
                     topicDescribe.complete();
                 })
                 .onFailure(error -> {
-                    if (error instanceof UnknownTopicOrPartitionException) {
+                    if (CommonHandler.isCausedBy(error, UnknownTopicOrPartitionException.class)) {
                         topicDescribe.fail(new IllegalArgumentException("Request contained an unknown topic"));
                     } else {
                         topicDescribe.fail(error);
@@ -382,7 +394,9 @@ public class ConsumerGroupOperations {
         }
     }
 
-    public static void describeGroup(KafkaAdminClient ac, Promise<Types.ConsumerGroupDescription> prom, String groupToDescribe, Types.OrderByInput orderBy, int partitionFilter) {
+    public static CompletionStage<Types.ConsumerGroupDescription> describeGroup(KafkaAdminClient ac, String groupToDescribe, Types.OrderByInput orderBy, int partitionFilter) {
+        Promise<Types.ConsumerGroupDescription> prom = Promise.promise();
+
         fetchDescriptions(ac, List.of(groupToDescribe), MATCH_ALL, partitionFilter, orderBy)
             .map(groupDescriptions -> groupDescriptions.findFirst().orElse(null))
             .onComplete(res -> {
@@ -399,6 +413,8 @@ public class ConsumerGroupOperations {
                 }
                 ac.close();
             });
+
+        return prom.future().toCompletionStage();
     }
 
     private static List<Types.ConsumerGroupDescription> getConsumerGroupsDescription(Pattern pattern,

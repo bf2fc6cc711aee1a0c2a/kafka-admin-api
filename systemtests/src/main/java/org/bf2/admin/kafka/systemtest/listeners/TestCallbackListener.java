@@ -10,21 +10,21 @@ import org.junit.jupiter.api.extension.ExtensionContext;
 public class TestCallbackListener implements BeforeAllCallback, BeforeEachCallback, AfterAllCallback, AfterEachCallback {
     @Override
     public void beforeAll(ExtensionContext extensionContext) throws Exception {
-        TestUtils.logWithSeparator("-> Running test class: {}", extensionContext.getRequiredTestClass().getName());
+        TestUtils.logWithSeparator("-> Running test class: %s", extensionContext.getRequiredTestClass().getName());
     }
 
     @Override
     public void beforeEach(ExtensionContext extensionContext) throws Exception {
-        TestUtils.logWithSeparator("-> Running test method: {}", extensionContext.getDisplayName());
+        TestUtils.logWithSeparator("-> Running test method: %s", extensionContext.getDisplayName());
     }
 
     @Override
     public void afterAll(ExtensionContext extensionContext) throws Exception {
-        TestUtils.logWithSeparator("-> End of test class: {}", extensionContext.getRequiredTestClass().getName());
+        TestUtils.logWithSeparator("-> End of test class: %s", extensionContext.getRequiredTestClass().getName());
     }
 
     @Override
     public void afterEach(ExtensionContext extensionContext) throws Exception {
-        TestUtils.logWithSeparator("-> End of test method: {}", extensionContext.getDisplayName());
+        TestUtils.logWithSeparator("-> End of test method: %s", extensionContext.getDisplayName());
     }
 }
