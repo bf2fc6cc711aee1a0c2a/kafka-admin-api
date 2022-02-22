@@ -507,10 +507,39 @@ public class ConsumerGroupOperations {
             }
 
             grp.setConsumers(sortedList);
+            grp.setMetrics(calculateGroupMetrics(sortedList));
+
             return grp;
 
         }).collect(Collectors.toList());
 
+    }
+
+    private static Types.ConsumerGroupMetrics calculateGroupMetrics(List<Types.Consumer> sortedList) {
+        var metrics = new Types.ConsumerGroupMetrics();
+
+        var laggingConsumers = 0;
+        var unassignedPartitions = 0;
+        var activeConsumerCount = 0;
+
+        for(Types.Consumer consumer: sortedList) {
+            if (consumer.getLag() > 0) {
+                laggingConsumers++;
+            }
+            if(consumer.getPartition() != -1) {
+                activeConsumerCount++;
+            }
+
+            if(consumer.getMemberId() == null) {
+                unassignedPartitions++;
+            }
+        }
+
+        metrics.setActiveConsumersCount(activeConsumerCount);
+        metrics.setUnassignedPartitions(unassignedPartitions);
+        metrics.setPartitionsWithLag(laggingConsumers);
+
+        return metrics;
     }
 
     private static boolean memberMatchesPartitionFilter(Types.Consumer member, int partitionFilter) {
@@ -544,7 +573,7 @@ public class ConsumerGroupOperations {
      * Obtains a future stream of {@link Types.ConsumerGroupDescription}s. Using the provided
      * groupIds list, the following information is fetched for each consumer group:
      *
-     * <ul>
+     * <ul>org.bf2.admin.kafka.admin.model.Types
      * <li>Consumer group description (using {@link KafkaAdminClient#describeConsumerGroups(List)})
      * <li>Current consumer group offsets (using {@link KafkaAdminClient#listConsumerGroupOffsets(String)})
      * </ul>

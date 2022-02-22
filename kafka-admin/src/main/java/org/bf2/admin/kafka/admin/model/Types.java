@@ -504,6 +504,7 @@ public class Types {
 
     public static class ConsumerGroup {
         private String groupId;
+        private ConsumerGroupMetrics metrics;
 
         public String getGroupId() {
             return groupId;
@@ -512,6 +513,45 @@ public class Types {
         public void setGroupId(String groupId) {
             this.groupId = groupId;
         }
+
+        public ConsumerGroupMetrics getMetrics() {
+            return metrics;
+        }
+
+        public void setMetrics(ConsumerGroupMetrics metrics) {
+            this.metrics = metrics;
+        }
+    }
+
+    public static class ConsumerGroupMetrics {
+        private Integer partitionsWithLag;
+        private Integer activeConsumersCount;
+        private Integer unassignedPartitions;
+
+        public Integer getPartitionsWithLag() {
+            return partitionsWithLag;
+        }
+
+        public void setPartitionsWithLag(Integer partitionsWithLag) {
+            this.partitionsWithLag = partitionsWithLag;
+        }
+
+        public Integer getActiveConsumersCount() {
+            return activeConsumersCount;
+        }
+
+        public void setActiveConsumersCount(Integer activeConsumersCount) {
+            this.activeConsumersCount = activeConsumersCount;
+        }
+
+        public Integer getUnassignedPartitions() {
+            return unassignedPartitions;
+        }
+
+        public void setUnassignedPartitions(Integer unassignedPartitions) {
+            this.unassignedPartitions = unassignedPartitions;
+        }
+
     }
 
     public static class ConsumerGroupDescription extends ConsumerGroup {
