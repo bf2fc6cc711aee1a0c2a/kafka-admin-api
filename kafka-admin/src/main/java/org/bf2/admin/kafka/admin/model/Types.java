@@ -34,6 +34,7 @@ import javax.ws.rs.core.UriBuilder;
 import java.net.URI;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Locale;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Function;
@@ -384,9 +385,7 @@ public class Types {
     @Schema(name = "ConsumerGroupResetOffsetParameters", title = "Root Type for ConsumerGroupResetOffsetParameters")
     public static class ConsumerGroupOffsetResetParameters {
 
-        @Schema(
-            name = "OffsetType",
-            enumeration = { "timestamp", "absolute", "latest", "earliest" })
+        @Schema(name = "OffsetType")
         public enum OffsetType {
             TIMESTAMP("timestamp"),
             ABSOLUTE("absolute"),
@@ -535,10 +534,14 @@ public class Types {
         }
     }
 
-    @Schema(name = "SortDirection", enumeration = { "asc", "desc" })
+    @Schema(name = "SortDirection")
     public enum SortDirectionEnum {
-        DESC,
-        ASC;
+        ASC, DESC;
+
+        @JsonValue
+        public String getValue() {
+            return name().toLowerCase(Locale.ROOT);
+        }
 
         public static SortDirectionEnum fromString(String input) {
             if (input == null) {
@@ -944,9 +947,7 @@ public class Types {
     public static class ConsumerGroupList extends PagedResponseDeprecated<ConsumerGroup> {
     }
 
-    @Schema(
-        name = "ConsumerGroupOrderKey",
-        enumeration = { "name" })
+    @Schema(name = "ConsumerGroupOrderKey")
     public enum ConsumerGroupOrderKey {
         NAME("name");
 
@@ -956,6 +957,7 @@ public class Types {
             this.value = value;
         }
 
+        @JsonValue
         public String getValue() {
             return value;
         }
@@ -968,11 +970,9 @@ public class Types {
         }
     }
 
-    @Schema(
-        name = "ConsumerGroupDescriptionOrderKey",
-        enumeration = { "offset", "endOffset", "lag", "partition" })
+    @Schema(name = "ConsumerGroupDescriptionOrderKey")
     public enum ConsumerGroupDescriptionOrderKey {
-        OFFSET("name"),
+        OFFSET("offset"),
         END_OFFSET("endOffset"),
         LAG("lag"),
         PARTITION("partition");
@@ -983,6 +983,7 @@ public class Types {
             this.value = value;
         }
 
+        @JsonValue
         public String getValue() {
             return value;
         }
@@ -999,9 +1000,7 @@ public class Types {
     public static class TopicList extends PagedResponseDeprecated<Topic> {
     }
 
-    @Schema(
-        name = "TopicOrderKey",
-        enumeration = { "name", "partitions", "retention.ms", "retention.bytes" })
+    @Schema(name = "TopicOrderKey")
     public enum TopicOrderKey {
         NAME("name"),
         PARTITIONS("partitions"),
@@ -1014,6 +1013,7 @@ public class Types {
             this.value = value;
         }
 
+        @JsonValue
         public String getValue() {
             return value;
         }
@@ -1166,15 +1166,7 @@ public class Types {
         }
     }
 
-    @Schema(
-        enumeration = {
-            AclBinding.PROP_RESOURCE_TYPE,
-            AclBinding.PROP_RESOURCE_NAME,
-            AclBinding.PROP_PATTERN_TYPE,
-            AclBinding.PROP_PRINCIPAL,
-            AclBinding.PROP_OPERATION,
-            AclBinding.PROP_PERMISSION
-        })
+    @Schema
     public enum AclBindingOrderKey {
         RESOURCE_TYPE(AclBinding.PROP_RESOURCE_TYPE),
         RESOURCE_NAME(AclBinding.PROP_RESOURCE_NAME),
@@ -1189,6 +1181,7 @@ public class Types {
             this.value = value;
         }
 
+        @JsonValue
         public String getValue() {
             return value;
         }
