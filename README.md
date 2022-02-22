@@ -1,9 +1,9 @@
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](http://www.apache.org/licenses/LICENSE-2.0)
 
-# Kafka Admin API
+# Managed Kafka Admin API
 
-This repository contains the Kafka Admin API and its implementation.
-Kafka Admin API provides a way for managing Kafka topics.
+This repository contains the Managed Kafka Admin API and its implementation.
+Kafka Admin API provides a way for managing [Apache Kafka<sup>TM</sup>](https://kafka.apache.org/) topics.
 
 ## Getting Started
 
@@ -34,7 +34,7 @@ mvn install -DskipTests
 
 ### Start a local Kafka cluster
 
-The Kafka Admin API needs a Kafka cluster to connect to. There is a [docker-compose.yml](./docker-compose.yml) file with default Kafka containers you can use to run the server against.
+The Managed Kafka Admin API needs a Apache Kafka cluster to connect to. There is a [docker-compose.yml](./docker-compose.yml) file with default Kafka containers you can use to run the server against.
 
 Run the local Kafka cluster:
 
