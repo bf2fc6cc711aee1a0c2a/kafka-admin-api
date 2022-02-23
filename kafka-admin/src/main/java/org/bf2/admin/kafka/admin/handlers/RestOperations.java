@@ -461,7 +461,7 @@ public class RestOperations extends CommonHandler implements OperationsHandler {
         return partitions > 0 && partitions <= maxPartitions;
     }
 
-    private boolean numPartitionsLessThanEqualToMax(Types.UpdatedTopic settings, int maxPartitions) {
+    boolean numPartitionsLessThanEqualToMax(Types.UpdatedTopic settings, int maxPartitions) {
         if (settings.getNumPartitions() != null) {
             return settings.getNumPartitions() <= maxPartitions;
         } else {
