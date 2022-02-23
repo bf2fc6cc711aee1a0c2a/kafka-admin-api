@@ -48,6 +48,12 @@ public class RestOperations extends CommonHandler implements OperationsHandler {
         this.httpMetrics = httpMetrics;
         this.aclOperations = new AccessControlOperations(config);
     }
+    /* test */
+    RestOperations() {
+        super(null);
+        this.httpMetrics = null;
+        this.aclOperations = null;
+    }
 
     @Override
     public void createTopic(RoutingContext routingContext) {
