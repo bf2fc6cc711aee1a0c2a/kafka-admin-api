@@ -524,24 +524,24 @@ public class Types {
     }
 
     public static class ConsumerGroupMetrics {
-        private Integer partitionsWithLag;
-        private Integer activeConsumersCount;
+        private Integer laggingPartitions;
+        private Integer activeConsumers;
         private Integer unassignedPartitions;
 
-        public Integer getPartitionsWithLag() {
-            return partitionsWithLag;
+        public Integer getLaggingPartitions() {
+            return laggingPartitions;
         }
 
-        public void setPartitionsWithLag(Integer partitionsWithLag) {
-            this.partitionsWithLag = partitionsWithLag;
+        public void setLaggingPartitions(Integer laggingPartitions) {
+            this.laggingPartitions = laggingPartitions;
         }
 
-        public Integer getActiveConsumersCount() {
-            return activeConsumersCount;
+        public Integer getActiveConsumers() {
+            return activeConsumers;
         }
 
-        public void setActiveConsumersCount(Integer activeConsumersCount) {
-            this.activeConsumersCount = activeConsumersCount;
+        public void setActiveConsumers(Integer activeConsumers) {
+            this.activeConsumers = activeConsumers;
         }
 
         public Integer getUnassignedPartitions() {
@@ -551,6 +551,7 @@ public class Types {
         public void setUnassignedPartitions(Integer unassignedPartitions) {
             this.unassignedPartitions = unassignedPartitions;
         }
+
 
     }
 
