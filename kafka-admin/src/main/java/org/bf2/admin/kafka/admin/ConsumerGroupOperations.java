@@ -507,10 +507,38 @@ public class ConsumerGroupOperations {
             }
 
             grp.setConsumers(sortedList);
+            grp.setMetrics(calculateGroupMetrics(sortedList));
+
             return grp;
 
         }).collect(Collectors.toList());
 
+    }
+
+    private static Types.ConsumerGroupMetrics calculateGroupMetrics(List<Types.Consumer> consumersList) {
+        var metrics = new Types.ConsumerGroupMetrics();
+
+        var laggingPartitions = 0;
+        var unassignedPartitions = 0;
+
+        for (Types.Consumer consumer : consumersList) {
+            if (consumer.getMemberId() == null) {
+                unassignedPartitions++;
+            } else if (consumer.getLag() > 0) {
+                laggingPartitions++;
+            }
+        }
+
+        var activeConsumers = consumersList.stream()
+            .filter(consumer -> consumer.getMemberId() != null)
+            .map(Types.Consumer::getMemberId)
+            .distinct().count();
+
+        metrics.setActiveConsumers((int) activeConsumers);
+        metrics.setUnassignedPartitions(unassignedPartitions);
+        metrics.setLaggingPartitions(laggingPartitions);
+
+        return metrics;
     }
 
     private static boolean memberMatchesPartitionFilter(Types.Consumer member, int partitionFilter) {

@@ -300,6 +300,9 @@ class ConsumerGroupsEndpointTestIT {
                 .body("groupId", equalTo(groupId))
                 .body("state", equalToIgnoringCase("stable")) // Consumer is still open
                 .body("consumers", hasSize(2))
+                .body("metrics.laggingPartitions", equalTo(0))
+                .body("metrics.activeConsumers", equalTo(1))
+                .body("metrics.unassignedPartitions", equalTo(0))
                 .body("consumers.findAll { it }.groupId", contains(groupId, groupId))
                 .body("consumers.findAll { it }.topic", contains(topicName, topicName))
                 .body("consumers.findAll { it }.partition", contains(0, 1))
