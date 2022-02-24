@@ -55,17 +55,17 @@ public class ConsumerGroupOperations {
         // Obtain list of all consumer groups
         ac.listConsumerGroups()
             .map(groups -> groups.stream()
-                .map(ConsumerGroupListing::getGroupId)
-                // Include only those group matching query parameter (or all if not specified)
-                .filter(groupId -> groupIdPattern.matcher(groupId).find())
-                .collect(Collectors.toList()))
+                 .map(ConsumerGroupListing::getGroupId)
+                 // Include only those group matching query parameter (or all if not specified)
+                 .filter(groupId -> groupIdPattern.matcher(groupId).find())
+                 .collect(Collectors.toList()))
             // Obtain description for all selected consumer groups
             .compose(groupDescriptions -> fetchDescriptions(ac, groupDescriptions, topicPattern, -1, BLANK_ORDER))
             .map(groupDescriptions -> groupDescriptions
-                .sorted(Types.SortDirectionEnum.DESC.equals(orderByInput.getOrder()) ?
-                    new CommonHandler.ConsumerGroupComparator(orderByInput.getField()).reversed() :
-                    new CommonHandler.ConsumerGroupComparator(orderByInput.getField()))
-                .collect(Collectors.<Types.ConsumerGroupDescription>toList()))
+                 .sorted(Types.SortDirectionEnum.DESC.equals(orderByInput.getOrder()) ?
+                     new CommonHandler.ConsumerGroupComparator(orderByInput.getField()).reversed() :
+                         new CommonHandler.ConsumerGroupComparator(orderByInput.getField()))
+                 .collect(Collectors.<Types.ConsumerGroupDescription>toList()))
             .compose(list -> {
                 if (pageRequest.isDeprecatedFormat()) {
                     if (pageRequest.getOffset() > list.size()) {
@@ -135,28 +135,28 @@ public class ConsumerGroupOperations {
             promises.add(promise.future());
 
             ac.listConsumerGroupOffsets(parameters.getGroupId())
-                .onSuccess(consumerGroupOffsets -> {
-                    consumerGroupOffsets.entrySet().forEach(offset -> {
-                        topicPartitionsToReset.add(offset.getKey());
-                    });
-                    promise.complete();
-                })
-                .onFailure(promise::fail);
+                    .onSuccess(consumerGroupOffsets -> {
+                        consumerGroupOffsets.entrySet().forEach(offset -> {
+                            topicPartitionsToReset.add(offset.getKey());
+                        });
+                        promise.complete();
+                    })
+                    .onFailure(promise::fail);
         } else {
             parameters.getTopics().forEach(paramPartition -> {
                 Promise promise = Promise.promise();
                 promises.add(promise.future());
                 if (paramPartition.getPartitions() == null || paramPartition.getPartitions().isEmpty()) {
                     ac.describeTopics(Collections.singletonList(paramPartition.getTopic())).compose(topicsDesc -> {
-                            topicsDesc.entrySet().forEach(topicEntry -> {
-                                topicsDesc.get(topicEntry.getKey()).getPartitions().forEach(partition -> {
-                                    topicPartitionsToReset.add(new TopicPartition(topicEntry.getKey(), partition.getPartition()));
-                                });
+                        topicsDesc.entrySet().forEach(topicEntry -> {
+                            topicsDesc.get(topicEntry.getKey()).getPartitions().forEach(partition -> {
+                                topicPartitionsToReset.add(new TopicPartition(topicEntry.getKey(), partition.getPartition()));
                             });
-                            promise.complete();
-                            return Future.succeededFuture(topicPartitionsToReset);
-                        })
-                        .onFailure(promise::fail);
+                        });
+                        promise.complete();
+                        return Future.succeededFuture(topicPartitionsToReset);
+                    })
+                    .onFailure(promise::fail);
                 } else {
                     paramPartition.getPartitions().forEach(numPartition -> {
                         topicPartitionsToReset.add(new TopicPartition(paramPartition.getTopic(), numPartition));
@@ -262,16 +262,16 @@ public class ConsumerGroupOperations {
                 }
 
                 var result = res.result()
-                    .entrySet()
-                    .stream()
-                    .map(entry -> {
-                        Types.TopicPartitionResetResult reset = new Types.TopicPartitionResetResult();
-                        reset.setTopic(entry.getKey().getTopic());
-                        reset.setPartition(entry.getKey().getPartition());
-                        reset.setOffset(entry.getValue().getOffset());
-                        return reset;
-                    })
-                    .collect(Collectors.toList());
+                        .entrySet()
+                        .stream()
+                        .map(entry -> {
+                            Types.TopicPartitionResetResult reset = new Types.TopicPartitionResetResult();
+                            reset.setTopic(entry.getKey().getTopic());
+                            reset.setPartition(entry.getKey().getPartition());
+                            reset.setOffset(entry.getValue().getOffset());
+                            return reset;
+                        })
+                        .collect(Collectors.toList());
 
                 Types.PagedResponse.forItems(result)
                     .onSuccess(promise::complete)
@@ -294,9 +294,9 @@ public class ConsumerGroupOperations {
         Map<TopicPartition, List<MemberDescription>> topicPartitions = new ConcurrentHashMap<>();
 
         List<String> requestedTopics = topicPartitionsToReset
-            .stream()
-            .map(TopicPartition::getTopic)
-            .collect(Collectors.toList());
+                .stream()
+                .map(TopicPartition::getTopic)
+                .collect(Collectors.toList());
 
         Promise<Void> topicDescribe = Promise.promise();
 
@@ -340,9 +340,9 @@ public class ConsumerGroupOperations {
                     .filter(member -> member.getClientId() != null)
                     .flatMap(member ->
                         member.getAssignment()
-                            .getTopicPartitions()
-                            .stream()
-                            .map(part -> Map.entry(part, member)))
+                             .getTopicPartitions()
+                             .stream()
+                             .map(part -> Map.entry(part, member)))
                     .forEach(entry -> {
                         MemberDescription member = entry.getValue();
                         topicPartitions.compute(entry.getKey(), (key, value) -> addTopicPartition(value, member));
@@ -353,11 +353,11 @@ public class ConsumerGroupOperations {
             .onFailure(groupDescribe::fail);
 
         return CompositeFuture.all(topicDescribe.future(), groupDescribe.future())
-            .map(nothing -> {
-                topicPartitionsToReset.forEach(topicPartition ->
-                    validatePartitionResettable(topicPartitions, topicPartition));
-                return null;
-            });
+                .map(nothing -> {
+                    topicPartitionsToReset.forEach(topicPartition ->
+                        validatePartitionResettable(topicPartitions, topicPartition));
+                    return null;
+                });
     }
 
     static List<MemberDescription> addTopicPartition(List<MemberDescription> members, MemberDescription newMember) {
@@ -375,8 +375,8 @@ public class ConsumerGroupOperations {
     static void validatePartitionResettable(Map<TopicPartition, List<MemberDescription>> topicClients, TopicPartition topicPartition) {
         if (!topicClients.containsKey(topicPartition)) {
             throw new IllegalArgumentException(String.format("Topic %s, partition %d is not valid",
-                topicPartition.getTopic(),
-                topicPartition.getPartition()));
+                                                          topicPartition.getTopic(),
+                                                          topicPartition.getPartition()));
         } else if (!topicClients.get(topicPartition).isEmpty()) {
             /*
              * Reject the request if any of the topic partitions
@@ -388,9 +388,9 @@ public class ConsumerGroupOperations {
                 .collect(Collectors.joining(", "));
 
             throw new IllegalArgumentException(String.format("Topic %s, partition %d has connected clients: [%s]",
-                topicPartition.getTopic(),
-                topicPartition.getPartition(),
-                clients));
+                                                             topicPartition.getTopic(),
+                                                             topicPartition.getPartition(),
+                                                             clients));
         }
     }
 
@@ -418,17 +418,17 @@ public class ConsumerGroupOperations {
     }
 
     private static List<Types.ConsumerGroupDescription> getConsumerGroupsDescription(Pattern pattern,
-                                                                                     Types.OrderByInput orderBy,
-                                                                                     int partitionFilter,
-                                                                                     Collection<ConsumerGroupDescription> groupDescriptions,
-                                                                                     Map<TopicPartition, OffsetAndMetadata> groupOffsets,
-                                                                                     Map<TopicPartition, ListOffsetsResultInfo> topicOffsets) {
+            Types.OrderByInput orderBy,
+            int partitionFilter,
+            Collection<ConsumerGroupDescription> groupDescriptions,
+            Map<TopicPartition, OffsetAndMetadata> groupOffsets,
+            Map<TopicPartition, ListOffsetsResultInfo> topicOffsets) {
 
         List<TopicPartition> assignedTopicPartitions = groupOffsets.entrySet()
-            .stream()
-            .map(Map.Entry::getKey)
-            .filter(topicPartition -> pattern.matcher(topicPartition.getTopic()).find())
-            .collect(Collectors.toList());
+                .stream()
+                .map(Map.Entry::getKey)
+                .filter(topicPartition -> pattern.matcher(topicPartition.getTopic()).find())
+                .collect(Collectors.toList());
 
         return groupDescriptions.stream().map(group -> {
             Types.ConsumerGroupDescription grp = new Types.ConsumerGroupDescription();
@@ -507,8 +507,6 @@ public class ConsumerGroupOperations {
             }
 
             grp.setConsumers(sortedList);
-
-            grp.setConsumers(sortedList);
             grp.setMetrics(calculateGroupMetrics(sortedList));
 
             return grp;
@@ -553,9 +551,9 @@ public class ConsumerGroupOperations {
     }
 
     private static Types.Consumer getConsumer(Map<TopicPartition, OffsetAndMetadata> groupOffsets,
-                                              Map<TopicPartition, ListOffsetsResultInfo> topicOffsets,
-                                              ConsumerGroupDescription group,
-                                              TopicPartition pa) {
+            Map<TopicPartition, ListOffsetsResultInfo> topicOffsets,
+            ConsumerGroupDescription group,
+            TopicPartition pa) {
 
         Types.Consumer member = new Types.Consumer();
         member.setTopic(pa.getTopic());
@@ -594,19 +592,19 @@ public class ConsumerGroupOperations {
      */
     @SuppressWarnings("rawtypes")
     static Future<Stream<Types.ConsumerGroupDescription>> fetchDescriptions(KafkaAdminClient ac,
-                                                                            List<String> groupIds,
-                                                                            Pattern topicPattern,
-                                                                            int partitionFilter,
-                                                                            Types.OrderByInput memberOrder) {
+                                                                     List<String> groupIds,
+                                                                     Pattern topicPattern,
+                                                                     int partitionFilter,
+                                                                     Types.OrderByInput memberOrder) {
 
         List<ConsumerGroupInfo> consumerGroupInfos = new ArrayList<>(groupIds.size());
 
         return ac.describeConsumerGroups(groupIds)
             .map(Map::entrySet)
             .map(descriptions -> descriptions.stream()
-                // Fetch the offsets for consumer groups
-                .map(entry -> ac.listConsumerGroupOffsets(entry.getKey()).map(offsets -> new ConsumerGroupInfo(entry.getValue(), offsets)))
-                .collect(Collectors.<Future>toList()))
+                 // Fetch the offsets for consumer groups
+                 .map(entry -> ac.listConsumerGroupOffsets(entry.getKey()).map(offsets -> new ConsumerGroupInfo(entry.getValue(), offsets)))
+                 .collect(Collectors.<Future>toList()))
             .compose(CompositeFuture::join)
             .map(CompositeFuture::<ConsumerGroupInfo>list)
             .compose(groupInfos -> {
@@ -615,9 +613,9 @@ public class ConsumerGroupOperations {
                 return ac.listOffsets(toListLatestOffsetMap(groupInfos));
             })
             .map(latestOffsets -> consumerGroupInfos.stream()
-                .map(e -> getConsumerGroupsDescription(topicPattern, memberOrder, partitionFilter, List.of(e.getDescription()), e.getOffsets(), latestOffsets))
-                .flatMap(List::stream)
-                .filter(Objects::nonNull));
+                 .map(e -> getConsumerGroupsDescription(topicPattern, memberOrder, partitionFilter, List.of(e.getDescription()), e.getOffsets(), latestOffsets))
+                 .flatMap(List::stream)
+                 .filter(Objects::nonNull));
     }
 
     /**
