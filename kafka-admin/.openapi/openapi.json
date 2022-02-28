@@ -257,7 +257,7 @@
       "patch" : {
         "tags" : [ "topics" ],
         "summary" : "Updates a single topic",
-        "description" : "Update a the configuration settings for a topic.",
+        "description" : "Update the configuration settings for a topic.",
         "operationId" : "updateTopic",
         "parameters" : [ {
           "name" : "topicName",
@@ -359,14 +359,14 @@
         }, {
           "name" : "topic",
           "in" : "query",
-          "description" : "Return consumer groups where the topic name contains with this value",
+          "description" : "Return consumer groups where the topic name contains this value",
           "schema" : {
             "type" : "string"
           }
         }, {
           "name" : "group-id-filter",
           "in" : "query",
-          "description" : "Return the consumer groups where the ID contains with this value",
+          "description" : "Return the consumer groups where the ID contains this value",
           "schema" : {
             "type" : "string"
           }
@@ -645,7 +645,7 @@
       "get" : {
         "tags" : [ "acls" ],
         "summary" : "List ACL bindings",
-        "description" : "Returns a list of all of the available ACL bindings, or the list of bindings that meet the users URL query parameters. If no parameters are specified, all ACL bindings known to the system will be returned (with paging).",
+        "description" : "Returns a list of all of the available ACL bindings, or the list of bindings that meet the user's URL query parameters. If no parameters are specified, all ACL bindings known to the system will be returned (with paging).",
         "operationId" : "getAcls",
         "parameters" : [ {
           "name" : "resourceType",
