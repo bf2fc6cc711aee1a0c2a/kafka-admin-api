@@ -89,7 +89,7 @@ public interface OperationsHandler {
     @Operation(
         operationId = Operations.UPDATE_TOPIC,
         summary = "Updates a single topic",
-        description = "Update a the configuration settings for a topic.")
+        description = "Update the configuration settings for a topic.")
     @Parameter(
         name = "topicName",
         description = "Name of the topic to update")
@@ -161,10 +161,10 @@ public interface OperationsHandler {
         description = "Returns a list of all consumer groups for a particular Kafka instance. The consumer groups returned are limited to those records the requestor is authorized to view.")
     @Parameter(
         name = "group-id-filter",
-        description = "Return the consumer groups where the ID contains with this value")
+        description = "Return the consumer groups where the ID contains this value")
     @Parameter(
         name = "topic",
-        description = "Return consumer groups where the topic name contains with this value")
+        description = "Return consumer groups where the topic name contains this value")
     @APIResponseSchema(
         responseCode = "200",
         value = Types.ConsumerGroupList.class,
@@ -286,7 +286,7 @@ public interface OperationsHandler {
     @Operation(
         operationId = Operations.GET_ACLS,
         summary = "List ACL bindings",
-        description = "Returns a list of all of the available ACL bindings, or the list of bindings that meet the users URL query parameters. If no parameters are specified, all ACL bindings known to the system will be returned (with paging).")
+        description = "Returns a list of all of the available ACL bindings, or the list of bindings that meet the user's URL query parameters. If no parameters are specified, all ACL bindings known to the system will be returned (with paging).")
     @APIResponseSchema(
         responseCode = "200",
         value = Types.AclBindingList.class,
