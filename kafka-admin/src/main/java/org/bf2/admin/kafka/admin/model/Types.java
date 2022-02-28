@@ -35,6 +35,7 @@ import java.net.URI;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Function;
@@ -1676,5 +1677,83 @@ public class Types {
             this.className = className;
         }
 
+    }
+
+    public static class RecordList extends PagedResponse<Record> {
+    }
+
+    public static class Record {
+        Integer partition;
+
+        @Schema(readOnly = true)
+        long offset;
+
+        @Schema(readOnly = true)
+        String timestamp;
+
+        @Schema(readOnly = true)
+        String timestampType;
+
+        Map<String, String> headers;
+
+        String key;
+
+        String value;
+
+        public Integer getPartition() {
+            return partition;
+        }
+
+        public void setPartition(Integer partition) {
+            this.partition = partition;
+        }
+
+        public long getOffset() {
+            return offset;
+        }
+
+        public void setOffset(long offset) {
+            this.offset = offset;
+        }
+
+        public String getTimestamp() {
+            return timestamp;
+        }
+
+        public void setTimestamp(String timestamp) {
+            this.timestamp = timestamp;
+        }
+
+        public String getTimestampType() {
+            return timestampType;
+        }
+
+        public void setTimestampType(String timestampType) {
+            this.timestampType = timestampType;
+        }
+
+        public Map<String, String> getHeaders() {
+            return headers;
+        }
+
+        public void setHeaders(Map<String, String> headers) {
+            this.headers = headers;
+        }
+
+        public String getKey() {
+            return key;
+        }
+
+        public void setKey(String key) {
+            this.key = key;
+        }
+
+        public String getValue() {
+            return value;
+        }
+
+        public void setValue(String value) {
+            this.value = value;
+        }
     }
 }

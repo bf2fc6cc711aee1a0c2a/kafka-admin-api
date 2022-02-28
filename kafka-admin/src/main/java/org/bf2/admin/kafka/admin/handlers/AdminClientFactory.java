@@ -104,7 +104,7 @@ public class AdminClientFactory {
     }
 
     public Consumer<String, String> createConsumer(Integer limit) {
-        Map<String, Object> props = config.getAcConfig();
+        Map<String, Object> props = config.getConsumerConfig();
 
         if (config.isOauthEnabled()) {
             if (token.isResolvable()) {
@@ -138,7 +138,7 @@ public class AdminClientFactory {
     }
 
     public Producer<String, String> createProducer() {
-        Map<String, Object> props = config.getAcConfig();
+        Map<String, Object> props = config.getProducerConfig();
 
         if (config.isOauthEnabled()) {
             if (token.isResolvable()) {

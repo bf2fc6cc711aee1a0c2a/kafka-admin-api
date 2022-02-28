@@ -135,11 +135,6 @@ public class KafkaAdminConfigRetriever {
 
         adminClientConfig.put(CommonClientConfigs.SECURITY_PROTOCOL_CONFIG, protocol.toString());
 
-        // admin client
-        adminClientConfig.put(AdminClientConfig.METADATA_MAX_AGE_CONFIG, "30000");
-        adminClientConfig.put(AdminClientConfig.REQUEST_TIMEOUT_MS_CONFIG, requestTimeoutMsConfig);
-        adminClientConfig.put(AdminClientConfig.DEFAULT_API_TIMEOUT_MS_CONFIG, apiTimeoutMsConfig);
-
         return adminClientConfig;
     }
 
@@ -159,6 +154,19 @@ public class KafkaAdminConfigRetriever {
     }
 
     public Map<String, Object> getAcConfig() {
+        Map<String, Object> config = new HashMap<>(acConfig);
+        config.put(AdminClientConfig.METADATA_MAX_AGE_CONFIG, "30000");
+        config.put(AdminClientConfig.REQUEST_TIMEOUT_MS_CONFIG, requestTimeoutMsConfig);
+        config.put(AdminClientConfig.DEFAULT_API_TIMEOUT_MS_CONFIG, apiTimeoutMsConfig);
+
+        return config;
+    }
+
+    public Map<String, Object> getConsumerConfig() {
+        return new HashMap<>(acConfig);
+    }
+
+    public Map<String, Object> getProducerConfig() {
         return new HashMap<>(acConfig);
     }
 

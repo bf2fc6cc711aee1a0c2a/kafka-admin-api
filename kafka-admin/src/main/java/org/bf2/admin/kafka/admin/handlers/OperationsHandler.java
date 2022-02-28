@@ -16,6 +16,7 @@ import javax.validation.Valid;
 import javax.ws.rs.BeanParam;
 import javax.ws.rs.Consumes;
 import javax.ws.rs.DELETE;
+import javax.ws.rs.DefaultValue;
 import javax.ws.rs.GET;
 import javax.ws.rs.PATCH;
 import javax.ws.rs.POST;
@@ -28,6 +29,7 @@ import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 import javax.ws.rs.core.UriInfo;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CompletionStage;
 
@@ -149,6 +151,23 @@ public interface OperationsHandler {
     CompletionStage<Response> listTopics(@QueryParam("filter") String filter,
                                          @Valid @BeanParam Types.DeprecatedPageRequest pageParams,
                                          @Valid @BeanParam Types.TopicSortParams orderParams);
+
+    @GET
+    @Path("topics/{topicName}/records")
+    // OpenAPI
+    @Tag(name = "records", description = "Send and receive records interactively")
+    Response consumeRecords(@PathParam("topicName") String topicName,
+                           @QueryParam("partition") Integer partition,
+                           @QueryParam("offset") Integer offset,
+                           @QueryParam("timestamp") String timestamp,
+                           @QueryParam("limit") @DefaultValue("20") Integer limit,
+                           @QueryParam("include") List<String> include);
+
+    @POST
+    @Path("topics/{topicName}/records")
+    // OpenAPI
+    @Tag(name = "records", description = "Send and receive records interactively")
+    CompletionStage<Response> produceRecord(@PathParam("topicName") String topicName, Types.Record input);
 
     @GET
     @Path("consumer-groups")
