@@ -14,6 +14,7 @@ import org.apache.kafka.common.acl.AccessControlEntryFilter;
 import org.apache.kafka.common.errors.InvalidRequestException;
 import org.apache.kafka.common.resource.ResourcePattern;
 import org.apache.kafka.common.resource.ResourcePatternFilter;
+import org.eclipse.microprofile.openapi.annotations.enums.Explode;
 import org.eclipse.microprofile.openapi.annotations.enums.SchemaType;
 import org.eclipse.microprofile.openapi.annotations.media.ExampleObject;
 import org.eclipse.microprofile.openapi.annotations.media.Schema;
@@ -38,13 +39,16 @@ import java.net.URI;
 import java.time.Instant;
 import java.time.ZonedDateTime;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Function;
+import java.util.function.Predicate;
 import java.util.function.UnaryOperator;
+import java.util.stream.Collectors;
 
 public class Types {
 
@@ -1847,8 +1851,9 @@ public class Types {
         @QueryParam(PROP_INCLUDE)
         @Parameter(
             description = "List of properties to include for each record in the response",
+            explode = Explode.FALSE,
             schema = @Schema(implementation = RecordIncludedProperty[].class))
-        List<String> include;
+        String include;
 
         @AssertTrue(message = "invalid timestamp")
         public boolean isTimestampValid() {
@@ -1861,6 +1866,14 @@ public class Types {
             } catch (Exception e) {
                 return false;
             }
+        }
+
+        @JsonIgnore
+        public List<String> getIncludeList() {
+            return include == null ? Collections.emptyList() : Arrays.stream(include.split(","))
+                .map(String::trim)
+                .filter(Predicate.not(String::isEmpty))
+                .collect(Collectors.toList());
         }
 
         public Integer getPartition() {
@@ -1895,11 +1908,11 @@ public class Types {
             this.limit = limit;
         }
 
-        public List<String> getInclude() {
+        public String getInclude() {
             return include;
         }
 
-        public void setInclude(List<String> include) {
+        public void setInclude(String include) {
             this.include = include;
         }
     }

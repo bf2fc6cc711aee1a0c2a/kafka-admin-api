@@ -815,6 +815,7 @@ paths:
           type: array
           items:
             $ref: '#/components/schemas/RecordIncludedProperty'
+        explode: false
       - name: limit
         in: query
         description: Limit the number of records fetched and returned

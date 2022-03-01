@@ -132,7 +132,7 @@ public class RestOperations implements OperationsHandler {
     public Response consumeRecords(String topicName,
                                    RecordFilterParams params) {
 
-        var result = recordOperations.consumeRecords(topicName, params.getPartition(), params.getOffset(), params.getTimestamp(), params.getLimit(), params.getInclude());
+        var result = recordOperations.consumeRecords(topicName, params.getPartition(), params.getOffset(), params.getTimestamp(), params.getLimit(), params.getIncludeList());
         return Response.ok(result).build();
     }
 
