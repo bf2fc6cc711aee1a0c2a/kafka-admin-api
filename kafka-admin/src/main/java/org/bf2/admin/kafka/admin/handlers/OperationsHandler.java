@@ -3,17 +3,28 @@ package org.bf2.admin.kafka.admin.handlers;
 import org.bf2.admin.kafka.admin.Operations;
 import org.bf2.admin.kafka.admin.model.Types;
 import org.eclipse.microprofile.openapi.annotations.Operation;
-import org.eclipse.microprofile.openapi.annotations.enums.ParameterIn;
+import org.eclipse.microprofile.openapi.annotations.media.Content;
+import org.eclipse.microprofile.openapi.annotations.media.ExampleObject;
+import org.eclipse.microprofile.openapi.annotations.media.Schema;
 import org.eclipse.microprofile.openapi.annotations.parameters.Parameter;
+import org.eclipse.microprofile.openapi.annotations.parameters.RequestBody;
+import org.eclipse.microprofile.openapi.annotations.responses.APIResponse;
+import org.eclipse.microprofile.openapi.annotations.responses.APIResponseSchema;
+import org.eclipse.microprofile.openapi.annotations.tags.Tag;
 
 import javax.validation.Valid;
+import javax.ws.rs.BeanParam;
+import javax.ws.rs.Consumes;
 import javax.ws.rs.DELETE;
 import javax.ws.rs.GET;
 import javax.ws.rs.PATCH;
 import javax.ws.rs.POST;
 import javax.ws.rs.Path;
 import javax.ws.rs.PathParam;
+import javax.ws.rs.Produces;
 import javax.ws.rs.QueryParam;
+import javax.ws.rs.core.Context;
+import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 import javax.ws.rs.core.UriInfo;
 
@@ -24,67 +35,307 @@ public interface OperationsHandler {
 
     @POST
     @Path("topics")
-    @Operation(operationId = Operations.CREATE_TOPIC)
+    @Consumes(MediaType.APPLICATION_JSON)
+    @Produces(MediaType.APPLICATION_JSON)
+    // OpenAPI
+    @Tag(name = "topics")
+    @Operation(
+        operationId = Operations.CREATE_TOPIC,
+        summary = "Creates a new topic",
+        description = "Creates a new topic for Kafka.")
+    @RequestBody(
+        description = "Topic to create.",
+        required = true,
+        content = @Content(examples = @ExampleObject(ref = "NewTopicExample")))
+    @APIResponseSchema(
+        responseCode = "201",
+        value = Types.Topic.class,
+        responseDescription = "Topic created successfully.")
+    @APIResponse(responseCode = "400", ref = "BadRequest")
+    @APIResponse(responseCode = "401", ref = "NotAuthorized")
+    @APIResponse(responseCode = "409", ref = "Conflict")
+    @APIResponse(responseCode = "500", ref = "ServerError")
+    @APIResponse(responseCode = "503", ref = "ServiceUnavailable")
     CompletionStage<Response> createTopic(@Valid Types.NewTopic newTopic);
 
     @GET
     @Path("topics/{topicName}")
-    @Operation(operationId = Operations.GET_TOPIC)
+    @Produces(MediaType.APPLICATION_JSON)
+    // OpenAPI
+    @Tag(name = "topics")
+    @Operation(
+        operationId = Operations.GET_TOPIC,
+        summary = "Retrieves a single topic",
+        description = "Topic")
+    @Parameter(
+        name = "topicName",
+        description = "Name of the topic to describe")
+    @APIResponseSchema(
+        value = Types.Topic.class,
+        responseDescription = "Kafka topic details")
+    @APIResponse(responseCode = "401", ref = "NotAuthorized")
+    @APIResponse(responseCode = "403", ref = "Forbidden")
+    @APIResponse(responseCode = "404", ref = "NotFound")
+    @APIResponse(responseCode = "500", ref = "ServerError")
+    @APIResponse(responseCode = "503", ref = "ServiceUnavailable")
     CompletionStage<Response> describeTopic(@PathParam("topicName") String topicName);
 
     @PATCH
     @Path("topics/{topicName}")
-    @Operation(operationId = Operations.UPDATE_TOPIC)
-    CompletionStage<Response> updateTopic(@PathParam("topicName") String topicName, @Valid Types.UpdatedTopic updatedTopic);
+    @Consumes(MediaType.APPLICATION_JSON)
+    @Produces(MediaType.APPLICATION_JSON)
+    // OpenAPI
+    @Tag(name = "topics")
+    @Operation(
+        operationId = Operations.UPDATE_TOPIC,
+        summary = "Updates a single topic",
+        description = "Update the configuration settings for a topic.")
+    @Parameter(
+        name = "topicName",
+        description = "Name of the topic to update")
+    @RequestBody(required = true)
+    @APIResponseSchema(
+        responseCode = "200",
+        value = Types.Topic.class,
+        responseDescription = "Topic updated successfully.")
+    @APIResponse(responseCode = "400", ref = "BadRequest")
+    @APIResponse(responseCode = "401", ref = "NotAuthorized")
+    @APIResponse(responseCode = "403", ref = "Forbidden")
+    @APIResponse(responseCode = "404", ref = "NotFound")
+    @APIResponse(responseCode = "500", ref = "ServerError")
+    @APIResponse(responseCode = "503", ref = "ServiceUnavailable")
+    CompletionStage<Response> updateTopic(@PathParam("topicName") String topicName,
+                                          @Valid Types.TopicSettings updatedTopic);
 
     @DELETE
     @Path("topics/{topicName}")
-    @Operation(operationId = Operations.DELETE_TOPIC)
+    @Produces(MediaType.APPLICATION_JSON)
+    // OpenAPI
+    @Tag(name = "topics")
+    @Operation(
+        operationId = Operations.DELETE_TOPIC,
+        summary = "Deletes a topic",
+        description = "Deletes the topic with the specified name.")
+    @Parameter(
+        name = "topicName",
+        description = "Name of the topic to delete")
+    @APIResponse(responseCode = "204", description = "Topic deleted successfully.")
+    @APIResponse(responseCode = "401", ref = "NotAuthorized")
+    @APIResponse(responseCode = "403", ref = "Forbidden")
+    @APIResponse(responseCode = "404", ref = "NotFound")
+    @APIResponse(responseCode = "500", ref = "ServerError")
+    @APIResponse(responseCode = "503", ref = "ServiceUnavailable")
     CompletionStage<Response> deleteTopic(@PathParam("topicName") String topicName);
 
     @GET
     @Path("topics")
-    @Operation(operationId = Operations.GET_TOPICS_LIST)
-    CompletionStage<Response> listTopics(@QueryParam("filter") String filter, UriInfo requestUri);
+    @Produces(MediaType.APPLICATION_JSON)
+    // OpenAPI
+    @Tag(name = "topics")
+    @Operation(
+        operationId = Operations.GET_TOPICS_LIST,
+        summary = "Retrieves a list of topics",
+        description = "Returns a list of all of the available topics, or the list of topics that meet the request query parameters. The topics returned are limited to those records the requestor is authorized to view.")
+    @Parameter(
+        name = "filter",
+        description = "Filter to apply when returning the list of topics")
+    @APIResponseSchema(
+        value = Types.TopicList.class,
+        responseDescription = "List of topics matching the request query parameters. The topics returned are limited to those records the requestor is authorized to view.")
+    @APIResponse(responseCode = "400", ref = "BadRequest")
+    @APIResponse(responseCode = "401", ref = "NotAuthorized")
+    @APIResponse(responseCode = "500", ref = "ServerError")
+    @APIResponse(responseCode = "503", ref = "ServiceUnavailable")
+    CompletionStage<Response> listTopics(@QueryParam("filter") String filter,
+                                         @Valid @BeanParam Types.DeprecatedPageRequest pageParams,
+                                         @Valid @BeanParam Types.TopicSortParams orderParams);
 
     @GET
     @Path("consumer-groups")
-    @Operation(operationId = Operations.GET_CONSUMER_GROUPS_LIST)
-    CompletionStage<Response> listGroups(@QueryParam("group-id-filter") String groupFilter, @QueryParam("topic") String topicFilter, UriInfo requestUri);
+    @Produces(MediaType.APPLICATION_JSON)
+    // OpenAPI
+    @Tag(name = "groups")
+    @Operation(
+        operationId = Operations.GET_CONSUMER_GROUPS_LIST,
+        summary = "List of consumer groups in the Kafka instance.",
+        description = "Returns a list of all consumer groups for a particular Kafka instance. The consumer groups returned are limited to those records the requestor is authorized to view.")
+    @Parameter(
+        name = "group-id-filter",
+        description = "Return the consumer groups where the ID contains this value")
+    @Parameter(
+        name = "topic",
+        description = "Return consumer groups where the topic name contains this value")
+    @APIResponseSchema(
+        responseCode = "200",
+        value = Types.ConsumerGroupList.class,
+        responseDescription = "List of consumer groups matching the request parameters. The consumer groups returned are limited to those records the requestor is authorized to view.")
+    @APIResponse(responseCode = "400", ref = "BadRequest")
+    @APIResponse(responseCode = "401", ref = "NotAuthorized")
+    @APIResponse(responseCode = "500", ref = "ServerError")
+    @APIResponse(responseCode = "503", ref = "ServiceUnavailable")
+    CompletionStage<Response> listGroups(@QueryParam("group-id-filter") String groupFilter,
+                                         @QueryParam("topic") String topicFilter,
+                                         @Valid @BeanParam Types.DeprecatedPageRequest pageParams,
+                                         @Valid @BeanParam Types.ConsumerGroupSortParams sortParams,
+                                         @Context UriInfo requestUri);
 
     @GET
     @Path("consumer-groups/{consumerGroupId}")
-    @Operation(operationId = Operations.GET_CONSUMER_GROUP)
-    CompletionStage<Response> describeGroup(@PathParam("consumerGroupId") String consumerGroupId, @QueryParam("partitionFilter") Optional<Integer> partitionFilter, UriInfo requestUri);
+    @Produces(MediaType.APPLICATION_JSON)
+    // OpenAPI
+    @Tag(name = "groups")
+    @Operation(operationId = Operations.GET_CONSUMER_GROUP, summary = "Get a single consumer group by its unique ID.")
+    @Parameter(
+        name = "consumerGroupId",
+        description = "Consumer group identifier")
+    @Parameter(
+        name = "partitionFilter",
+        description = "Value of partition to include. Value -1 means filter is not active.")
+    @Parameter(
+        name = "topic",
+        description = "Filter consumer groups for a specific topic")
+    @APIResponse(
+        responseCode = "200",
+        description = "Consumer group details.",
+        content = @Content(
+            schema = @Schema(implementation = Types.ConsumerGroup.class),
+            examples = @ExampleObject(ref = "ConsumerGroupExample")))
+    @APIResponse(responseCode = "401", ref = "NotAuthorized")
+    @APIResponse(responseCode = "403", ref = "Forbidden")
+    @APIResponse(responseCode = "404", ref = "NotFound")
+    @APIResponse(responseCode = "500", ref = "ServerError")
+    @APIResponse(responseCode = "503", ref = "ServiceUnavailable")
+    CompletionStage<Response> describeGroup(@PathParam("consumerGroupId") String consumerGroupId,
+                                            @QueryParam("partitionFilter") Optional<Integer> partitionFilter,
+                                            @QueryParam("topic") String topicFilter,
+                                            @BeanParam Types.ConsumerGroupDescriptionSortParams sortParams);
 
     @DELETE
     @Path("consumer-groups/{consumerGroupId}")
-    @Operation(operationId = Operations.DELETE_CONSUMER_GROUP)
+    // OpenAPI
+    @Tag(name = "groups")
+    @Operation(
+        operationId = Operations.DELETE_CONSUMER_GROUP,
+        summary = "Delete a consumer group.",
+        description = "Delete a consumer group, along with its consumers.")
+    @Parameter(
+        name = "consumerGroupId",
+        description = "Consumer group identifier")
+    @APIResponse(
+        responseCode = "204",
+        description = "The consumer group was deleted successfully.")
+    @APIResponse(responseCode = "401", ref = "NotAuthorized")
+    @APIResponse(responseCode = "403", ref = "Forbidden")
+    @APIResponse(responseCode = "404", ref = "NotFound")
+    @APIResponse(
+        responseCode = "423",
+        description = "User cannot delete consumer group with active members.",
+        content = @Content(mediaType = MediaType.APPLICATION_JSON, schema = @Schema(implementation = Types.Error.class)))
+    @APIResponse(responseCode = "500", ref = "ServerError")
+    @APIResponse(responseCode = "503", ref = "ServiceUnavailable")
     CompletionStage<Response> deleteGroup(@PathParam("consumerGroupId") String consumerGroupId);
 
     @POST
     @Path("consumer-groups/{consumerGroupId}/reset-offset")
-    @Operation(operationId = Operations.RESET_CONSUMER_GROUP_OFFSET)
-    CompletionStage<Response> resetGroupOffset(@PathParam("consumerGroupId") String consumerGroupId, Types.ConsumerGroupOffsetResetParameters parameters);
+    @Consumes(MediaType.APPLICATION_JSON)
+    @Produces(MediaType.APPLICATION_JSON)
+    // OpenAPI
+    @Tag(name = "groups")
+    @Operation(
+        operationId = Operations.RESET_CONSUMER_GROUP_OFFSET,
+        summary = "Reset the offset for a consumer group.",
+        description = "Reset the offset for a particular consumer group.")
+    @Parameter(
+        name = "consumerGroupId",
+        description = "Consumer group identifier")
+    @RequestBody(
+        required = true,
+        content = @Content(examples = @ExampleObject(ref = "ConsumerGroupOffsetResetExample")))
+    @APIResponseSchema(
+        responseCode = "200",
+        value = Types.ConsumerGroupResetOffsetResult.class,
+        responseDescription = "The consumer group offsets have been reset.")
+    @APIResponse(responseCode = "400", ref = "BadRequest")
+    @APIResponse(responseCode = "401", ref = "NotAuthorized")
+    @APIResponse(responseCode = "403", ref = "Forbidden")
+    @APIResponse(responseCode = "404", ref = "NotFound")
+    @APIResponse(responseCode = "500", ref = "ServerError")
+    @APIResponse(responseCode = "503", ref = "ServiceUnavailable")
+    CompletionStage<Response> resetGroupOffset(@PathParam("consumerGroupId") String consumerGroupId,
+                                               @Valid Types.ConsumerGroupOffsetResetParameters parameters);
 
     @GET
     @Path("acls/resource-operations")
-    @Operation(operationId = Operations.GET_ACL_RESOURCE_OPERATIONS)
+    @Produces(MediaType.APPLICATION_JSON)
+    // OpenAPI
+    @Tag(name = "acls")
+    @Operation(
+        operationId = Operations.GET_ACL_RESOURCE_OPERATIONS,
+        summary = "Retrieve allowed ACL resources and operations",
+        description = "Retrieve the resources and associated operations that may have ACLs configured.")
+    @APIResponse(responseCode = "200", description = "Map of allowed resources and operations for ACL creation")
+    @APIResponse(responseCode = "401", ref = "NotAuthorized")
+    @APIResponse(responseCode = "500", ref = "ServerError")
     Response getAclResourceOperations();
 
     @GET
     @Path("acls")
-    @Operation(operationId = Operations.GET_ACLS)
-    @Parameter(name = Types.AclBinding.PROP_RESOURCE_TYPE, in = ParameterIn.QUERY)
-    CompletionStage<Response> describeAcls(UriInfo requestUri);
+    @Produces(MediaType.APPLICATION_JSON)
+    // OpenAPI
+    @Tag(name = "acls")
+    @Operation(
+        operationId = Operations.GET_ACLS,
+        summary = "List ACL bindings",
+        description = "Returns a list of all of the available ACL bindings, or the list of bindings that meet the user's URL query parameters. If no parameters are specified, all ACL bindings known to the system will be returned (with paging).")
+    @APIResponseSchema(
+        responseCode = "200",
+        value = Types.AclBindingList.class,
+        responseDescription = "List of ACL bindings matching the query parameters.")
+    @APIResponse(responseCode = "400", ref = "BadRequest")
+    @APIResponse(responseCode = "401", ref = "NotAuthorized")
+    @APIResponse(responseCode = "403", ref = "Forbidden")
+    @APIResponse(responseCode = "500", ref = "ServerError")
+    @APIResponse(responseCode = "503", ref = "ServiceUnavailable")
+    CompletionStage<Response> describeAcls(@BeanParam Types.AclBindingFilterParams filterParams,
+                                           @Valid @BeanParam Types.PageRequest pageParams,
+                                           @Valid @BeanParam Types.AclBindingSortParams sortParams);
 
     @POST
     @Path("acls")
-    @Operation(operationId = Operations.CREATE_ACL)
-    CompletionStage<Response> createAcl(Types.AclBinding binding);
+    @Consumes(MediaType.APPLICATION_JSON)
+    // OpenAPI
+    @Tag(name = "acls")
+    @Operation(
+        operationId = Operations.CREATE_ACL,
+        summary = "Create ACL binding",
+        description = "Creates a new ACL binding for a Kafka instance.")
+    @RequestBody(description = "ACL to create.", required = true)
+    @APIResponse(responseCode = "201", description = "ACL created successfully.")
+    @APIResponse(responseCode = "400", ref = "BadRequest")
+    @APIResponse(responseCode = "401", ref = "NotAuthorized")
+    @APIResponse(responseCode = "403", ref = "Forbidden")
+    @APIResponse(responseCode = "500", ref = "ServerError")
+    @APIResponse(responseCode = "503", ref = "ServiceUnavailable")
+    CompletionStage<Response> createAcl(@Valid Types.AclBinding binding);
 
     @DELETE
     @Path("acls")
-    @Operation(operationId = Operations.DELETE_ACLS)
-    CompletionStage<Response> deleteAcls(UriInfo requestUri);
+    @Produces(MediaType.APPLICATION_JSON)
+    // OpenAPI
+    @Tag(name = "acls")
+    @Operation(
+        operationId = Operations.DELETE_ACLS,
+        summary = "Delete ACL bindings",
+        description = "Deletes ACL bindings that match the query parameters.")
+    @APIResponseSchema(
+        responseCode = "200",
+        value = Types.AclBindingList.class,
+        responseDescription = "List of all ACL bindings matching the query parameters that were deleted.")
+    @APIResponse(responseCode = "400", ref = "BadRequest")
+    @APIResponse(responseCode = "401", ref = "NotAuthorized")
+    @APIResponse(responseCode = "403", ref = "Forbidden")
+    @APIResponse(responseCode = "500", ref = "ServerError")
+    @APIResponse(responseCode = "503", ref = "ServiceUnavailable")
+    CompletionStage<Response> deleteAcls(@BeanParam Types.AclBindingFilterParams filterParams);
+
 }

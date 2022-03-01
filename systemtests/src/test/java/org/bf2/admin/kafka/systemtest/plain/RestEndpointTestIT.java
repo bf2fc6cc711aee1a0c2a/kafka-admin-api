@@ -165,7 +165,10 @@ class RestEndpointTestIT {
             .get(TopicUtils.TOPIC_COLLECTION_PATH)
         .then()
             .log().ifValidationFails()
-            .statusCode(Status.BAD_REQUEST.getStatusCode());
+            .statusCode(Status.BAD_REQUEST.getStatusCode())
+        .assertThat()
+            .body("code", equalTo(Status.BAD_REQUEST.getStatusCode()))
+            .body("error_message", notNullValue());
     }
 
     @ParameterizedTest

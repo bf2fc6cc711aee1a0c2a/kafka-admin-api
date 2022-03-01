@@ -27,14 +27,17 @@
 
         <!-- Dependencies -->
         <quarkus.version>2.2.5.Final</quarkus.version>
-        <jandex.version>1.2.1</jandex.version>
+        <jandex-maven-plugin.version>1.2.1</jandex-maven-plugin.version>
+        <jandex.version>2.4.1.Final</jandex.version>
         <kafka.version>3.0.0</kafka.version>
         <strimzi-oauth.version>0.8.1</strimzi-oauth.version>
+        <smallrye-openapi.version>2.1.19</smallrye-openapi.version>
+        <hamcrest.version>2.1</hamcrest.version>
 
         <!-- Plugin Versions -->
-        <maven.compiler.version>3.8.1</maven.compiler.version>
+        <maven.compiler.version>3.9.0</maven.compiler.version>
         <maven.dependency.version>3.1.2</maven.dependency.version>
-        <maven.checkstyle.version>3.1.1</maven.checkstyle.version>
+        <maven.checkstyle.version>3.1.2</maven.checkstyle.version>
         <spotbugs.version>4.0.3</spotbugs.version>
         <surefire-plugin.version>3.0.0-M5</surefire-plugin.version>
     </properties>
@@ -53,6 +56,18 @@
                 <version>${quarkus.version}</version>
                 <type>pom</type>
                 <scope>import</scope>
+            </dependency>
+            <!-- Override OpenAPI scanner to support property natural order, remove when updating Quarkus -->
+            <dependency>
+                <groupId>io.smallrye</groupId>
+                <artifactId>smallrye-open-api-core</artifactId>
+                <version>${smallrye-openapi.version}</version>
+            </dependency>
+            <!-- Manage jandex version, required for smallrye-open-api -->
+            <dependency>
+                <groupId>org.jboss</groupId>
+                <artifactId>jandex</artifactId>
+                <version>${jandex.version}</version>
             </dependency>
             <dependency>
                 <groupId>org.bf2</groupId>
@@ -91,7 +106,7 @@
             <plugin>
                 <groupId>org.jboss.jandex</groupId>
                 <artifactId>jandex-maven-plugin</artifactId>
-                <version>${jandex.version}</version>
+                <version>${jandex-maven-plugin.version}</version>
                 <executions>
                     <execution>
                         <id>make-index</id>
@@ -163,7 +178,7 @@
                     <dependency>
                         <groupId>com.puppycrawl.tools</groupId>
                         <artifactId>checkstyle</artifactId>
-                        <version>8.29</version>
+                        <version>9.3</version>
                     </dependency>
                 </dependencies>
                 <executions>

@@ -107,9 +107,9 @@ public class AccessControlOperations {
     }
 
     public CompletionStage<PagedResponse<Types.AclBinding>> getAcls(Admin client,
-                        Types.AclBinding filter,
+                        Types.AclBindingFilterParams filter,
                         Types.PageRequest pageRequest,
-                        Types.OrderByInput sortOrder) {
+                        Types.AclBindingSortParams sortOrder) {
 
         Promise<PagedResponse<Types.AclBinding>> promise = Promise.promise();
         var pendingResults = new ArrayList<KafkaFuture<Collection<AclBinding>>>(2);
@@ -135,7 +135,7 @@ public class AccessControlOperations {
     }
 
     public CompletionStage<PagedResponse<Types.AclBinding>> deleteAcls(Admin client,
-                           Types.AclBinding filter) {
+                           Types.AclBindingFilterParams filter) {
 
         Promise<PagedResponse<Types.AclBinding>> promise = Promise.promise();
 
@@ -153,9 +153,9 @@ public class AccessControlOperations {
     }
 
     private boolean validAclBinding(Types.AclBinding binding) {
-        return resourceOperations.getOrDefault(binding.getResourceType().toLowerCase(Locale.ENGLISH),
+        return resourceOperations.getOrDefault(binding.getResourceType().name().toLowerCase(Locale.ENGLISH),
                                                Collections.emptyList())
-                .contains(binding.getOperation().toLowerCase(Locale.ENGLISH));
+                .contains(binding.getOperation().name().toLowerCase(Locale.ENGLISH));
     }
 
     static Future<List<Types.AclBinding>> collectBindings(Collection<AclBinding> bindings, Throwable error) {
@@ -168,7 +168,8 @@ public class AccessControlOperations {
         return promise.future();
     }
 
-    static Future<List<Types.AclBinding>> collectBindings(List<KafkaFuture<Collection<AclBinding>>> pendingResults, Types.OrderByInput sortOrder, Throwable error) {
+    static Future<List<Types.AclBinding>> collectBindings(List<KafkaFuture<Collection<AclBinding>>> pendingResults,
+                                                          Types.AclBindingSortParams sortOrder, Throwable error) {
         Promise<List<Types.AclBinding>> promise = Promise.promise();
 
         if (error == null) {
@@ -195,12 +196,13 @@ public class AccessControlOperations {
         return promise.future();
     }
 
-    static Comparator<AclBinding> getComparator(Types.OrderByInput sortOrder) {
+    static Comparator<AclBinding> getComparator(Types.AclBindingSortParams sortOrder) {
         Map<String, Function<AclBinding, String>> sortKeys = new LinkedHashMap<>(SORT_KEYS);
         Comparator<AclBinding> comparator;
+        String requestedSortKey = sortOrder.getField().getValue();
 
-        if (sortKeys.containsKey(sortOrder.getField())) {
-            comparator = Comparator.comparing(sortKeys.remove(sortOrder.getField()));
+        if (sortKeys.containsKey(requestedSortKey)) {
+            comparator = Comparator.comparing(sortKeys.remove(requestedSortKey));
         } else {
             comparator = Comparator.comparing(sortKeys.remove(Types.AclBinding.PROP_PERMISSION));
         }

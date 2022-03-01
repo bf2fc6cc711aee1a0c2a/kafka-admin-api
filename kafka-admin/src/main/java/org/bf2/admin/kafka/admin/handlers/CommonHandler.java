@@ -15,7 +15,6 @@ import org.apache.kafka.common.errors.InvalidRequestException;
 import org.apache.kafka.common.errors.InvalidTopicException;
 import org.apache.kafka.common.errors.LeaderNotAvailableException;
 import org.apache.kafka.common.errors.PolicyViolationException;
-import org.apache.kafka.common.errors.SaslAuthenticationException;
 import org.apache.kafka.common.errors.SslAuthenticationException;
 import org.apache.kafka.common.errors.TimeoutException;
 import org.apache.kafka.common.errors.TopicExistsException;
@@ -56,6 +55,13 @@ public class CommonHandler {
     }
 
     static ResponseBuilder errorResponse(Throwable error, StatusType status, String errorMessage) {
+
+        if (status.getFamily() == Family.SERVER_ERROR) {
+            log.errorf(error, "%s %s", error.getClass(), error.getMessage());
+        } else {
+            log.warnf("%s %s", error.getClass(), error.getMessage());
+        }
+
         final int statusCode = status.getStatusCode();
         ResponseBuilder response = Response.status(statusCode);
         Types.Error errorEntity = new Types.Error();
@@ -121,9 +127,7 @@ public class CommonHandler {
         } else if (failureCause instanceof AuthorizationException) {
             status = Status.FORBIDDEN;
         } else if (failureCause instanceof AuthenticationException
-            || failureCause instanceof TokenExpiredException
-            || (failureCause.getCause() instanceof SaslAuthenticationException
-                    && failureCause.getCause().getMessage().contains("Authentication failed due to an invalid token"))) {
+                || failureCause instanceof TokenExpiredException) {
             status = Status.UNAUTHORIZED;
         } else if (failureCause instanceof InvalidTopicException
                 || failureCause instanceof PolicyViolationException
@@ -170,67 +174,60 @@ public class CommonHandler {
             status = Status.INTERNAL_SERVER_ERROR;
         }
 
-        if (status.getFamily() == Family.SERVER_ERROR) {
-            log.errorf(failureCause, "%s %s", failureCause.getClass(), failureCause.getMessage());
-        } else {
-            log.warnf("%s %s", failureCause.getClass(), failureCause.getMessage());
-        }
-
         return errorResponse(failureCause, status, errorMessage);
     }
 
     public static class TopicComparator implements Comparator<Types.Topic> {
 
-        private final String key;
-        public TopicComparator(String key) {
+        private final Types.TopicOrderKey key;
+        public TopicComparator(Types.TopicOrderKey key) {
             this.key = key;
         }
 
         public TopicComparator() {
-            this.key = "name";
+            this.key = Types.TopicOrderKey.NAME;
         }
         @Override
         public int compare(Types.Topic firstTopic, Types.Topic secondTopic) {
+            switch (key) {
+                case NAME:
+                    return firstTopic.getName().compareToIgnoreCase(secondTopic.getName());
 
-            if ("name".equals(key)) {
-                return firstTopic.getName().compareToIgnoreCase(secondTopic.getName());
-            } else if ("partitions".equals(key)) {
-                return firstTopic.getPartitions().size() - secondTopic.getPartitions().size();
-            } else if ("retention.ms".equals(key)) {
-                Types.ConfigEntry first = firstTopic.getConfig().stream().filter(entry -> entry.getKey().equals("retention.ms")).findFirst().orElseGet(() -> null);
-                Types.ConfigEntry second = secondTopic.getConfig().stream().filter(entry -> entry.getKey().equals("retention.ms")).findFirst().orElseGet(() -> null);
-                if (first == null || second == null || first.getValue() == null || second.getValue() == null) {
+                case PARTITIONS:
+                    return firstTopic.getPartitions().size() - secondTopic.getPartitions().size();
+
+                case RETENTION_BYTES:
+                case RETENTION_MS:
+                    String keyValue = key.getValue();
+                    Types.ConfigEntry first = firstTopic.getConfig().stream().filter(entry -> entry.getKey().equals(keyValue)).findFirst().orElseGet(() -> null);
+                    Types.ConfigEntry second = secondTopic.getConfig().stream().filter(entry -> entry.getKey().equals(keyValue)).findFirst().orElseGet(() -> null);
+
+                    if (first == null || second == null || first.getValue() == null || second.getValue() == null) {
+                        return 0;
+                    } else {
+                        return Long.compare(first.getValue().equals("-1") ? Long.MAX_VALUE : Long.parseLong(first.getValue()), second.getValue().equals("-1") ? Long.MAX_VALUE : Long.parseLong(second.getValue()));
+                    }
+
+                default:
                     return 0;
-                } else {
-                    return Long.compare(first.getValue().equals("-1") ? Long.MAX_VALUE : Long.parseLong(first.getValue()), second.getValue().equals("-1") ? Long.MAX_VALUE : Long.parseLong(second.getValue()));
-                }
-            } else if ("retention.bytes".equals(key)) {
-                Types.ConfigEntry first = firstTopic.getConfig().stream().filter(entry -> entry.getKey().equals("retention.bytes")).findFirst().orElseGet(() -> null);
-                Types.ConfigEntry second = secondTopic.getConfig().stream().filter(entry -> entry.getKey().equals("retention.bytes")).findFirst().orElseGet(() -> null);
-                if (first == null || second == null || first.getValue() == null || second.getValue() == null) {
-                    return 0;
-                } else {
-                    return Long.compare(first.getValue().equals("-1") ? Long.MAX_VALUE : Long.parseLong(first.getValue()), second.getValue().equals("-1") ? Long.MAX_VALUE : Long.parseLong(second.getValue()));
-                }
             }
-            return 0;
         }
     }
 
     public static class ConsumerGroupComparator implements Comparator<Types.ConsumerGroup> {
 
-        private final String key;
-        public ConsumerGroupComparator(String key) {
+        private final Types.ConsumerGroupOrderKey key;
+        public ConsumerGroupComparator(Types.ConsumerGroupOrderKey key) {
             this.key = key;
         }
 
         public ConsumerGroupComparator() {
-            this.key = "name";
+            this.key = Types.ConsumerGroupOrderKey.NAME;
         }
 
         @Override
         public int compare(Types.ConsumerGroup firstConsumerGroup, Types.ConsumerGroup secondConsumerGroup) {
-            if ("name".equals(key)) {
+            if (Types.ConsumerGroupOrderKey.NAME.equals(key)) {
                 if (firstConsumerGroup == null || firstConsumerGroup.getGroupId() == null
                     || secondConsumerGroup == null || secondConsumerGroup.getGroupId() == null) {
                     return 0;
