@@ -99,19 +99,16 @@ public class RecordOperations {
                 .map(rec -> {
                     Types.Record item = new Types.Record();
 
-                    setProperty("partition", include, rec::partition, item::setPartition);
-                    setProperty("offset", include, rec::offset, item::setOffset);
-                    setProperty("timestamp", include, () -> timestampToString(rec.timestamp()), item::setTimestamp);
-                    setProperty("timestampType", include, () -> rec.timestampType().name(), item::setTimestampType);
-                    setProperty("key", include, rec::key, item::setKey);
-                    setProperty("value", include, rec::value, item::setValue);
-
-                    if (include.isEmpty() || include.contains("headers")) {
-                        var headers = StreamSupport.stream(rec.headers().spliterator(), false)
-                            .collect(Collectors.toMap(Header::key, h -> new String(h.value())));
-
-                        item.setHeaders(headers);
-                    }
+                    setProperty(Types.Record.PROP_PARTITION, include, rec::partition, item::setPartition);
+                    setProperty(Types.Record.PROP_OFFSET, include, rec::offset, item::setOffset);
+                    setProperty(Types.Record.PROP_TIMESTAMP, include, () -> timestampToString(rec.timestamp()), item::setTimestamp);
+                    setProperty(Types.Record.PROP_TIMESTAMP_TYPE, include, () -> rec.timestampType().name(), item::setTimestampType);
+                    setProperty(Types.Record.PROP_KEY, include, rec::key, item::setKey);
+                    setProperty(Types.Record.PROP_VALUE, include, rec::value, item::setValue);
+                    setProperty(Types.Record.PROP_HEADERS, include,
+                            () -> StreamSupport.stream(rec.headers().spliterator(), false)
+                                .collect(Collectors.toMap(Header::key, h -> new String(h.value()))),
+                            item::setHeaders);
 
                     return item;
                 })
