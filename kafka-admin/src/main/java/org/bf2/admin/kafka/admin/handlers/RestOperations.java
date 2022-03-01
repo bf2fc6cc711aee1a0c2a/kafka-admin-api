@@ -12,6 +12,7 @@ import org.bf2.admin.kafka.admin.KafkaAdminConfigRetriever;
 import org.bf2.admin.kafka.admin.RecordOperations;
 import org.bf2.admin.kafka.admin.TopicOperations;
 import org.bf2.admin.kafka.admin.model.Types;
+import org.bf2.admin.kafka.admin.model.Types.RecordFilterParams;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.eclipse.microprofile.context.ThreadContext;
 import org.jboss.logging.Logger;
@@ -23,10 +24,8 @@ import javax.ws.rs.core.Response;
 import javax.ws.rs.core.Response.ResponseBuilder;
 import javax.ws.rs.core.Response.Status;
 import javax.ws.rs.core.UriBuilder;
-import javax.ws.rs.core.UriInfo;
 
 import java.util.Collections;
-import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
@@ -131,27 +130,24 @@ public class RestOperations implements OperationsHandler {
     @Counted("consume_records_requests")
     @Timed("consume_records_request_time")
     public Response consumeRecords(String topicName,
-                                   Integer partition,
-                                   Integer offset,
-                                   String timestamp,
-                                   Integer limit,
-                                   List<String> include) {
+                                   RecordFilterParams params) {
 
-        var result = recordOperations.consumeRecords(topicName, partition, offset, timestamp, limit, include);
+        var result = recordOperations.consumeRecords(topicName, params.getPartition(), params.getOffset(), params.getTimestamp(), params.getLimit(), params.getInclude());
         return Response.ok(result).build();
     }
 
     @Counted("produce_record_requests")
     @Timed("produce_record_request_time")
     public CompletionStage<Response> produceRecord(String topicName, Types.Record input) {
-        return recordOperations.produceRecord(topicName, input)
-                .thenApply(result -> Response.ok(result).build());
+        return threadContext.withContextCapture(recordOperations.produceRecord(topicName, input))
+                .thenApply(result -> Response.created(result.buildUri(uriBuilder("consumeRecords"), topicName))
+                           .entity(result).build());
     }
 
     @Override
     @Counted("list_groups_requests")
     @Timed("list_groups_request_time")
-    public CompletionStage<Response> listGroups(String consumerGroupIdFilter, String topicFilter, Types.DeprecatedPageRequest pageParams, Types.ConsumerGroupSortParams sortParams, UriInfo requestUri) {
+    public CompletionStage<Response> listGroups(String consumerGroupIdFilter, String topicFilter, Types.DeprecatedPageRequest pageParams, Types.ConsumerGroupSortParams sortParams) {
         final Pattern topicPattern = filterPattern(topicFilter);
         final Pattern groupPattern = filterPattern(consumerGroupIdFilter);
 

@@ -23,6 +23,8 @@ tags:
     description: Consumer Group Management
   - name: acls
     description: Access Control Management (ACLs)
+  - name: records
+    description: Send and receive records interactively
 paths:
   /rest/topics:
     get:

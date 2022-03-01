@@ -14,14 +14,17 @@ import org.apache.kafka.common.acl.AccessControlEntryFilter;
 import org.apache.kafka.common.errors.InvalidRequestException;
 import org.apache.kafka.common.resource.ResourcePattern;
 import org.apache.kafka.common.resource.ResourcePatternFilter;
+import org.eclipse.microprofile.openapi.annotations.enums.SchemaType;
 import org.eclipse.microprofile.openapi.annotations.media.ExampleObject;
 import org.eclipse.microprofile.openapi.annotations.media.Schema;
+import org.eclipse.microprofile.openapi.annotations.media.SchemaProperty;
 import org.eclipse.microprofile.openapi.annotations.parameters.Parameter;
 
 import javax.json.JsonObject;
 import javax.json.JsonString;
 import javax.json.JsonValue.ValueType;
 import javax.validation.Valid;
+import javax.validation.constraints.AssertTrue;
 import javax.validation.constraints.Min;
 import javax.validation.constraints.NotBlank;
 import javax.validation.constraints.NotNull;
@@ -32,6 +35,8 @@ import javax.ws.rs.QueryParam;
 import javax.ws.rs.core.UriBuilder;
 
 import java.net.URI;
+import java.time.Instant;
+import java.time.ZonedDateTime;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
@@ -1679,26 +1684,85 @@ public class Types {
 
     }
 
+    @Schema(
+        title = "Record List",
+        description = "A page of records consumed from a topic",
+        properties = {
+            @SchemaProperty(name = "total", description = "Total number of records returned in this request. This value does not indicate the total number of records in the topic."),
+            // Scanner should hide these due to `hidden = true`
+            @SchemaProperty(name = "size", description = "Not used"),
+            @SchemaProperty(name = "page", description = "Not used")
+        })
     public static class RecordList extends PagedResponse<Record> {
     }
 
+    @Schema(
+        title = "Record",
+        description = "An invidual record consumed from a topic or produced to a topic")
+    @JsonInclude(Include.NON_NULL)
     public static class Record {
+        public static final String PROP_PARTITION = "partition";
+        public static final String PROP_OFFSET = "offset";
+        public static final String PROP_TIMESTAMP = "timestamp";
+        public static final String PROP_TIMESTAMP_TYPE = "timestampType";
+        public static final String PROP_HEADERS = "headers";
+        public static final String PROP_KEY = "key";
+        public static final String PROP_VALUE = "value";
+
+        @Schema(description = "The record's partition within the topic")
         Integer partition;
 
-        @Schema(readOnly = true)
-        long offset;
+        @Schema(readOnly = true, description = "The record's offset within the topic partition")
+        Long offset;
 
-        @Schema(readOnly = true)
+        @Schema(description = "Timestamp associated with the record. The type is indicated by `timestampType`. When producing a record, this value will be used as the record's `CREATE_TIME`.", format = "date-time")
         String timestamp;
 
-        @Schema(readOnly = true)
+        @Schema(readOnly = true, description = "The record's partition within the topic")
         String timestampType;
 
+        @Schema(description = "Record headers, key/value pairs")
         Map<String, String> headers;
 
+        @Schema(description = "Record key")
         String key;
 
+        @NotNull
+        @Schema(description = "Record value")
         String value;
+
+        public Record() {
+        }
+
+        public Record(Integer partition, String timestamp, Map<String, String> headers, String key, String value) {
+            super();
+            this.partition = partition;
+            this.timestamp = timestamp;
+            this.headers = headers;
+            this.key = key;
+            this.value = value;
+        }
+
+        @JsonIgnore
+        public URI buildUri(UriBuilder builder, String topicName) {
+            builder.queryParam(PROP_PARTITION, partition);
+            builder.queryParam(PROP_OFFSET, offset);
+            return builder.build(topicName);
+        }
+
+        @AssertTrue(message = "invalid timestamp")
+        @JsonIgnore
+        public boolean isTimestampValid() {
+            if (timestamp == null) {
+                return true;
+            }
+
+            try {
+                return ZonedDateTime.parse(timestamp).toInstant().isAfter(Instant.ofEpochMilli(-1));
+            } catch (Exception e) {
+                return false;
+            }
+        }
 
         public Integer getPartition() {
             return partition;
@@ -1708,11 +1772,11 @@ public class Types {
             this.partition = partition;
         }
 
-        public long getOffset() {
+        public Long getOffset() {
             return offset;
         }
 
-        public void setOffset(long offset) {
+        public void setOffset(Long offset) {
             this.offset = offset;
         }
 
@@ -1755,5 +1819,103 @@ public class Types {
         public void setValue(String value) {
             this.value = value;
         }
+    }
+
+    public static class RecordFilterParams {
+        public static final String PROP_LIMIT = "limit";
+        public static final String PROP_INCLUDE = "include";
+
+        @QueryParam(Record.PROP_PARTITION)
+        @Parameter(description = "Retrieve messages only from this partition")
+        Integer partition;
+
+        @QueryParam(Record.PROP_OFFSET)
+        @Parameter(description = "Retrieve messages with an offset equal to or greater than this offset. If both `timestamp` and `offset` are requested, `timestamp` is given preference.")
+        Integer offset;
+
+        @QueryParam(Record.PROP_TIMESTAMP)
+        @Parameter(
+            description = "Retrieve messages with a timestamp equal to or later than this timestamp. If both `timestamp` and `offset` are requested, `timestamp` is given preference.",
+            schema = @Schema(format = "date-time"))
+        String timestamp;
+
+        @QueryParam(PROP_LIMIT)
+        @DefaultValue("20")
+        @Parameter(description = "Limit the number of records fetched and returned")
+        Integer limit;
+
+        @QueryParam(PROP_INCLUDE)
+        @Parameter(
+            description = "List of properties to include for each record in the response",
+            schema = @Schema(implementation = RecordIncludedProperty[].class))
+        List<String> include;
+
+        @AssertTrue(message = "invalid timestamp")
+        public boolean isTimestampValid() {
+            if (timestamp == null) {
+                return true;
+            }
+
+            try {
+                return ZonedDateTime.parse(timestamp).toInstant().isAfter(Instant.ofEpochMilli(-1));
+            } catch (Exception e) {
+                return false;
+            }
+        }
+
+        public Integer getPartition() {
+            return partition;
+        }
+
+        public void setPartition(Integer partition) {
+            this.partition = partition;
+        }
+
+        public Integer getOffset() {
+            return offset;
+        }
+
+        public void setOffset(Integer offset) {
+            this.offset = offset;
+        }
+
+        public String getTimestamp() {
+            return timestamp;
+        }
+
+        public void setTimestamp(String timestamp) {
+            this.timestamp = timestamp;
+        }
+
+        public Integer getLimit() {
+            return limit;
+        }
+
+        public void setLimit(Integer limit) {
+            this.limit = limit;
+        }
+
+        public List<String> getInclude() {
+            return include;
+        }
+
+        public void setInclude(List<String> include) {
+            this.include = include;
+        }
+    }
+
+    @Schema(
+        name = "RecordIncludedProperty",
+        type = SchemaType.STRING,
+        enumeration = {
+            Record.PROP_PARTITION,
+            Record.PROP_OFFSET,
+            Record.PROP_TIMESTAMP,
+            Record.PROP_TIMESTAMP_TYPE,
+            Record.PROP_HEADERS,
+            Record.PROP_KEY,
+            Record.PROP_VALUE
+        })
+    public static class RecordIncludedProperty {
     }
 }

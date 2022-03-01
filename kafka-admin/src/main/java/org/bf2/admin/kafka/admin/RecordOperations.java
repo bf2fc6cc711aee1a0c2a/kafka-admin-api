@@ -10,7 +10,6 @@ import org.apache.kafka.common.errors.UnknownTopicOrPartitionException;
 import org.apache.kafka.common.header.Header;
 import org.bf2.admin.kafka.admin.handlers.AdminClientFactory;
 import org.bf2.admin.kafka.admin.model.Types;
-import org.eclipse.microprofile.context.ThreadContext;
 import org.jboss.logging.Logger;
 
 import javax.enterprise.context.RequestScoped;
@@ -34,9 +33,6 @@ import java.util.stream.StreamSupport;
 public class RecordOperations {
 
     private static final Logger log = Logger.getLogger(RecordOperations.class);
-
-    @Inject
-    ThreadContext threadContext;
 
     @Inject
     AdminClientFactory clientFactory;
@@ -67,13 +63,34 @@ public class RecordOperations {
             consumer.assign(assignments);
 
             if (timestamp != null) {
-                Long tsMillis = ZonedDateTime.parse(timestamp).toInstant().toEpochMilli();
+                Long tsMillis = stringToTimestamp(timestamp);
                 Map<TopicPartition, Long> timestampsToSearch =
                         assignments.stream().collect(Collectors.toMap(Function.identity(), p -> tsMillis));
                 consumer.offsetsForTimes(timestampsToSearch)
-                    .forEach((p, tsOffset) -> consumer.seek(p, tsOffset.offset()));
+                    .forEach((p, tsOffset) -> {
+                        if (tsOffset != null) {
+                            consumer.seek(p, tsOffset.offset());
+                        } else {
+                            /*
+                             * No offset for the time-stamp (future date?), seek to
+                             * end and return nothing for this partition.
+                             */
+                            consumer.seekToEnd(List.of(p));
+                        }
+                    });
             } else if (offset != null) {
-                assignments.forEach(p -> consumer.seek(p, offset));
+                Map<TopicPartition, Long> endOffsets = consumer.endOffsets(assignments);
+                assignments.forEach(p -> {
+                    if (offset <= endOffsets.get(p)) {
+                        consumer.seek(p, offset);
+                    } else {
+                        /*
+                         * Requested offset is beyond the end of the partition,
+                         * seek to end and return nothing for this partition.
+                         */
+                        consumer.seek(p, endOffsets.get(p));
+                    }
+                });
             }
 
             var records = consumer.poll(Duration.ofSeconds(2));
@@ -124,7 +141,7 @@ public class RecordOperations {
 
         CompletableFuture<Types.Record> promise = new CompletableFuture<>();
         Producer<String, String> producer = clientFactory.createProducer();
-        ProducerRecord<String, String> request = new ProducerRecord<>(topicName, input.getPartition(), key, input.getValue(), headers);
+        ProducerRecord<String, String> request = new ProducerRecord<>(topicName, input.getPartition(), stringToTimestamp(input.getTimestamp()), key, input.getValue(), headers);
 
         producer.send(request, (meta, exception) -> {
             if (exception != null) {
@@ -163,4 +180,13 @@ public class RecordOperations {
     String timestampToString(long timestamp) {
         return Instant.ofEpochMilli(timestamp).atZone(ZoneOffset.UTC).toString();
     }
+
+    Long stringToTimestamp(String value) {
+        if (value == null) {
+            return null;
+        }
+
+        return ZonedDateTime.parse(value).toInstant().toEpochMilli();
+    }
+
 }
