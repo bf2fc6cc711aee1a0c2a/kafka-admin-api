@@ -2,7 +2,9 @@ name: Dispatch OpenAPI File Change event
 on:
   push:
     branches: 
-      - main
+      - quarkus-migration
+      # please uncomment after migration is merged
+      # - main
     paths:
       - "kafka-admin/src/main/resources/openapi-specs/kafka-admin-rest.yaml"
 
