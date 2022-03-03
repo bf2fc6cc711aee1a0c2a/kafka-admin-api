@@ -8,7 +8,9 @@ import org.bf2.admin.kafka.systemtest.utils.ConsumerUtils;
 import org.bf2.admin.kafka.systemtest.utils.TokenUtils;
 import org.bf2.admin.kafka.systemtest.utils.TopicUtils;
 import org.eclipse.microprofile.config.Config;
+import org.eclipse.microprofile.config.ConfigProvider;
 import org.hamcrest.Matchers;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -18,6 +20,8 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 import javax.inject.Inject;
+import javax.json.JsonObject;
+import javax.ws.rs.core.HttpHeaders;
 import javax.ws.rs.core.Response.Status;
 
 import static io.restassured.RestAssured.given;
@@ -38,14 +42,26 @@ class ConsumerGroupsOAuthTestIT {
     @Inject
     Config config;
 
-    TokenUtils tokenUtils;
+    static TokenUtils tokenUtils;
+    static String initialToken;
+    static long initialTokenExpiresAt;
+
     TopicUtils topicUtils;
     ConsumerUtils groupUtils;
     String batchId;
 
+    @BeforeAll
+    static void initialize() {
+        tokenUtils = new TokenUtils(ConfigProvider.getConfig());
+        JsonObject token = tokenUtils.getTokenObject(UserType.OWNER.getUsername());
+
+        // Fetch one token before the tests begin to minimize wait time in expired token test
+        initialToken = token.getString("access_token");
+        initialTokenExpiresAt = System.currentTimeMillis() + (token.getInt("expires_in") * 1000);
+    }
+
     @BeforeEach
     void setup() {
-        tokenUtils = new TokenUtils(config);
         String token = tokenUtils.getToken(UserType.OWNER.getUsername());
         topicUtils = new TopicUtils(config, token);
         topicUtils.deleteAllTopics();
@@ -372,4 +388,22 @@ class ConsumerGroupsOAuthTestIT {
                 .body("items.findAll { it }.groupId", contains(groupIds.toArray(String[]::new)));
     }
 
+    @Test
+    void testListWithExpiredToken() throws InterruptedException {
+        // Wait for token to expire
+        long sleepDuration = initialTokenExpiresAt - System.currentTimeMillis();
+
+        if (sleepDuration > 0) {
+            Thread.sleep(sleepDuration);
+        }
+
+        given()
+            .log().ifValidationFails()
+            .header(HttpHeaders.AUTHORIZATION, "Bearer " + initialToken)
+        .when()
+            .get(CONSUMER_GROUP_COLLECTION_PATH)
+        .then()
+            .log().ifValidationFails()
+            .statusCode(Status.UNAUTHORIZED.getStatusCode());
+    }
 }

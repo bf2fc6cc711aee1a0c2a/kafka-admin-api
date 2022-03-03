@@ -141,7 +141,7 @@ class RestOAuthTestIT {
 
         given()
             .log().ifValidationFails()
-            .header(HttpHeaders.AUTHORIZATION, initialToken)
+            .header(HttpHeaders.AUTHORIZATION, "Bearer " + initialToken)
         .when()
             .get(TopicUtils.TOPIC_COLLECTION_PATH)
         .then()
