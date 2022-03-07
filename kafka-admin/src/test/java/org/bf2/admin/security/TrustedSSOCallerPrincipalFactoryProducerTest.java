@@ -5,6 +5,7 @@ import org.bf2.admin.kafka.admin.KafkaAdminConfigRetriever;
 import org.bf2.admin.security.TrustedSSOCallerPrincipalFactoryProducer.TrustedSSOKeyLocationResolver;
 import org.jose4j.http.SimpleGet;
 import org.jose4j.jwk.HttpsJwks;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import javax.net.ssl.TrustManager;
@@ -23,17 +24,22 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 @Deprecated(forRemoval = true)
 class TrustedSSOCallerPrincipalFactoryProducerTest {
 
-    @Test
-    void testInitializeHttpsJwksWithValidCert() throws Exception {
+    TrustedSSOKeyLocationResolver target;
+
+    @BeforeEach
+    void setup() throws Exception {
         JWTAuthContextInfo authContextInfo = new JWTAuthContextInfo();
         authContextInfo.setJwksRefreshInterval(1);
-        TrustedSSOKeyLocationResolver target = new TrustedSSOKeyLocationResolver(authContextInfo) {
+        target = new TrustedSSOKeyLocationResolver(authContextInfo) {
             @Override
             protected void initializeKeyContent() throws Exception {
                 // No-op
             }
         };
+    }
 
+    @Test
+    void testInitializeHttpsJwksWithValidCert() throws Exception {
         System.setProperty(KafkaAdminConfigRetriever.OAUTH_TRUSTED_CERT, getValidCertificate());
         TestHttpsJwks httpsJwks;
 
@@ -48,14 +54,6 @@ class TrustedSSOCallerPrincipalFactoryProducerTest {
 
     @Test
     void testInitializeHttpsJwksWithInvalidCert() throws Exception {
-        JWTAuthContextInfo authContextInfo = new JWTAuthContextInfo();
-        authContextInfo.setJwksRefreshInterval(1);
-        TrustedSSOKeyLocationResolver target = new TrustedSSOKeyLocationResolver(authContextInfo) {
-            @Override
-            protected void initializeKeyContent() throws Exception {
-                // No-op
-            }
-        };
         System.setProperty(KafkaAdminConfigRetriever.OAUTH_TRUSTED_CERT, "INVALID");
         TestHttpsJwks httpsJwks;
 
@@ -70,14 +68,6 @@ class TrustedSSOCallerPrincipalFactoryProducerTest {
 
     @Test
     void testInitializeHttpsJwksWithoutCert() throws Exception {
-        JWTAuthContextInfo authContextInfo = new JWTAuthContextInfo();
-        authContextInfo.setJwksRefreshInterval(1);
-        TrustedSSOKeyLocationResolver target = new TrustedSSOKeyLocationResolver(authContextInfo) {
-            @Override
-            protected void initializeKeyContent() throws Exception {
-                // No-op
-            }
-        };
         TestHttpsJwks httpsJwks;
         httpsJwks = (TestHttpsJwks) target.initializeHttpsJwks(new TestHttpsJwks("https://dummy"));
         assertEquals(0, httpsJwks.invocationCount);
