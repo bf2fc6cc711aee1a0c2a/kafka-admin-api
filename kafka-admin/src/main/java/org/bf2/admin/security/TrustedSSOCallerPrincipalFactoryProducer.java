@@ -56,7 +56,7 @@ public class TrustedSSOCallerPrincipalFactoryProducer {
 
     private static final Logger LOG = Logger.getLogger(TrustedSSOCallerPrincipalFactoryProducer.class.getName());
 
-    private JWTCallerPrincipalFactory factory;
+    private final JWTCallerPrincipalFactory factory;
 
     public TrustedSSOCallerPrincipalFactoryProducer() {
         initCallerPrincipalFactory();
