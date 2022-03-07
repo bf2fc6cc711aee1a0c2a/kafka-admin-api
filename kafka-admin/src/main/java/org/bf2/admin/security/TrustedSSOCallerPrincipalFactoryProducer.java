@@ -102,7 +102,7 @@ public class TrustedSSOCallerPrincipalFactoryProducer {
         }
     }
 
-    private static class TrustedSSOKeyLocationResolver extends KeyLocationResolver {
+    static class TrustedSSOKeyLocationResolver extends KeyLocationResolver {
         public TrustedSSOKeyLocationResolver(JWTAuthContextInfo authContextInfo) throws UnresolvableKeyException {
             super(authContextInfo);
         }
@@ -110,14 +110,18 @@ public class TrustedSSOCallerPrincipalFactoryProducer {
         @Override
         protected HttpsJwks initializeHttpsJwks(String location) {
             HttpsJwks theHttpsJwks = new HttpsJwks(location);
+            return this.initializeHttpsJwks(theHttpsJwks);
+        }
 
+        HttpsJwks initializeHttpsJwks(HttpsJwks theHttpsJwks) {
             Config config = ConfigProvider.getConfig();
             config.getOptionalValue(KafkaAdminConfigRetriever.OAUTH_TRUSTED_CERT, String.class)
-                  .ifPresent(cert -> {
-                      Get httpGet = new Get();
-                      httpGet.setTrustedCertificates(loadPEMCertificate(cert));
-                      theHttpsJwks.setSimpleHttpGet(httpGet);
-                  });
+                .map(super::loadPEMCertificate)
+                .ifPresent(cert -> {
+                    Get httpGet = new Get();
+                    httpGet.setTrustedCertificates(cert);
+                    theHttpsJwks.setSimpleHttpGet(httpGet);
+                });
 
             theHttpsJwks.setDefaultCacheDuration(authContextInfo.getJwksRefreshInterval().longValue() * 60L);
             return theHttpsJwks;
