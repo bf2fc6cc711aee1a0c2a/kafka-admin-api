@@ -43,7 +43,7 @@ class TrustedSSOCallerPrincipalFactoryProducerTest {
             System.clearProperty(KafkaAdminConfigRetriever.OAUTH_TRUSTED_CERT);
         }
 
-        assertEquals(1, httpsJwks.setSimpleHttpGetInvocationCount);
+        assertEquals(1, httpsJwks.invocationCount);
     }
 
     @Test
@@ -65,7 +65,7 @@ class TrustedSSOCallerPrincipalFactoryProducerTest {
             System.clearProperty(KafkaAdminConfigRetriever.OAUTH_TRUSTED_CERT);
         }
 
-        assertEquals(0, httpsJwks.setSimpleHttpGetInvocationCount);
+        assertEquals(0, httpsJwks.invocationCount);
     }
 
     @Test
@@ -80,11 +80,11 @@ class TrustedSSOCallerPrincipalFactoryProducerTest {
         };
         TestHttpsJwks httpsJwks;
         httpsJwks = (TestHttpsJwks) target.initializeHttpsJwks(new TestHttpsJwks("https://dummy"));
-        assertEquals(0, httpsJwks.setSimpleHttpGetInvocationCount);
+        assertEquals(0, httpsJwks.invocationCount);
     }
 
     static class TestHttpsJwks extends HttpsJwks {
-        int setSimpleHttpGetInvocationCount = 0;
+        int invocationCount = 0;
 
         public TestHttpsJwks(String location) {
             super(location);
@@ -93,7 +93,7 @@ class TrustedSSOCallerPrincipalFactoryProducerTest {
         @Override
         public void setSimpleHttpGet(SimpleGet simpleHttpGet) {
             super.setSimpleHttpGet(simpleHttpGet);
-            setSimpleHttpGetInvocationCount++;
+            invocationCount++;
         }
     }
 

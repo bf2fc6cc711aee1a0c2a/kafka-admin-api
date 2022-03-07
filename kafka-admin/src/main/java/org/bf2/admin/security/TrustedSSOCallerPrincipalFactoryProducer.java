@@ -59,18 +59,14 @@ public class TrustedSSOCallerPrincipalFactoryProducer {
     private final JWTCallerPrincipalFactory factory;
 
     public TrustedSSOCallerPrincipalFactoryProducer() {
-        initCallerPrincipalFactory();
+        LOG.info("Loading JWTCallerPrincipalFactory from " + getClass());
+        factory = new TrustedSSOCallerPrincipalFactory();
+        JWTCallerPrincipalFactory.setInstance(factory);
     }
 
     @Produces
     public JWTCallerPrincipalFactory getFactory() {
         return factory;
-    }
-
-    private void initCallerPrincipalFactory() {
-        LOG.info("Loading JWTCallerPrincipalFactory from " + getClass());
-        factory = new TrustedSSOCallerPrincipalFactory();
-        JWTCallerPrincipalFactory.setInstance(factory);
     }
 
     private static class TrustedSSOCallerPrincipalFactory extends DefaultJWTCallerPrincipalFactory {
