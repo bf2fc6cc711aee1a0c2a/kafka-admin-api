@@ -6,12 +6,12 @@ Docker environment with at least 2 GB of RAM
 ### Running tests
 Execution
 ```
-mvn clean verify
+mvn clean verify -Pdocker
 ```
 Single class/test execution
 ```
-mvn clean verify -Dit.test=RestEndpointTestIT
-mvn clean verify -Dit.test=RestEndpointTestIT#testTopicListAfterCreation
+mvn clean verify -Pdocker -Dit.test=RestEndpointTestIT
+mvn clean verify -Pdocker -Dit.test=RestEndpointTestIT#testTopicListAfterCreation
 ```
 
 ### Running tests in an IDE

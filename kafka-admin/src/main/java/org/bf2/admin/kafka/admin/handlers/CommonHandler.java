@@ -1,24 +1,9 @@
 package org.bf2.admin.kafka.admin.handlers;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.ObjectWriter;
-import io.micrometer.core.instrument.Timer;
-import io.netty.handler.codec.http.HttpResponseStatus;
 import io.strimzi.kafka.oauth.validator.TokenExpiredException;
-import io.vertx.core.Future;
 import io.vertx.core.Promise;
-import io.vertx.core.Vertx;
 import io.vertx.core.json.DecodeException;
-import io.vertx.core.json.JsonObject;
-import io.vertx.ext.web.RoutingContext;
-import io.vertx.ext.web.handler.HttpException;
-import io.vertx.ext.web.validation.BadRequestException;
-import io.vertx.ext.web.validation.BodyProcessorException;
-import io.vertx.json.schema.ValidationException;
-import io.vertx.kafka.admin.KafkaAdminClient;
 import org.apache.kafka.common.KafkaException;
-import org.apache.kafka.common.config.SaslConfigs;
 import org.apache.kafka.common.errors.AuthenticationException;
 import org.apache.kafka.common.errors.AuthorizationException;
 import org.apache.kafka.common.errors.GroupIdNotFoundException;
@@ -27,285 +12,223 @@ import org.apache.kafka.common.errors.InvalidConfigurationException;
 import org.apache.kafka.common.errors.InvalidPartitionsException;
 import org.apache.kafka.common.errors.InvalidReplicationFactorException;
 import org.apache.kafka.common.errors.InvalidRequestException;
+import org.apache.kafka.common.errors.InvalidTopicException;
 import org.apache.kafka.common.errors.LeaderNotAvailableException;
 import org.apache.kafka.common.errors.PolicyViolationException;
-import org.apache.kafka.common.errors.SaslAuthenticationException;
 import org.apache.kafka.common.errors.SslAuthenticationException;
 import org.apache.kafka.common.errors.TimeoutException;
 import org.apache.kafka.common.errors.TopicExistsException;
 import org.apache.kafka.common.errors.UnknownMemberIdException;
 import org.apache.kafka.common.errors.UnknownTopicOrPartitionException;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
-import org.bf2.admin.kafka.admin.HttpMetrics;
-import org.bf2.admin.kafka.admin.InvalidConsumerGroupException;
-import org.bf2.admin.kafka.admin.InvalidTopicException;
-import org.bf2.admin.kafka.admin.KafkaAdminConfigRetriever;
 import org.bf2.admin.kafka.admin.model.Types;
+import org.jboss.logging.Logger;
+
+import javax.ws.rs.WebApplicationException;
+import javax.ws.rs.core.Response;
+import javax.ws.rs.core.Response.ResponseBuilder;
+import javax.ws.rs.core.Response.Status;
+import javax.ws.rs.core.Response.Status.Family;
+import javax.ws.rs.core.Response.StatusType;
 
 import java.security.GeneralSecurityException;
 import java.util.Comparator;
-import java.util.Map;
-import java.util.Properties;
+import java.util.concurrent.CompletionException;
 import java.util.function.Predicate;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.regex.PatternSyntaxException;
 
-@SuppressWarnings({"checkstyle:ClassFanOutComplexity", "checkstyle:CyclomaticComplexity", "checkstyle:ClassFanOutComplexity"})
 public class CommonHandler {
 
-    protected static final Logger log = LogManager.getLogger(CommonHandler.class);
-    protected static final String ADMIN_CLIENT_CONFIG = RestOperations.class.getName() + ".ADMIN_CLIENT_CONFIG";
-    private static final String SASL_PLAIN_CONFIG_TEMPLATE = "org.apache.kafka.common.security.plain.PlainLoginModule "
-            + "required "
-            + "username=\"%s\" "
-            + "password=\"%s\";";
-    private static final String SASL_OAUTH_CONFIG_TEMPLATE = "org.apache.kafka.common.security.oauthbearer.OAuthBearerLoginModule required oauth.access.token=\"%s\";";
+    static final Logger log = Logger.getLogger(CommonHandler.class);
 
-    protected final KafkaAdminConfigRetriever kaConfig;
+    public static boolean isCausedBy(Throwable error, Class<? extends Throwable> searchCause) {
+        Throwable cause = error;
 
-    protected CommonHandler(KafkaAdminConfigRetriever config) {
-        this.kaConfig = config;
-    }
-
-    /**
-     * Route handler common to all Kafka resource routes. Responsible for creating
-     * the map of properties used to configure the Kafka Admin Client. When OAuth
-     * has been enabled via the environment, the access token will be retrieved from
-     * the authenticated user principal present in the context (created by Vert.x
-     * handler when a valid JWT was presented by the client). The configuration property
-     * map will be placed in the context under the key identified by the
-     * {@link #ADMIN_CLIENT_CONFIG} constant.
-     *
-     * @param context
-     */
-    public void setAdminClientConfig(RoutingContext context) {
-        Map<String, Object> acConfig = kaConfig.getAcConfig();
-
-        if (kaConfig.isOauthEnabled()) {
-            final String accessToken = context.user().principal().getString("access_token");
-            acConfig.put(SaslConfigs.SASL_JAAS_CONFIG, String.format(SASL_OAUTH_CONFIG_TEMPLATE, accessToken));
-        } else if (kaConfig.isBasicEnabled()) {
-            final JsonObject principal = context.user().principal();
-            acConfig.put(SaslConfigs.SASL_JAAS_CONFIG,
-                         String.format(SASL_PLAIN_CONFIG_TEMPLATE,
-                                       principal.getString("username"),
-                                       principal.getString("password")));
-        } else {
-            log.debug("OAuth is disabled - no attempt to set access token in Admin Client config");
-        }
-
-        context.put(ADMIN_CLIENT_CONFIG, acConfig);
-    }
-
-    protected static Future<KafkaAdminClient> createAdminClient(Vertx vertx, Map<String, Object> acConfig) {
-        Properties props = new Properties();
-        props.putAll(acConfig);
-
-        KafkaAdminClient adminClient = null;
-        try {
-            adminClient = KafkaAdminClient.create(vertx, props);
-            return Future.succeededFuture(adminClient);
-        } catch (Exception e) {
-            log.error("Failed to create Kafka AdminClient", e.getCause());
-            if (adminClient != null) {
-                adminClient.close();
+        do {
+            if (searchCause.isInstance(cause)) {
+                return true;
             }
-            return Future.failedFuture(new KafkaException(e.getCause().getMessage()));
-        }
+        } while (cause != cause.getCause() && (cause = cause.getCause()) != null);
+
+        return false;
     }
 
-    protected static <T> void processResponse(Promise<T> prom, RoutingContext routingContext, HttpResponseStatus successResponseStatus, HttpMetrics httpMetrics, Timer timer, Timer.Sample requestTimerSample) {
-        prom.future().onComplete(res -> {
-            if (res.failed()) {
-                processFailure(res.cause(), routingContext, httpMetrics, timer, requestTimerSample);
-            } else {
-                processSuccess(res.result(), routingContext, successResponseStatus, httpMetrics, timer, requestTimerSample);
-            }
-        });
-    }
+    static ResponseBuilder errorResponse(Throwable error, StatusType status, String errorMessage) {
 
-    static <T> void processSuccess(T result, RoutingContext routingContext, HttpResponseStatus successResponseStatus, HttpMetrics httpMetrics, Timer timer, Timer.Sample requestTimerSample) {
-        routingContext.response().setStatusCode(successResponseStatus.code());
-
-        if (successResponseStatus != HttpResponseStatus.NO_CONTENT && result != null) {
-            if (result instanceof JsonObject) {
-                routingContext.response().end(((JsonObject) result).toBuffer());
-            } else if (result instanceof String) {
-                routingContext.response().end((String) result);
-            } else {
-                String json = null;
-                ObjectWriter ow = new ObjectMapper().writer().withDefaultPrettyPrinter();
-
-                try {
-                    json = ow.writeValueAsString(result);
-                } catch (JsonProcessingException e) {
-                    errorResponse(e, HttpResponseStatus.INTERNAL_SERVER_ERROR, routingContext, httpMetrics, timer, requestTimerSample);
-                    log.error(e);
-                    return;
-                }
-                routingContext.response().end(json);
-            }
+        if (status.getFamily() == Family.SERVER_ERROR) {
+            log.errorf(error, "%s %s", error.getClass(), error.getMessage());
         } else {
-            routingContext.response().end();
+            log.warnf("%s %s", error.getClass(), error.getMessage());
         }
 
-        httpMetrics.getSucceededRequestsCounter().increment();
-        requestTimerSample.stop(timer);
-    }
+        final int statusCode = status.getStatusCode();
+        ResponseBuilder response = Response.status(statusCode);
+        Types.Error errorEntity = new Types.Error();
 
-    static void errorResponse(Throwable error, HttpResponseStatus status, RoutingContext routingContext, HttpMetrics httpMetrics, Timer timer, Timer.Sample requestTimerSample) {
-        final int statusCode = status.code();
+        errorEntity.setCode(statusCode);
 
-        routingContext.response().setStatusCode(statusCode);
-
-        JsonObject responseBody = new JsonObject()
-                .put("code", statusCode);
-
-        if (status == HttpResponseStatus.INTERNAL_SERVER_ERROR) {
-            responseBody.put("error_message", status.reasonPhrase());
+        if (errorMessage != null) {
+            errorEntity.setErrorMessage(errorMessage);
+        } else if (status == Status.INTERNAL_SERVER_ERROR) {
+            errorEntity.setErrorMessage(status.getReasonPhrase());
         } else {
-            responseBody.put("error_message", error.getMessage());
-            responseBody.put("class", error.getClass().getSimpleName());
+            errorEntity.setErrorMessage(error.getMessage());
+            errorEntity.setClassName(error.getClass().getSimpleName());
         }
 
-        routingContext.response().end(responseBody.toBuffer());
+        response.entity(errorEntity);
 
-        httpMetrics.getFailedRequestsCounter(statusCode).increment();
-        requestTimerSample.stop(timer);
+        return response;
     }
 
-    static void processFailure(Throwable failureCause, RoutingContext routingContext, HttpMetrics httpMetrics, Timer timer, Timer.Sample requestTimerSample) {
-        HttpResponseStatus status;
+    @SuppressWarnings({ "checkstyle:CyclomaticComplexity" })
+    static ResponseBuilder processFailure(Throwable failureCause) {
+        StatusType status;
+        String errorMessage = null;
+
+        if (failureCause instanceof CompletionException) {
+            failureCause = failureCause.getCause();
+        }
 
         // TODO: Refactor this...
-        if (failureCause instanceof HttpException) {
-            HttpException cause = (HttpException) failureCause;
-            status = HttpResponseStatus.valueOf(cause.getStatusCode());
+        if (failureCause instanceof WebApplicationException) {
+            WebApplicationException cause = (WebApplicationException) failureCause;
+            status = cause.getResponse().getStatusInfo();
         } else if (failureCause instanceof ExceptionInInitializerError) {
             failureCause = failureCause.getCause();
-            status = HttpResponseStatus.BAD_REQUEST;
+            status = Status.BAD_REQUEST;
         } else if (failureCause instanceof UnknownTopicOrPartitionException
                 || failureCause instanceof GroupIdNotFoundException) {
-            status = HttpResponseStatus.NOT_FOUND;
+            status = Status.NOT_FOUND;
         } else if (failureCause instanceof TimeoutException) {
-            status = HttpResponseStatus.SERVICE_UNAVAILABLE;
+            status = Status.SERVICE_UNAVAILABLE;
         } else if (failureCause instanceof SslAuthenticationException) {
             log.error("SSL exception", failureCause);
-            status = HttpResponseStatus.INTERNAL_SERVER_ERROR;
+            status = Status.INTERNAL_SERVER_ERROR;
         } else if (failureCause instanceof GroupNotEmptyException) {
-            status = HttpResponseStatus.LOCKED;
+            // 423 Locked (WebDAV, RFC4918)
+            status = new StatusType() {
+                @Override
+                public int getStatusCode() {
+                    return 423;
+                }
+
+                @Override
+                public Family getFamily() {
+                    return Family.CLIENT_ERROR;
+                }
+
+                @Override
+                public String getReasonPhrase() {
+                    return "Locked";
+                }
+            };
         } else if (failureCause instanceof AuthorizationException) {
-            status = HttpResponseStatus.FORBIDDEN;
+            status = Status.FORBIDDEN;
         } else if (failureCause instanceof AuthenticationException
             || failureCause instanceof TokenExpiredException
-            || (failureCause.getCause() instanceof SaslAuthenticationException
-                    && failureCause.getCause().getMessage().contains("Authentication failed due to an invalid token"))) {
-            status = HttpResponseStatus.UNAUTHORIZED;
-        } else if (failureCause instanceof org.apache.kafka.common.errors.InvalidTopicException
+            || failureCause.getCause() instanceof AuthenticationException) {
+            status = Status.UNAUTHORIZED;
+        } else if (failureCause instanceof InvalidTopicException
                 || failureCause instanceof PolicyViolationException
-                || failureCause instanceof InvalidReplicationFactorException
-                || failureCause instanceof BadRequestException) {
-            status = HttpResponseStatus.BAD_REQUEST;
+                || failureCause instanceof InvalidReplicationFactorException) {
+            status = Status.BAD_REQUEST;
         } else if (failureCause instanceof TopicExistsException) {
-            status = HttpResponseStatus.CONFLICT;
+            status = Status.CONFLICT;
         } else if (failureCause instanceof InvalidRequestException
                 || failureCause instanceof InvalidConfigurationException
                 || failureCause instanceof IllegalArgumentException
                 || failureCause instanceof InvalidPartitionsException) {
-            status = HttpResponseStatus.BAD_REQUEST;
+            status = Status.BAD_REQUEST;
+        } else if (failureCause instanceof com.fasterxml.jackson.core.JsonParseException
+                || failureCause instanceof com.fasterxml.jackson.databind.JsonMappingException) {
+            status = Status.BAD_REQUEST;
+            errorMessage = "invalid JSON";
         } else if (failureCause instanceof IllegalStateException) {
-            status = HttpResponseStatus.UNAUTHORIZED;
+            status = Status.UNAUTHORIZED;
         } else if (failureCause instanceof DecodeException
-                || failureCause instanceof ValidationException
-                || failureCause instanceof InvalidTopicException
-                || failureCause instanceof BodyProcessorException
                 || failureCause instanceof UnknownMemberIdException
-                || failureCause instanceof InvalidConsumerGroupException
                 || failureCause instanceof LeaderNotAvailableException) {
-            status = HttpResponseStatus.BAD_REQUEST;
+            status = Status.BAD_REQUEST;
         } else if (failureCause instanceof KafkaException) {
             // Most of the kafka related exceptions are extended from KafkaException
             if (failureCause.getMessage().contains("Failed to find brokers to send")) {
-                status = HttpResponseStatus.SERVICE_UNAVAILABLE;
+                status = Status.SERVICE_UNAVAILABLE;
             } else if (failureCause.getMessage().contains("JAAS configuration")) {
-                status = HttpResponseStatus.UNAUTHORIZED;
+                status = Status.UNAUTHORIZED;
             } else {
-                log.error("Unknown exception ", failureCause);
-                status = HttpResponseStatus.INTERNAL_SERVER_ERROR;
+                log.error("Unknown exception", failureCause);
+                status = Status.INTERNAL_SERVER_ERROR;
             }
         } else if (failureCause instanceof RuntimeException) {
             RuntimeException iae = (RuntimeException) failureCause;
             if (iae.getCause() instanceof GeneralSecurityException) {
                 failureCause = iae.getCause();
-                status = HttpResponseStatus.UNAUTHORIZED;
+                status = Status.UNAUTHORIZED;
             } else {
-                log.error("Unknown exception ", iae.getCause());
-                status = HttpResponseStatus.INTERNAL_SERVER_ERROR;
+                log.error("Unknown exception", iae.getCause());
+                status = Status.INTERNAL_SERVER_ERROR;
             }
         } else {
-            log.error("Unknown exception ", failureCause);
-            status = HttpResponseStatus.INTERNAL_SERVER_ERROR;
+            log.error("Unknown exception", failureCause);
+            status = Status.INTERNAL_SERVER_ERROR;
         }
 
-        errorResponse(failureCause, status, routingContext, httpMetrics, timer, requestTimerSample);
-
-        log.error("{} {}", failureCause.getClass(), failureCause.getMessage());
+        return errorResponse(failureCause, status, errorMessage);
     }
 
     public static class TopicComparator implements Comparator<Types.Topic> {
 
-        private final String key;
-        public TopicComparator(String key) {
+        private final Types.TopicOrderKey key;
+        public TopicComparator(Types.TopicOrderKey key) {
             this.key = key;
         }
 
         public TopicComparator() {
-            this.key = "name";
+            this.key = Types.TopicOrderKey.NAME;
         }
         @Override
         public int compare(Types.Topic firstTopic, Types.Topic secondTopic) {
+            switch (key) {
+                case NAME:
+                    return firstTopic.getName().compareToIgnoreCase(secondTopic.getName());
 
-            if ("name".equals(key)) {
-                return firstTopic.getName().compareToIgnoreCase(secondTopic.getName());
-            } else if ("partitions".equals(key)) {
-                return firstTopic.getPartitions().size() - secondTopic.getPartitions().size();
-            } else if ("retention.ms".equals(key)) {
-                Types.ConfigEntry first = firstTopic.getConfig().stream().filter(entry -> entry.getKey().equals("retention.ms")).findFirst().orElseGet(() -> null);
-                Types.ConfigEntry second = secondTopic.getConfig().stream().filter(entry -> entry.getKey().equals("retention.ms")).findFirst().orElseGet(() -> null);
-                if (first == null || second == null || first.getValue() == null || second.getValue() == null) {
+                case PARTITIONS:
+                    return firstTopic.getPartitions().size() - secondTopic.getPartitions().size();
+
+                case RETENTION_BYTES:
+                case RETENTION_MS:
+                    String keyValue = key.getValue();
+                    Types.ConfigEntry first = firstTopic.getConfig().stream().filter(entry -> entry.getKey().equals(keyValue)).findFirst().orElseGet(() -> null);
+                    Types.ConfigEntry second = secondTopic.getConfig().stream().filter(entry -> entry.getKey().equals(keyValue)).findFirst().orElseGet(() -> null);
+
+                    if (first == null || second == null || first.getValue() == null || second.getValue() == null) {
+                        return 0;
+                    } else {
+                        return Long.compare(first.getValue().equals("-1") ? Long.MAX_VALUE : Long.parseLong(first.getValue()), second.getValue().equals("-1") ? Long.MAX_VALUE : Long.parseLong(second.getValue()));
+                    }
+
+                default:
                     return 0;
-                } else {
-                    return Long.compare(first.getValue().equals("-1") ? Long.MAX_VALUE : Long.parseLong(first.getValue()), second.getValue().equals("-1") ? Long.MAX_VALUE : Long.parseLong(second.getValue()));
-                }
-            } else if ("retention.bytes".equals(key)) {
-                Types.ConfigEntry first = firstTopic.getConfig().stream().filter(entry -> entry.getKey().equals("retention.bytes")).findFirst().orElseGet(() -> null);
-                Types.ConfigEntry second = secondTopic.getConfig().stream().filter(entry -> entry.getKey().equals("retention.bytes")).findFirst().orElseGet(() -> null);
-                if (first == null || second == null || first.getValue() == null || second.getValue() == null) {
-                    return 0;
-                } else {
-                    return Long.compare(first.getValue().equals("-1") ? Long.MAX_VALUE : Long.parseLong(first.getValue()), second.getValue().equals("-1") ? Long.MAX_VALUE : Long.parseLong(second.getValue()));
-                }
             }
-            return 0;
         }
     }
 
     public static class ConsumerGroupComparator implements Comparator<Types.ConsumerGroup> {
 
-        private final String key;
-        public ConsumerGroupComparator(String key) {
+        private final Types.ConsumerGroupOrderKey key;
+        public ConsumerGroupComparator(Types.ConsumerGroupOrderKey key) {
             this.key = key;
         }
 
         public ConsumerGroupComparator() {
-            this.key = "name";
+            this.key = Types.ConsumerGroupOrderKey.NAME;
         }
 
         @Override
         public int compare(Types.ConsumerGroup firstConsumerGroup, Types.ConsumerGroup secondConsumerGroup) {
-            if ("name".equals(key)) {
+            if (Types.ConsumerGroupOrderKey.NAME.equals(key)) {
                 if (firstConsumerGroup == null || firstConsumerGroup.getGroupId() == null
                     || secondConsumerGroup == null || secondConsumerGroup.getGroupId() == null) {
                     return 0;

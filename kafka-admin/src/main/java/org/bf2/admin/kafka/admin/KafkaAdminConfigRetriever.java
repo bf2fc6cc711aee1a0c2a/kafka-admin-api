@@ -6,8 +6,12 @@ import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.common.config.SaslConfigs;
 import org.apache.kafka.common.config.SslConfigs;
 import org.apache.kafka.common.security.auth.SecurityProtocol;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
+import org.eclipse.microprofile.config.inject.ConfigProperty;
+import org.jboss.logging.Logger;
+
+import javax.annotation.PostConstruct;
+import javax.inject.Inject;
+import javax.inject.Singleton;
 
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -16,60 +20,77 @@ import java.nio.file.Path;
 import java.util.Base64;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Set;
-import java.util.stream.Collectors;
+import java.util.Optional;
 
 /**
  * KafkaAdminConfigRetriever class gets configuration from envvars
  */
+@Singleton
 public class KafkaAdminConfigRetriever {
 
-    protected final Logger log = LogManager.getLogger(KafkaAdminConfigRetriever.class);
+    protected final Logger log = Logger.getLogger(KafkaAdminConfigRetriever.class);
 
-    private static final String PREFIX = "KAFKA_ADMIN_";
+    private static final String PREFIX = "kafka.admin.";
     private static final String OAUTHBEARER = "OAUTHBEARER";
-    private static final String DEFAULT_TLS_VERSION = "TLSv1.3";
 
-    public static final String BOOTSTRAP_SERVERS = PREFIX + "BOOTSTRAP_SERVERS";
-    public static final String API_TIMEOUT_MS_CONFIG = PREFIX + "API_TIMEOUT_MS_CONFIG";
-    public static final String REQUEST_TIMEOUT_MS_CONFIG = PREFIX + "REQUEST_TIMEOUT_MS_CONFIG";
-    public static final String BASIC_ENABLED = PREFIX + "BASIC_ENABLED";
-    public static final String OAUTH_ENABLED = PREFIX + "OAUTH_ENABLED";
-    public static final String OAUTH_TRUSTED_CERT = PREFIX + "OAUTH_TRUSTED_CERT";
-    public static final String OAUTH_JWKS_ENDPOINT_URI = PREFIX + "OAUTH_JWKS_ENDPOINT_URI";
-    public static final String OAUTH_VALID_ISSUER_URI = PREFIX + "OAUTH_VALID_ISSUER_URI";
-    public static final String OAUTH_TOKEN_ENDPOINT_URI = PREFIX + "OAUTH_TOKEN_ENDPOINT_URI";
+    public static final String BOOTSTRAP_SERVERS = PREFIX + "bootstrap.servers";
+    public static final String API_TIMEOUT_MS_CONFIG = PREFIX + "api.timeout.ms.config";
+    public static final String REQUEST_TIMEOUT_MS_CONFIG = PREFIX + "request.timeout.ms.config";
+    public static final String BASIC_ENABLED = PREFIX + "basic.enabled";
+    public static final String OAUTH_ENABLED = PREFIX + "oauth.enabled";
+    public static final String OAUTH_TRUSTED_CERT = PREFIX + "oauth.trusted.cert";
+    public static final String OAUTH_JWKS_ENDPOINT_URI = PREFIX + "oauth.jwks.endpoint.uri";
+    public static final String OAUTH_TOKEN_ENDPOINT_URI = PREFIX + "oauth.token.endpoint.uri";
 
-    public static final String BROKER_TLS_ENABLED = PREFIX + "BROKER_TLS_ENABLED";
-    public static final String BROKER_TRUSTED_CERT = PREFIX + "BROKER_TRUSTED_CERT";
+    public static final String BROKER_TLS_ENABLED = PREFIX + "broker.tls.enabled";
+    public static final String BROKER_TRUSTED_CERT = PREFIX + "broker.trusted.cert";
 
-    public static final String TLS_CERT = PREFIX + "TLS_CERT";
-    public static final String TLS_KEY = PREFIX + "TLS_KEY";
-    public static final String TLS_VERSION = PREFIX + "TLS_VERSION";
+    public static final String ACL_RESOURCE_OPERATIONS = PREFIX + "acl.resource.operations";
 
-    public static final String ACL_RESOURCE_OPERATIONS = PREFIX + "ACL_RESOURCE_OPERATIONS";
+    @Inject
+    @ConfigProperty(name = BOOTSTRAP_SERVERS)
+    String bootstrapServers;
 
-    private final boolean basicEnabled;
-    private final boolean oauthEnabled;
-    private final boolean brokerTlsEnabled;
-    private final Map<String, Object> acConfig;
+    @Inject
+    @ConfigProperty(name = API_TIMEOUT_MS_CONFIG, defaultValue = "30000")
+    String apiTimeoutMsConfig;
 
-    public KafkaAdminConfigRetriever() {
-        basicEnabled = System.getenv(BASIC_ENABLED) != null && Boolean.valueOf(System.getenv(BASIC_ENABLED));
-        oauthEnabled = System.getenv(OAUTH_ENABLED) == null || Boolean.valueOf(System.getenv(OAUTH_ENABLED));
-        brokerTlsEnabled = Boolean.valueOf(System.getenv(BROKER_TLS_ENABLED));
-        acConfig = envVarsToAdminClientConfig(PREFIX);
+    @Inject
+    @ConfigProperty(name = REQUEST_TIMEOUT_MS_CONFIG, defaultValue = "10000")
+    String requestTimeoutMsConfig;
+
+    @Inject
+    @ConfigProperty(name = BASIC_ENABLED, defaultValue = "false")
+    boolean basicEnabled;
+
+    @Inject
+    @ConfigProperty(name = OAUTH_ENABLED, defaultValue = "true")
+    boolean oauthEnabled;
+
+    @Inject
+    @ConfigProperty(name = BROKER_TLS_ENABLED, defaultValue = "false")
+    boolean brokerTlsEnabled;
+
+    @Inject
+    @ConfigProperty(name = BROKER_TRUSTED_CERT)
+    Optional<String> brokerTrustedCert;
+
+    @Inject
+    @ConfigProperty(name = ACL_RESOURCE_OPERATIONS, defaultValue = "{}")
+    String aclResourceOperations;
+
+    Map<String, Object> acConfig;
+
+    @PostConstruct
+    public void initialize() {
+        acConfig = envVarsToAdminClientConfig();
         logConfiguration();
     }
 
-    private Map<String, Object> envVarsToAdminClientConfig(String prefix) {
-        Map<String, Object> envConfig = System.getenv().entrySet().stream().filter(entry -> entry.getKey().startsWith(prefix)).collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
-
+    private Map<String, Object> envVarsToAdminClientConfig() {
         Map<String, Object> adminClientConfig = new HashMap<>();
-        if (envConfig.get(BOOTSTRAP_SERVERS) == null) {
-            throw new IllegalStateException("Bootstrap address has to be specified");
-        }
-        adminClientConfig.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, envConfig.get(BOOTSTRAP_SERVERS).toString());
+
+        adminClientConfig.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
 
         boolean saslEnabled;
 
@@ -79,6 +100,9 @@ public class KafkaAdminConfigRetriever {
             saslEnabled = true;
             adminClientConfig.put(SaslConfigs.SASL_MECHANISM, OAUTHBEARER);
             adminClientConfig.put(SaslConfigs.SASL_LOGIN_CALLBACK_HANDLER_CLASS, "io.strimzi.kafka.oauth.client.JaasClientOauthLoginCallbackHandler");
+            // Do not attempt token refresh ahead of expiration (ExpiringCredentialRefreshingLogin)
+            // May still cause warnings to be logged when token will expired in less than SASL_LOGIN_REFRESH_MIN_PERIOD_SECONDS.
+            adminClientConfig.put(SaslConfigs.SASL_LOGIN_REFRESH_BUFFER_SECONDS, "0");
         } else if (basicEnabled) {
             log.info("SASL/PLAIN from HTTP Basic authentication enabled");
             saslEnabled = true;
@@ -96,12 +120,15 @@ public class KafkaAdminConfigRetriever {
 
         if (brokerTlsEnabled) {
             protocol.append(SecurityProtocol.SSL.name);
-            String brokerTrustedCert = getBrokerTrustedCertificate();
 
-            if (brokerTrustedCert != null && !brokerTrustedCert.isBlank()) {
-                adminClientConfig.put(SslConfigs.SSL_TRUSTSTORE_CERTIFICATES_CONFIG, brokerTrustedCert);
-                adminClientConfig.put(SslConfigs.SSL_TRUSTSTORE_TYPE_CONFIG, "PEM");
-            }
+            brokerTrustedCert.ifPresent(certConfig -> {
+                String certContent = getBrokerTrustedCertificate(certConfig);
+
+                if (certContent != null && !certContent.isBlank()) {
+                    adminClientConfig.put(SslConfigs.SSL_TRUSTSTORE_CERTIFICATES_CONFIG, certContent);
+                    adminClientConfig.put(SslConfigs.SSL_TRUSTSTORE_TYPE_CONFIG, "PEM");
+                }
+            });
         } else {
             protocol.append(SecurityProtocol.PLAINTEXT.name);
         }
@@ -110,8 +137,8 @@ public class KafkaAdminConfigRetriever {
 
         // admin client
         adminClientConfig.put(AdminClientConfig.METADATA_MAX_AGE_CONFIG, "30000");
-        adminClientConfig.put(AdminClientConfig.REQUEST_TIMEOUT_MS_CONFIG, System.getenv().getOrDefault(REQUEST_TIMEOUT_MS_CONFIG, "10000"));
-        adminClientConfig.put(AdminClientConfig.DEFAULT_API_TIMEOUT_MS_CONFIG, System.getenv().getOrDefault(API_TIMEOUT_MS_CONFIG, "30000"));
+        adminClientConfig.put(AdminClientConfig.REQUEST_TIMEOUT_MS_CONFIG, requestTimeoutMsConfig);
+        adminClientConfig.put(AdminClientConfig.DEFAULT_API_TIMEOUT_MS_CONFIG, apiTimeoutMsConfig);
 
         return adminClientConfig;
     }
@@ -119,7 +146,7 @@ public class KafkaAdminConfigRetriever {
     private void logConfiguration() {
         log.info("AdminClient configuration:");
         acConfig.entrySet().forEach(entry -> {
-            log.info("\t{} = {}", entry.getKey(), entry.getValue());
+            log.infof("\t%s = %s", entry.getKey(), entry.getValue());
         });
     }
 
@@ -135,66 +162,33 @@ public class KafkaAdminConfigRetriever {
         return new HashMap<>(acConfig);
     }
 
-    public String getBrokerTrustedCertificate() {
-        String value = System.getenv(BROKER_TRUSTED_CERT);
-
+    public String getBrokerTrustedCertificate(final String certConfig) {
         try {
-            final Path certPath = Path.of(value);
+            final Path certPath = Path.of(certConfig);
 
             if (Files.isReadable(certPath)) {
                 return Files.readString(certPath);
             }
         } catch (InvalidPathException e) {
-            log.debug("Value of {} was not a valid Path: {}", BROKER_TRUSTED_CERT, e.getMessage());
+            log.debugf("Value of %s was not a valid Path: %s", BROKER_TRUSTED_CERT, e.getMessage());
         } catch (Exception e) {
-            log.warn("Exception loading value of {} as a file: {}", BROKER_TRUSTED_CERT, e.getMessage());
+            log.warnf("Exception loading value of %s as a file: %s", BROKER_TRUSTED_CERT, e.getMessage());
         }
 
+        String value = certConfig;
+
         try {
-            value = new String(Base64.getDecoder().decode(value), StandardCharsets.UTF_8);
+            value = new String(Base64.getDecoder().decode(certConfig), StandardCharsets.UTF_8);
             log.debug("Successfully decoded base-64 cert config value");
         } catch (IllegalArgumentException e) {
-            log.debug("Cert config value was not base-64 encoded: {}", e.getMessage());
+            log.debugf("Cert config value was not base-64 encoded: %s", e.getMessage());
         }
 
         return value;
     }
 
-    public String getOauthTrustedCertificate() {
-        return System.getenv(OAUTH_TRUSTED_CERT);
-    }
-
-    public String getOauthJwksEndpointUri() {
-        return System.getenv(OAUTH_JWKS_ENDPOINT_URI);
-    }
-
-    public String getOauthValidIssuerUri() {
-        return System.getenv(OAUTH_VALID_ISSUER_URI);
-    }
-
-    public String getOauthTokenEndpointUri() {
-        return System.getenv(OAUTH_TOKEN_ENDPOINT_URI);
-    }
-
-    public String getTlsCertificate() {
-        return System.getenv(TLS_CERT);
-    }
-
-    public String getTlsKey() {
-        return System.getenv(TLS_KEY);
-    }
-
-    public Set<String> getTlsVersions() {
-        return Set.of(System.getenv().getOrDefault(TLS_VERSION, DEFAULT_TLS_VERSION).split(","));
-    }
-
-    public String getCorsAllowPattern() {
-        return System.getenv().getOrDefault("CORS_ALLOW_LIST_REGEX", "(https?:\\/\\/localhost(:\\d*)?)");
-    }
-
     public String getAclResourceOperations() {
-        String value = System.getenv(ACL_RESOURCE_OPERATIONS);
-        return value != null ? value : "{}";
+        return aclResourceOperations;
     }
 }
 

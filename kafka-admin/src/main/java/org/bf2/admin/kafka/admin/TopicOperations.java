@@ -1,19 +1,21 @@
 package org.bf2.admin.kafka.admin;
 
-import io.vertx.kafka.admin.NewPartitions;
-import org.bf2.admin.kafka.admin.model.Types;
-import org.bf2.admin.kafka.admin.handlers.CommonHandler;
 import io.vertx.core.Future;
 import io.vertx.core.Promise;
 import io.vertx.kafka.admin.Config;
 import io.vertx.kafka.admin.ConfigEntry;
 import io.vertx.kafka.admin.KafkaAdminClient;
+import io.vertx.kafka.admin.NewPartitions;
 import io.vertx.kafka.admin.NewTopic;
 import io.vertx.kafka.admin.TopicDescription;
 import io.vertx.kafka.client.common.ConfigResource;
 import org.apache.kafka.common.errors.InvalidRequestException;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
+import org.bf2.admin.kafka.admin.handlers.CommonHandler;
+import org.bf2.admin.kafka.admin.model.Types;
+import org.eclipse.microprofile.config.inject.ConfigProperty;
+
+import javax.enterprise.context.ApplicationScoped;
+import javax.inject.Inject;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -21,20 +23,25 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.CompletionStage;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
+@ApplicationScoped
 public class TopicOperations {
-    protected static final Logger log = LogManager.getLogger(TopicOperations.class);
-    private static final short DEFAULT_REPLICATION_FACTOR = 3;
-    public static final short DEFAULT_PARTITIONS = 1;
-    private static final short REPLICATION_FACTOR = System.getenv("KAFKA_ADMIN_REPLICATION_FACTOR") == null ? DEFAULT_REPLICATION_FACTOR : Short.valueOf(System.getenv("KAFKA_ADMIN_REPLICATION_FACTOR"));
 
-    public static void createTopic(KafkaAdminClient ac, Promise prom, Types.NewTopic inputTopic) {
+    public static final short DEFAULT_PARTITIONS = 1;
+
+    @Inject
+    @ConfigProperty(name = "kafka.admin.replication.factor", defaultValue = "3")
+    short replicationFactor;
+
+    public CompletionStage<Types.Topic> createTopic(KafkaAdminClient ac, Types.NewTopic inputTopic) {
         NewTopic newKafkaTopic = new NewTopic();
+        Promise<Types.Topic> prom = Promise.promise();
 
         Map<String, String> config = new HashMap<>();
-        List<Types.NewTopicConfigEntry> configObject = inputTopic.getSettings().getConfig();
+        List<Types.ConfigEntry> configObject = inputTopic.getSettings().getConfig();
         if (configObject != null) {
             configObject.forEach(item -> {
                 config.put(item.getKey(), item.getValue());
@@ -42,7 +49,7 @@ public class TopicOperations {
         }
 
         newKafkaTopic.setName(inputTopic.getName());
-        newKafkaTopic.setReplicationFactor(REPLICATION_FACTOR);
+        newKafkaTopic.setReplicationFactor(replicationFactor);
         newKafkaTopic.setNumPartitions(inputTopic.getSettings().getNumPartitions() == null ? DEFAULT_PARTITIONS : inputTopic.getSettings().getNumPartitions());
         if (config != null) {
             newKafkaTopic.setConfig(config);
@@ -65,19 +72,11 @@ public class TopicOperations {
             }
         });
 
+        return prom.future().toCompletionStage();
     }
 
-    public static void describeTopic(KafkaAdminClient ac, Promise prom, String topicToDescribe) {
-        Promise<Types.Topic> describeTopicConfigAndDescPromise = getTopicDescAndConf(ac, topicToDescribe);
-        describeTopicConfigAndDescPromise.future()
-            .onComplete(description -> {
-                if (description.failed()) {
-                    prom.fail(description.cause());
-                } else {
-                    prom.complete(description.result());
-                }
-                ac.close();
-            });
+    public CompletionStage<Types.Topic> describeTopic(KafkaAdminClient ac, String topicToDescribe) {
+        return getTopicDescAndConf(ac, topicToDescribe).future().toCompletionStage();
     }
 
     private static Promise<Types.Topic> getTopicDescAndConf(KafkaAdminClient ac, String topicToDescribe) {
@@ -112,10 +111,11 @@ public class TopicOperations {
         return result;
     }
 
-    public static void getTopicList(KafkaAdminClient ac, Promise prom, Pattern pattern, Types.PageRequest pageRequest, Types.OrderByInput orderByInput) {
+    public CompletionStage<Types.TopicList> getTopicList(KafkaAdminClient ac, Pattern pattern, Types.DeprecatedPageRequest pageRequest, Types.TopicSortParams orderByInput) {
         Promise<Set<String>> describeTopicsNamesPromise = Promise.promise();
         Promise<Map<String, io.vertx.kafka.admin.TopicDescription>> describeTopicsPromise = Promise.promise();
         Promise<Map<ConfigResource, Config>> describeTopicConfigPromise = Promise.promise();
+        Promise<Types.TopicList> prom = Promise.promise();
 
         List<ConfigResource> configResourceList = new ArrayList<>();
         List<Types.Topic> fullDescription = new ArrayList<>();
@@ -189,9 +189,13 @@ public class TopicOperations {
                 }
                 ac.close();
             });
+
+        return prom.future().toCompletionStage();
     }
 
-    public static void deleteTopics(KafkaAdminClient ac, List<String> topicsToDelete, Promise prom) {
+    public CompletionStage<List<String>> deleteTopics(KafkaAdminClient ac, List<String> topicsToDelete) {
+        Promise<List<String>> prom = Promise.promise();
+
         ac.deleteTopics(topicsToDelete, res -> {
             if (res.failed()) {
                 prom.fail(res.cause());
@@ -200,9 +204,12 @@ public class TopicOperations {
             }
             ac.close();
         });
+
+        return prom.future().toCompletionStage();
     }
 
-    public static void updateTopic(KafkaAdminClient ac, Types.UpdatedTopic topicToUpdate, Promise prom) {
+    public CompletionStage<Types.Topic> updateTopic(KafkaAdminClient ac, String topicName, Types.TopicSettings topicToUpdate) {
+        Promise<Types.Topic> prom = Promise.promise();
         List<ConfigEntry> ceList = new ArrayList<>();
         if (topicToUpdate.getConfig() != null) {
             topicToUpdate.getConfig().stream().forEach(cfgEntry -> {
@@ -212,10 +219,10 @@ public class TopicOperations {
         }
         Config cfg = new Config(ceList);
 
-        ConfigResource resource = new ConfigResource(org.apache.kafka.common.config.ConfigResource.Type.TOPIC, topicToUpdate.getName());
+        ConfigResource resource = new ConfigResource(org.apache.kafka.common.config.ConfigResource.Type.TOPIC, topicName);
 
         // we have to describe first, otherwise we cannot determine whether the topic exists or not (alterConfigs returns just server error)
-        getTopicDescAndConf(ac, topicToUpdate.getName()).future()
+        getTopicDescAndConf(ac, topicName).future()
                 .compose(topic -> {
                     Promise<Void> updateTopicPartitions = Promise.promise();
                     if (topicToUpdate.getNumPartitions() != null && topicToUpdate.getNumPartitions() != topic.getPartitions().size()) {
@@ -230,7 +237,7 @@ public class TopicOperations {
                     ac.alterConfigs(Collections.singletonMap(resource, cfg), updateTopicConfigPromise);
                     return updateTopicConfigPromise.future();
                 })
-                .compose(update -> getTopicDescAndConf(ac, topicToUpdate.getName()).future())
+                .compose(update -> getTopicDescAndConf(ac, topicName).future())
                 .onComplete(desc -> {
                     if (desc.failed()) {
                         prom.fail(desc.cause());
@@ -239,6 +246,8 @@ public class TopicOperations {
                     }
                     ac.close();
                 });
+
+        return prom.future().toCompletionStage();
     }
 
     private static List<Types.ConfigEntry> getTopicConf(Config cfg) {

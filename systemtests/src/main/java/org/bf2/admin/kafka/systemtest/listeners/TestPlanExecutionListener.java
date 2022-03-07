@@ -1,8 +1,7 @@
 package org.bf2.admin.kafka.systemtest.listeners;
 
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
 import org.bf2.admin.kafka.systemtest.Environment;
+import org.jboss.logging.Logger;
 import org.junit.platform.launcher.TestExecutionListener;
 import org.junit.platform.launcher.TestIdentifier;
 import org.junit.platform.launcher.TestPlan;
@@ -12,7 +11,7 @@ import java.nio.file.Files;
 import java.util.Arrays;
 
 public class TestPlanExecutionListener implements TestExecutionListener {
-    private static final Logger LOGGER = LogManager.getLogger(TestPlanExecutionListener.class);
+    private static final Logger LOGGER = Logger.getLogger(TestPlanExecutionListener.class);
 
     public void testPlanExecutionStarted(TestPlan testPlan) {
         LOGGER.info("=======================================================================");
@@ -41,7 +40,7 @@ public class TestPlanExecutionListener implements TestExecutionListener {
         LOGGER.info("Following testclasses are selected for run:");
         Arrays.asList(plan.getChildren(plan.getRoots()
                 .toArray(new TestIdentifier[0])[0])
-                .toArray(new TestIdentifier[0])).forEach(testIdentifier -> LOGGER.info("-> {}", testIdentifier.getLegacyReportingName()));
+                .toArray(new TestIdentifier[0])).forEach(testIdentifier -> LOGGER.infof("-> %s", testIdentifier.getLegacyReportingName()));
         LOGGER.info("=======================================================================");
         LOGGER.info("=======================================================================");
     }
