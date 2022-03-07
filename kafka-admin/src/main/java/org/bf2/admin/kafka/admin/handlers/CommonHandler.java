@@ -127,7 +127,8 @@ public class CommonHandler {
         } else if (failureCause instanceof AuthorizationException) {
             status = Status.FORBIDDEN;
         } else if (failureCause instanceof AuthenticationException
-                || failureCause instanceof TokenExpiredException) {
+            || failureCause instanceof TokenExpiredException
+            || failureCause.getCause() instanceof AuthenticationException) {
             status = Status.UNAUTHORIZED;
         } else if (failureCause instanceof InvalidTopicException
                 || failureCause instanceof PolicyViolationException

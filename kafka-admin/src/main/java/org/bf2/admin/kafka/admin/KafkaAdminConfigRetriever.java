@@ -38,7 +38,6 @@ public class KafkaAdminConfigRetriever {
     public static final String REQUEST_TIMEOUT_MS_CONFIG = PREFIX + "request.timeout.ms.config";
     public static final String BASIC_ENABLED = PREFIX + "basic.enabled";
     public static final String OAUTH_ENABLED = PREFIX + "oauth.enabled";
-    // TODO: PR to allow configuration via smallrye-jwt
     public static final String OAUTH_TRUSTED_CERT = PREFIX + "oauth.trusted.cert";
     public static final String OAUTH_JWKS_ENDPOINT_URI = PREFIX + "oauth.jwks.endpoint.uri";
     public static final String OAUTH_TOKEN_ENDPOINT_URI = PREFIX + "oauth.token.endpoint.uri";
