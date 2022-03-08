@@ -46,7 +46,8 @@
                                         <kafka.admin.oauth.token.endpoint.uri>/token</kafka.admin.oauth.token.endpoint.uri>
                                         <kafka.admin.num.partitions.max>100</kafka.admin.num.partitions.max>
                                     </systemPropertyVariables>
-
+                                    
+                                    <schemaFilename>kafka-admin-rest</schemaFilename>
                                     <filter>org.bf2.admin.kafka.admin.handlers.OASModelFilter</filter>
                                     <infoVersion>${project.version}</infoVersion>
                                     <outputDirectory>${project.basedir}/.openapi</outputDirectory>

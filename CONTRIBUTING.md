@@ -7,6 +7,16 @@ Please follow your ide setup for checkstyle. For example for intelij:
 
 https://plugins.jetbrains.com/plugin/1065-checkstyle-idea
 
+## Regenerating OpenAPI file
+
+PRs that make changes in the API should update openapi file by executing:
+
+```
+mvn -Popenapi-generate process-classes
+```
+
+Please commit generated files along with the PR for review.
+
 ### Interacting with local kafka
 
 1. Creating topic
@@ -30,3 +40,4 @@ kcat -b localhost:9092 -F ./hack/kcat.properties -P -t test
 `
 curl -s -u admin:admin-secret http://localhost:8080/rest/consumer-groups | jq
 `
+

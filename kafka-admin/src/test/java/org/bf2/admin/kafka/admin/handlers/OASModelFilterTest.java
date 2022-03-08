@@ -42,7 +42,7 @@ class OASModelFilterTest {
      */
     void testOpenApiContractMatchesGenerated() throws Exception {
         ObjectMapper yamlReader = new ObjectMapper(new YAMLFactory());
-        Object obj = yamlReader.readValue(Path.of(".openapi", "openapi.yaml").toFile(), Object.class);
+        Object obj = yamlReader.readValue(Path.of(".openapi", "kafka-admin-rest.yaml").toFile(), Object.class);
 
         ObjectMapper jsonWriter = new ObjectMapper();
         String expectedJson = jsonWriter.writeValueAsString(obj);
