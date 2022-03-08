@@ -27,3 +27,4 @@ release.properties
 
 CEKit installation
 /.cekit/
+kafka-admin/.openapi/kafka-admin-rest.json
