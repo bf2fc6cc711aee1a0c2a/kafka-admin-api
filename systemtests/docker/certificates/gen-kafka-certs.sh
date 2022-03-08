@@ -5,7 +5,7 @@ set -e
 STOREPASS=Z_pkTh9xgZovK4t34cGB2o6afT4zZg0L
 
 echo "${STOREPASS}" > kafka_secret.txt
-echo "subjectAltName = DNS:kafka" > kafka-san.ext
+echo "subjectAltName = DNS:kafka,DNS:localhost" > kafka-san.ext
 
 echo "#### Generate broker keystore"
 keytool -keystore cluster.keystore.p12 \
@@ -13,7 +13,7 @@ keytool -keystore cluster.keystore.p12 \
  -validity 380 \
  -genkey -keyalg RSA \
  -dname "CN=my-cluster-kafka,O=io.strimzi" \
- -ext "SAN=DNS:kafka" \
+ -ext "SAN=DNS:kafka,DNS:localhost" \
  -deststoretype pkcs12 \
  -storepass $STOREPASS \
  -keypass $STOREPASS
@@ -24,7 +24,7 @@ keytool -keystore cluster.keystore.p12 \
  -alias localhost \
  -certreq \
  -dname "CN=my-cluster-kafka,O=io.strimzi" \
- -ext "SAN=DNS:kafka" \
+ -ext "SAN=DNS:kafka,DNS:localhost" \
  -file cert-file \
  -storepass $STOREPASS
 

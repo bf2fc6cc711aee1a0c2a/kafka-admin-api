@@ -11,14 +11,17 @@ import io.vertx.kafka.admin.MemberDescription;
 import io.vertx.kafka.admin.OffsetSpec;
 import io.vertx.kafka.client.common.TopicPartition;
 import io.vertx.kafka.client.consumer.OffsetAndMetadata;
+import org.apache.kafka.common.ConsumerGroupState;
 import org.apache.kafka.common.errors.GroupIdNotFoundException;
 import org.apache.kafka.common.errors.InvalidRequestException;
 import org.apache.kafka.common.errors.UnknownTopicOrPartitionException;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
 import org.bf2.admin.kafka.admin.handlers.CommonHandler;
 import org.bf2.admin.kafka.admin.model.Types;
+import org.bf2.admin.kafka.admin.model.Types.ConsumerGroupOffsetResetParameters.OffsetType;
 import org.bf2.admin.kafka.admin.model.Types.PagedResponse;
+import org.bf2.admin.kafka.admin.model.Types.PagedResponseDeprecated;
+import org.bf2.admin.kafka.admin.model.Types.TopicPartitionResetResult;
+import org.jboss.logging.Logger;
 
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
@@ -33,6 +36,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
 import java.util.function.ToLongFunction;
@@ -43,12 +47,16 @@ import java.util.stream.Stream;
 @SuppressWarnings({"checkstyle:CyclomaticComplexity", "checkstyle:NPathComplexity"})
 public class ConsumerGroupOperations {
 
-    protected static final Logger log = LogManager.getLogger(ConsumerGroupOperations.class);
+    protected static final Logger log = Logger.getLogger(ConsumerGroupOperations.class);
     private static final DateTimeFormatter DATE_TIME_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ssz");
     private static final Pattern MATCH_ALL = Pattern.compile(".*");
-    private static final Types.OrderByInput BLANK_ORDER = new Types.OrderByInput();
+    private static final Types.ConsumerGroupDescriptionSortParams BLANK_ORDER =
+            new Types.ConsumerGroupDescriptionSortParams(Types.ConsumerGroupDescriptionOrderKey.PARTITION, Types.SortDirectionEnum.ASC);
 
-    public static void getGroupList(KafkaAdminClient ac, Promise<PagedResponse<Types.ConsumerGroupDescription>> prom, Pattern topicPattern, Pattern groupIdPattern, Types.PageRequest pageRequest, Types.OrderByInput orderByInput) {
+    public static CompletionStage<PagedResponse<Types.ConsumerGroup>> getGroupList(KafkaAdminClient ac, Pattern topicPattern, Pattern groupIdPattern,
+                                                                                   Types.DeprecatedPageRequest pageRequest, Types.ConsumerGroupSortParams orderByInput) {
+        Promise<PagedResponse<Types.ConsumerGroup>> prom = Promise.promise();
+
         // Obtain list of all consumer groups
         ac.listConsumerGroups()
             .map(groups -> groups.stream()
@@ -62,7 +70,7 @@ public class ConsumerGroupOperations {
                  .sorted(Types.SortDirectionEnum.DESC.equals(orderByInput.getOrder()) ?
                      new CommonHandler.ConsumerGroupComparator(orderByInput.getField()).reversed() :
                          new CommonHandler.ConsumerGroupComparator(orderByInput.getField()))
-                 .collect(Collectors.<Types.ConsumerGroupDescription>toList()))
+                 .collect(Collectors.<Types.ConsumerGroup>toList()))
             .compose(list -> {
                 if (pageRequest.isDeprecatedFormat()) {
                     if (pageRequest.getOffset() > list.size()) {
@@ -74,7 +82,7 @@ public class ConsumerGroupOperations {
                         tmpLimit = list.size();
                     }
 
-                    var response = new PagedResponse<Types.ConsumerGroupDescription>();
+                    var response = new PagedResponseDeprecated<Types.ConsumerGroup>();
                     response.setLimit(pageRequest.getLimit());
                     response.setOffset(pageRequest.getOffset());
 
@@ -95,9 +103,12 @@ public class ConsumerGroupOperations {
                 }
                 ac.close();
             });
+
+        return prom.future().toCompletionStage();
     }
 
-    public static void deleteGroup(KafkaAdminClient ac, List<String> groupsToDelete, Promise<List<String>> prom) {
+    public static CompletionStage<List<String>> deleteGroup(KafkaAdminClient ac, List<String> groupsToDelete) {
+        Promise<List<String>> prom = Promise.promise();
         ac.deleteConsumerGroups(groupsToDelete, res -> {
             if (res.failed()) {
                 prom.fail(res.cause());
@@ -106,13 +117,22 @@ public class ConsumerGroupOperations {
             }
             ac.close();
         });
+
+        return prom.future().toCompletionStage();
     }
 
     @SuppressWarnings({"checkstyle:JavaNCSS", "checkstyle:MethodLength"})
-    public static void resetGroupOffset(KafkaAdminClient ac, Types.ConsumerGroupOffsetResetParameters parameters, Promise<Types.PagedResponse<Types.TopicPartitionResetResult>> prom) {
+    public static CompletionStage<PagedResponse<TopicPartitionResetResult>> resetGroupOffset(KafkaAdminClient ac, Types.ConsumerGroupOffsetResetParameters parameters) {
+        Promise<PagedResponse<TopicPartitionResetResult>> prom = Promise.promise();
 
-        if (!"latest".equals(parameters.getOffset()) && !"earliest".equals(parameters.getOffset()) && parameters.getValue() == null) {
-            throw new InvalidRequestException("Value has to be set when " + parameters.getOffset() + " offset is used.");
+        switch (parameters.getOffset()) {
+            case EARLIEST:
+            case LATEST:
+                break;
+            default:
+                if (parameters.getValue() == null) {
+                    throw new InvalidRequestException("Value has to be set when " + parameters.getOffset().getValue() + " offset is used.");
+                }
         }
 
         Set<TopicPartition> topicPartitionsToReset = new HashSet<>();
@@ -122,17 +142,17 @@ public class ConsumerGroupOperations {
 
         if (parameters.getTopics() == null || parameters.getTopics().isEmpty()) {
             // reset everything
-            Promise promise = Promise.promise();
+            Promise<Void> promise = Promise.promise();
             promises.add(promise.future());
+
             ac.listConsumerGroupOffsets(parameters.getGroupId())
-                    .compose(consumerGroupOffsets -> {
+                    .onSuccess(consumerGroupOffsets -> {
                         consumerGroupOffsets.entrySet().forEach(offset -> {
                             topicPartitionsToReset.add(offset.getKey());
                         });
-                        return Future.succeededFuture(topicPartitionsToReset);
-                    }).onComplete(topicPartitions -> {
                         promise.complete();
-                    });
+                    })
+                    .onFailure(promise::fail);
         } else {
             parameters.getTopics().forEach(paramPartition -> {
                 Promise promise = Promise.promise();
@@ -146,7 +166,8 @@ public class ConsumerGroupOperations {
                         });
                         promise.complete();
                         return Future.succeededFuture(topicPartitionsToReset);
-                    });
+                    })
+                    .onFailure(promise::fail);
                 } else {
                     paramPartition.getPartitions().forEach(numPartition -> {
                         topicPartitionsToReset.add(new TopicPartition(paramPartition.getTopic(), numPartition));
@@ -170,22 +191,28 @@ public class ConsumerGroupOperations {
             topicPartitionsToReset.forEach(topicPartition -> {
                 OffsetSpec offsetSpec;
                 // absolute - just for the warning that set offset could be higher than latest
-                if ("latest".equals(parameters.getOffset())) {
-                    offsetSpec = OffsetSpec.LATEST;
-                } else if ("earliest".equals(parameters.getOffset())) {
-                    offsetSpec = OffsetSpec.EARLIEST;
-                } else if ("timestamp".equals(parameters.getOffset())) {
-                    try {
-                        offsetSpec = OffsetSpec.TIMESTAMP(ZonedDateTime.parse(parameters.getValue(), DATE_TIME_FORMATTER).toInstant().toEpochMilli());
-                    } catch (DateTimeParseException e) {
-                        throw new InvalidRequestException("Timestamp must be in format 'yyyy-MM-dd'T'HH:mm:ssz'" + e.getMessage());
-                    }
-                } else if ("absolute".equals(parameters.getOffset())) {
-                    // we are checking whether offset is not negative (set behind latest)
-                    offsetSpec = OffsetSpec.LATEST;
-                } else {
-                    throw new InvalidRequestException("Offset can be 'absolute', 'latest', 'earliest' or 'timestamp' only");
+                switch (parameters.getOffset()) {
+                    case LATEST:
+                        offsetSpec = OffsetSpec.LATEST;
+                        break;
+                    case EARLIEST:
+                        offsetSpec = OffsetSpec.EARLIEST;
+                        break;
+                    case TIMESTAMP:
+                        try {
+                            offsetSpec = OffsetSpec.TIMESTAMP(ZonedDateTime.parse(parameters.getValue(), DATE_TIME_FORMATTER).toInstant().toEpochMilli());
+                        } catch (DateTimeParseException e) {
+                            throw new InvalidRequestException("Timestamp must be in format 'yyyy-MM-dd'T'HH:mm:ssz'" + e.getMessage());
+                        }
+                        break;
+                    case ABSOLUTE:
+                        // we are checking whether offset is not negative (set behind latest)
+                        offsetSpec = OffsetSpec.LATEST;
+                        break;
+                    default:
+                        throw new InvalidRequestException("Offset can be 'absolute', 'latest', 'earliest' or 'timestamp' only");
                 }
+
                 partitionsToFetchOffset.put(topicPartition, offsetSpec);
             });
             return Future.succeededFuture(partitionsToFetchOffset);
@@ -196,13 +223,13 @@ public class ConsumerGroupOperations {
                     promise.fail(partitionsOffsets.cause());
                     return;
                 }
-                if ("absolute".equals(parameters.getOffset())) {
+                if (parameters.getOffset() == OffsetType.ABSOLUTE) {
                     // numeric offset provided; check whether x > latest
                     promise.complete(partitionsOffsets.result().entrySet().stream().collect(Collectors.toMap(
                         entry -> entry.getKey(),
                         entry -> {
                             if (entry.getValue().getOffset() < Long.parseLong(parameters.getValue())) {
-                                log.warn("Selected offset {} is larger than latest {}", parameters.getValue(), entry.getValue().getOffset());
+                                log.warnf("Selected offset %s is larger than latest %d", parameters.getValue(), entry.getValue().getOffset());
                             }
                             return new ListOffsetsResultInfo(Long.parseLong(parameters.getValue()), entry.getValue().getTimestamp(), entry.getValue().getLeaderEpoch());
                         })));
@@ -276,6 +303,8 @@ public class ConsumerGroupOperations {
             }
             ac.close();
         });
+
+        return prom.future().toCompletionStage();
     }
 
     static Future<Void> validatePartitionsResettable(KafkaAdminClient ac, String groupId, Set<TopicPartition> topicPartitionsToReset) {
@@ -306,7 +335,7 @@ public class ConsumerGroupOperations {
                     topicDescribe.complete();
                 })
                 .onFailure(error -> {
-                    if (error instanceof UnknownTopicOrPartitionException) {
+                    if (CommonHandler.isCausedBy(error, UnknownTopicOrPartitionException.class)) {
                         topicDescribe.fail(new IllegalArgumentException("Request contained an unknown topic"));
                     } else {
                         topicDescribe.fail(error);
@@ -382,16 +411,18 @@ public class ConsumerGroupOperations {
         }
     }
 
-    public static void describeGroup(KafkaAdminClient ac, Promise<Types.ConsumerGroupDescription> prom, String groupToDescribe, Types.OrderByInput orderBy, int partitionFilter) {
+    public static CompletionStage<Types.ConsumerGroup> describeGroup(KafkaAdminClient ac, String groupToDescribe, Types.ConsumerGroupDescriptionSortParams orderBy, int partitionFilter) {
+        Promise<Types.ConsumerGroup> prom = Promise.promise();
+
         fetchDescriptions(ac, List.of(groupToDescribe), MATCH_ALL, partitionFilter, orderBy)
             .map(groupDescriptions -> groupDescriptions.findFirst().orElse(null))
             .onComplete(res -> {
                 if (res.failed()) {
                     prom.fail(res.cause());
                 } else {
-                    Types.ConsumerGroupDescription groupDescription = res.result();
+                    Types.ConsumerGroup groupDescription = res.result();
 
-                    if (groupDescription == null || "dead".equalsIgnoreCase(groupDescription.getState())) {
+                    if (groupDescription == null || ConsumerGroupState.DEAD.equals(groupDescription.getState())) {
                         prom.fail(new GroupIdNotFoundException("Group " + groupToDescribe + " does not exist"));
                     } else {
                         prom.complete(groupDescription);
@@ -399,10 +430,12 @@ public class ConsumerGroupOperations {
                 }
                 ac.close();
             });
+
+        return prom.future().toCompletionStage();
     }
 
-    private static List<Types.ConsumerGroupDescription> getConsumerGroupsDescription(Pattern pattern,
-            Types.OrderByInput orderBy,
+    private static List<Types.ConsumerGroup> getConsumerGroupsDescription(Pattern pattern,
+            Types.ConsumerGroupDescriptionSortParams orderBy,
             int partitionFilter,
             Collection<ConsumerGroupDescription> groupDescriptions,
             Map<TopicPartition, OffsetAndMetadata> groupOffsets,
@@ -415,7 +448,7 @@ public class ConsumerGroupOperations {
                 .collect(Collectors.toList());
 
         return groupDescriptions.stream().map(group -> {
-            Types.ConsumerGroupDescription grp = new Types.ConsumerGroupDescription();
+            Types.ConsumerGroup grp = new Types.ConsumerGroup();
             Set<Types.Consumer> members = new HashSet<>();
 
             if (group.getMembers().isEmpty()) {
@@ -469,19 +502,24 @@ public class ConsumerGroupOperations {
                 return null;
             }
             grp.setGroupId(group.getGroupId());
-            grp.setState(group.getState().name());
+            grp.setState(group.getState());
             List<Types.Consumer> sortedList;
 
             ToLongFunction<Types.Consumer> fun;
-            if ("lag".equalsIgnoreCase(orderBy.getField())) {
-                fun = Types.Consumer::getLag;
-            } else if ("endOffset".equalsIgnoreCase(orderBy.getField())) {
-                fun = Types.Consumer::getLogEndOffset;
-            } else if ("offset".equalsIgnoreCase(orderBy.getField())) {
-                fun = Types.Consumer::getOffset;
-            } else {
-                // partitions and unknown keys
-                fun = Types.Consumer::getPartition;
+
+            switch (orderBy.getField()) {
+                case LAG:
+                    fun = Types.Consumer::getLag;
+                    break;
+                case END_OFFSET:
+                    fun = Types.Consumer::getLogEndOffset;
+                    break;
+                case OFFSET:
+                    fun = Types.Consumer::getOffset;
+                    break;
+                default:
+                    fun = Types.Consumer::getPartition;
+                    break;
             }
 
             if (Types.SortDirectionEnum.DESC.equals(orderBy.getOrder())) {
@@ -491,10 +529,38 @@ public class ConsumerGroupOperations {
             }
 
             grp.setConsumers(sortedList);
+            grp.setMetrics(calculateGroupMetrics(sortedList));
+
             return grp;
 
         }).collect(Collectors.toList());
 
+    }
+
+    private static Types.ConsumerGroupMetrics calculateGroupMetrics(List<Types.Consumer> consumersList) {
+        var metrics = new Types.ConsumerGroupMetrics();
+
+        var laggingPartitions = 0;
+        var unassignedPartitions = 0;
+
+        for (Types.Consumer consumer : consumersList) {
+            if (consumer.getMemberId() == null) {
+                unassignedPartitions++;
+            } else if (consumer.getLag() > 0) {
+                laggingPartitions++;
+            }
+        }
+
+        var activeConsumers = consumersList.stream()
+            .filter(consumer -> consumer.getMemberId() != null)
+            .map(Types.Consumer::getMemberId)
+            .distinct().count();
+
+        metrics.setActiveConsumers((int) activeConsumers);
+        metrics.setUnassignedPartitions(unassignedPartitions);
+        metrics.setLaggingPartitions(laggingPartitions);
+
+        return metrics;
     }
 
     private static boolean memberMatchesPartitionFilter(Types.Consumer member, int partitionFilter) {
@@ -547,11 +613,11 @@ public class ConsumerGroupOperations {
      * @return future stream of {@link Types.ConsumerGroupDescription}
      */
     @SuppressWarnings("rawtypes")
-    static Future<Stream<Types.ConsumerGroupDescription>> fetchDescriptions(KafkaAdminClient ac,
+    static Future<Stream<Types.ConsumerGroup>> fetchDescriptions(KafkaAdminClient ac,
                                                                      List<String> groupIds,
                                                                      Pattern topicPattern,
                                                                      int partitionFilter,
-                                                                     Types.OrderByInput memberOrder) {
+                                                                     Types.ConsumerGroupDescriptionSortParams memberOrder) {
 
         List<ConsumerGroupInfo> consumerGroupInfos = new ArrayList<>(groupIds.size());
 
