@@ -4,7 +4,7 @@ on:
     branches:
       - main
     paths:
-      - "kafka-admin/.openapi/openapi.yaml"
+      - "kafka-admin/.openapi/kafka-admin-rest.yaml"
 
 jobs:
   dispatch:
