@@ -46,7 +46,6 @@
                                         <kafka.admin.oauth.token.endpoint.uri>/token</kafka.admin.oauth.token.endpoint.uri>
                                         <kafka.admin.num.partitions.max>100</kafka.admin.num.partitions.max>
                                     </systemPropertyVariables>
-                                    
                                     <schemaFilename>kafka-admin-rest</schemaFilename>
                                     <filter>org.bf2.admin.kafka.admin.handlers.OASModelFilter</filter>
                                     <infoVersion>${project.version}</infoVersion>
@@ -174,12 +173,20 @@
             <artifactId>quarkus-hibernate-validator</artifactId>
         </dependency>
         <dependency>
+            <groupId>io.quarkus</groupId>
+            <artifactId>quarkus-vertx-web</artifactId>
+        </dependency>
+        <dependency>
             <groupId>io.smallrye.common</groupId>
             <artifactId>smallrye-common-annotation</artifactId>
         </dependency>
         <dependency>
             <groupId>io.vertx</groupId>
             <artifactId>vertx-kafka-client</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>io.vertx</groupId>
+            <artifactId>vertx-web</artifactId>
         </dependency>
         <dependency>
             <groupId>org.jboss.logmanager</groupId>
@@ -245,6 +252,11 @@
             <groupId>org.skyscreamer</groupId>
             <artifactId>jsonassert</artifactId>
             <version>1.5.0</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.mockito</groupId>
+            <artifactId>mockito-core</artifactId>
             <scope>test</scope>
         </dependency>
         <dependency>

@@ -26,7 +26,7 @@ tags:
   - name: records
     description: Send and receive records interactively
 paths:
-  /rest/topics:
+  /api/v1/topics:
     get:
       # Parameters listed to establish a fixed order (support stability for downstream generated code)
       parameters:
@@ -38,9 +38,9 @@ paths:
         - { in: query, schema: {}, name: order }
         - { in: query, schema: {}, name: orderKey }
 
-  /rest/topics/{topicName}: {}
+  /api/v1/topics/{topicName}: {}
 
-  /rest/consumer-groups:
+  /api/v1/consumer-groups:
     get:
       # Parameters listed to establish a fixed order (support stability for downstream generated code)
       parameters:
@@ -88,7 +88,7 @@ paths:
                             lag: 1
                             logEndOffset: 5
 
-  /rest/consumer-groups/{consumerGroupId}:
+  /api/v1/consumer-groups/{consumerGroupId}:
     get:
       # Parameters listed to establish a fixed order (support stability for downstream generated code)
       parameters:
@@ -98,9 +98,9 @@ paths:
         - { in: query, schema: {}, name: partitionFilter }
         - { in: query, schema: {}, name: topic }
 
-  /rest/consumer-groups/{consumerGroupId}/reset-offset: {}
+  /api/v1/consumer-groups/{consumerGroupId}/reset-offset: {}
 
-  /rest/acls:
+  /api/v1/acls:
     get:
       parameters:
       # Parameters listed to establish a fixed order (support stability for downstream generated code)
@@ -124,7 +124,7 @@ paths:
       - { in: query, schema: {}, name: operation }
       - { in: query, schema: {}, name: permission }
 
-  /rest/acls/resource-operations:
+  /api/v1/acls/resource-operations:
     get:
       responses:
         "200":

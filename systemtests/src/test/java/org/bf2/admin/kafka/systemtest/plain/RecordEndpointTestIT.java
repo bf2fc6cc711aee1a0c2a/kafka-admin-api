@@ -64,7 +64,7 @@ class RecordEndpointTestIT {
         .then()
             .log().ifValidationFails()
             .statusCode(Status.CREATED.getStatusCode())
-            .header("Location", stringContainsInOrder("/rest/topics/" + topicName + "/records", "partition=" + partition))
+            .header("Location", stringContainsInOrder("/api/v1/topics/" + topicName + "/records", "partition=" + partition))
             .body("partition", equalTo(partition))
             .body("timestamp", equalTo(timestamp.toString()))
             .body("value", equalTo("record value"))

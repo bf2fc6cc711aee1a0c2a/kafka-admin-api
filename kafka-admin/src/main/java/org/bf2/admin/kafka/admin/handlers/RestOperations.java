@@ -32,7 +32,7 @@ import java.util.concurrent.CompletionStage;
 import java.util.function.Function;
 import java.util.regex.Pattern;
 
-@Path("/rest")
+@Path("/api/v1")
 public class RestOperations implements OperationsHandler {
 
     private static final Logger log = Logger.getLogger(RestOperations.class);

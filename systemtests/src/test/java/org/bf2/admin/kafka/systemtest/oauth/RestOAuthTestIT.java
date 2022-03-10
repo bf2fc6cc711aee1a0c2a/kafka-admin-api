@@ -205,7 +205,7 @@ class RestOAuthTestIT {
             .log().ifValidationFails()
             .statusCode(Status.CREATED.getStatusCode())
         .assertThat()
-            .header("Location", equalTo("/rest/topics/" + topicName))
+            .header("Location", equalTo("/api/v1/topics/" + topicName))
             .body("name", equalTo(topicName))
             .body("isInternal", equalTo(false))
             .body("partitions.size()", equalTo(numPartitions))
