@@ -1702,7 +1702,7 @@ public class Types {
 
     @Schema(
         title = "Record",
-        description = "An invidual record consumed from a topic or produced to a topic")
+        description = "An individual record consumed from a topic or produced to a topic")
     @JsonInclude(Include.NON_NULL)
     public static class Record {
         public static final String PROP_PARTITION = "partition";
