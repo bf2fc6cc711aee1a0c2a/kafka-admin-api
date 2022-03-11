@@ -80,11 +80,14 @@ public class OASModelFilter implements OASFilter {
         var consumerGroupResetExample = new Types.ConsumerGroupOffsetResetParameters(OffsetType.ABSOLUTE, "4",
                    List.of(new Types.TopicsToResetOffset("my-topic", List.of(0))));
 
+        var recordProduceExample = new Types.Record(1, null, Map.of("X-Custom-Header", "header-value-1"), null, "{ \"examplekey\": \"example-value\" }");
+
         Map<String, Example> examples = new LinkedHashMap<>();
 
         examples.put("NewTopicExample", createExample(mapper, newTopicExample, "Sample new topic with 3 partitions"));
         examples.put("ConsumerGroupExample", createExample(mapper, consumerGroupExample, "Sample consumer group with 3 partitions and 3 active consumers"));
         examples.put("ConsumerGroupOffsetResetExample", createExample(mapper, consumerGroupResetExample, "Sample request to reset partition `0` of topic `my-topic` to offset `4`"));
+        examples.put("RecordProduceExample", createExample(mapper, recordProduceExample, "Sample record to produce a record to partition 1, including a custom header"));
 
         return examples;
     }

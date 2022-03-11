@@ -23,10 +23,8 @@ import javax.ws.rs.Path;
 import javax.ws.rs.PathParam;
 import javax.ws.rs.Produces;
 import javax.ws.rs.QueryParam;
-import javax.ws.rs.core.Context;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
-import javax.ws.rs.core.UriInfo;
 
 import java.util.Optional;
 import java.util.concurrent.CompletionStage;
@@ -151,6 +149,58 @@ public interface OperationsHandler {
                                          @Valid @BeanParam Types.TopicSortParams orderParams);
 
     @GET
+    @Path("topics/{topicName}/records")
+    @Produces(MediaType.APPLICATION_JSON)
+    // OpenAPI
+    @Tag(name = "records")
+    @Operation(
+        operationId = Operations.CONSUME_RECORDS,
+        summary = "Consume records from a topic",
+        description = "Consume a limited number of records from a topic, optionally specifying a partition and an absolute offset or timestamp as the starting point for message retrieval.")
+    @Parameter(
+        name = "topicName",
+        description = "Topic name")
+    @APIResponseSchema(
+        value = Types.RecordList.class,
+        responseDescription = "List of records matching the request query parameters.")
+    @APIResponse(responseCode = "400", ref = "BadRequest")
+    @APIResponse(responseCode = "401", ref = "NotAuthorized")
+    @APIResponse(responseCode = "403", ref = "Forbidden")
+    @APIResponse(responseCode = "500", ref = "ServerError")
+    @APIResponse(responseCode = "503", ref = "ServiceUnavailable")
+    Response consumeRecords(@PathParam("topicName") String topicName,
+                            @Valid @BeanParam Types.RecordFilterParams filterParams);
+
+    @POST
+    @Path("topics/{topicName}/records")
+    @Consumes(MediaType.APPLICATION_JSON)
+    @Produces(MediaType.APPLICATION_JSON)
+    // OpenAPI
+    @Tag(name = "records", description = "Send and receive records interactively")
+    @Operation(
+        operationId = Operations.PRODUCE_RECORD,
+        summary = "Send a record to a topic",
+        description = "Produce (write) a single record to a topic.")
+    @Parameter(
+        name = "topicName",
+        description = "Topic name")
+    @RequestBody(
+        required = true,
+        content = @Content(
+            schema = @Schema(implementation = Types.Record.class),
+            examples = @ExampleObject(ref = "RecordProduceExample")))
+    @APIResponseSchema(
+        responseCode = "201",
+        value = Types.Record.class,
+        responseDescription = "Record was successfully sent to the topic")
+    @APIResponse(responseCode = "400", ref = "BadRequest")
+    @APIResponse(responseCode = "401", ref = "NotAuthorized")
+    @APIResponse(responseCode = "403", ref = "Forbidden")
+    @APIResponse(responseCode = "500", ref = "ServerError")
+    @APIResponse(responseCode = "503", ref = "ServiceUnavailable")
+    CompletionStage<Response> produceRecord(@PathParam("topicName") String topicName, @Valid Types.Record input);
+
+    @GET
     @Path("consumer-groups")
     @Produces(MediaType.APPLICATION_JSON)
     // OpenAPI
@@ -176,8 +226,7 @@ public interface OperationsHandler {
     CompletionStage<Response> listGroups(@QueryParam("group-id-filter") String groupFilter,
                                          @QueryParam("topic") String topicFilter,
                                          @Valid @BeanParam Types.DeprecatedPageRequest pageParams,
-                                         @Valid @BeanParam Types.ConsumerGroupSortParams sortParams,
-                                         @Context UriInfo requestUri);
+                                         @Valid @BeanParam Types.ConsumerGroupSortParams sortParams);
 
     @GET
     @Path("consumer-groups/{consumerGroupId}")

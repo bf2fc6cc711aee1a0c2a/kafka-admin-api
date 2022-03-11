@@ -6,6 +6,10 @@ public class Operations {
     public static final String DELETE_TOPIC = "deleteTopic";
     public static final String CREATE_TOPIC = "createTopic";
     public static final String UPDATE_TOPIC = "updateTopic";
+
+    public static final String CONSUME_RECORDS = "consumeRecords";
+    public static final String PRODUCE_RECORD = "produceRecord";
+
     public static final String GET_CONSUMER_GROUP = "getConsumerGroupById";
     public static final String GET_CONSUMER_GROUPS_LIST = "getConsumerGroups";
     public static final String DELETE_CONSUMER_GROUP = "deleteConsumerGroupById";

@@ -2,14 +2,17 @@ package org.bf2.admin.kafka.admin.handlers;
 
 import io.micrometer.core.annotation.Counted;
 import io.micrometer.core.annotation.Timed;
+import io.smallrye.common.annotation.Blocking;
 import io.vertx.core.Vertx;
 import io.vertx.kafka.admin.KafkaAdminClient;
 import org.apache.kafka.clients.admin.AdminClient;
 import org.bf2.admin.kafka.admin.AccessControlOperations;
 import org.bf2.admin.kafka.admin.ConsumerGroupOperations;
 import org.bf2.admin.kafka.admin.KafkaAdminConfigRetriever;
+import org.bf2.admin.kafka.admin.RecordOperations;
 import org.bf2.admin.kafka.admin.TopicOperations;
 import org.bf2.admin.kafka.admin.model.Types;
+import org.bf2.admin.kafka.admin.model.Types.RecordFilterParams;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.eclipse.microprofile.context.ThreadContext;
 import org.jboss.logging.Logger;
@@ -21,7 +24,6 @@ import javax.ws.rs.core.Response;
 import javax.ws.rs.core.Response.ResponseBuilder;
 import javax.ws.rs.core.Response.Status;
 import javax.ws.rs.core.UriBuilder;
-import javax.ws.rs.core.UriInfo;
 
 import java.util.Collections;
 import java.util.Optional;
@@ -55,6 +57,9 @@ public class RestOperations implements OperationsHandler {
 
     @Inject
     TopicOperations topicOperations;
+
+    @Inject
+    RecordOperations recordOperations;
 
     @Inject
     ThreadContext threadContext;
@@ -121,10 +126,28 @@ public class RestOperations implements OperationsHandler {
                .thenApply(topicList -> Response.ok().entity(topicList).build());
     }
 
+    @Blocking
+    @Counted("consume_records_requests")
+    @Timed("consume_records_request_time")
+    public Response consumeRecords(String topicName,
+                                   RecordFilterParams params) {
+
+        var result = recordOperations.consumeRecords(topicName, params.getPartition(), params.getOffset(), params.getTimestamp(), params.getLimit(), params.getIncludeList());
+        return Response.ok(result).build();
+    }
+
+    @Counted("produce_record_requests")
+    @Timed("produce_record_request_time")
+    public CompletionStage<Response> produceRecord(String topicName, Types.Record input) {
+        return threadContext.withContextCapture(recordOperations.produceRecord(topicName, input))
+                .thenApply(result -> Response.created(result.buildUri(uriBuilder("consumeRecords"), topicName))
+                           .entity(result).build());
+    }
+
     @Override
     @Counted("list_groups_requests")
     @Timed("list_groups_request_time")
-    public CompletionStage<Response> listGroups(String consumerGroupIdFilter, String topicFilter, Types.DeprecatedPageRequest pageParams, Types.ConsumerGroupSortParams sortParams, UriInfo requestUri) {
+    public CompletionStage<Response> listGroups(String consumerGroupIdFilter, String topicFilter, Types.DeprecatedPageRequest pageParams, Types.ConsumerGroupSortParams sortParams) {
         final Pattern topicPattern = filterPattern(topicFilter);
         final Pattern groupPattern = filterPattern(consumerGroupIdFilter);
 
@@ -233,7 +256,7 @@ public class RestOperations implements OperationsHandler {
                     try {
                         client.close();
                     } catch (Exception e) {
-                        log.warn("Exception closing Kafka AdminClient", e);
+                        log.warnf("Exception closing Kafka AdminClient", e);
                     }
                 });
     }
