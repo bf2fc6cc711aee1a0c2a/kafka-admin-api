@@ -1722,7 +1722,7 @@ public class Types {
         @Schema(description = "Timestamp associated with the record. The type is indicated by `timestampType`. When producing a record, this value will be used as the record's `CREATE_TIME`.", format = "date-time")
         String timestamp;
 
-        @Schema(readOnly = true, description = "The record's partition within the topic")
+        @Schema(readOnly = true, description = "Type of timestamp associated with the record")
         String timestampType;
 
         @Schema(description = "Record headers, key/value pairs")

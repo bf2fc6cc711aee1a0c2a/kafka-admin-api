@@ -1415,7 +1415,7 @@ components:
           id: 1
     Record:
       title: Record
-      description: An invidual record consumed from a topic or produced to a topic
+      description: An individual record consumed from a topic or produced to a topic
       required:
       - value
       type: object
@@ -1436,7 +1436,7 @@ components:
             \ as the record's `CREATE_TIME`."
           type: string
         timestampType:
-          description: The record's partition within the topic
+          description: Type of timestamp associated with the record
           type: string
           readOnly: true
         headers:
