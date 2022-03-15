@@ -21,7 +21,7 @@ class KeycloakSecuredKafkaContainer extends GenericContainer<KeycloakSecuredKafk
     private StringBuilder advertisedListeners;
 
     KeycloakSecuredKafkaContainer(String version) {
-        super("quay.io/strimzi/kafka:" + version);
+        super(version);
         withExposedPorts(KAFKA_PORT);
     }
 
