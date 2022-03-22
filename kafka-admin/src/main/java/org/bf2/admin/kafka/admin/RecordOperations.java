@@ -120,6 +120,33 @@ public class RecordOperations {
     }
 
     public CompletionStage<Types.Record> produceRecord(String topicName, Types.Record input) {
+        CompletableFuture<Types.Record> promise = new CompletableFuture<>();
+        Producer<String, String> producer = clientFactory.createProducer();
+
+        try {
+            List<PartitionInfo> partitions = producer.partitionsFor(topicName);
+
+            if (partitions.isEmpty()) {
+                promise.completeExceptionally(noSuchTopic(topicName));
+            } else if (input.getPartition() != null && partitions.stream().noneMatch(p -> input.getPartition().equals(p.partition()))) {
+                promise.completeExceptionally(noSuchTopicPartition(topicName, input.getPartition()));
+            } else {
+                send(topicName, input, producer, promise);
+            }
+        } catch (TimeoutException e) {
+            promise.completeExceptionally(noSuchTopic(topicName));
+        }
+
+        return promise.whenComplete((result, exception) -> {
+            try {
+                producer.close(Duration.ZERO);
+            } catch (Exception e) {
+                log.warnf("Exception closing Kafka Producer", e);
+            }
+        });
+    }
+
+    void send(String topicName, Types.Record input, Producer<String, String> producer, CompletableFuture<Types.Record> promise) {
         String key = input.getKey();
         List<Header> headers = input.getHeaders() != null ? input.getHeaders()
             .entrySet()
@@ -137,49 +164,24 @@ public class RecordOperations {
             })
             .collect(Collectors.toList()) : Collections.emptyList();
 
-        CompletableFuture<Types.Record> promise = new CompletableFuture<>();
-        Producer<String, String> producer = clientFactory.createProducer();
+        ProducerRecord<String, String> request = new ProducerRecord<>(topicName, input.getPartition(), stringToTimestamp(input.getTimestamp()), key, input.getValue(), headers);
 
-        try {
-            List<PartitionInfo> partitions = producer.partitionsFor(topicName);
-
-            if (partitions.isEmpty()) {
-                promise.completeExceptionally(noSuchTopic(topicName));
-            } else if (input.getPartition() != null && partitions.stream().noneMatch(p -> input.getPartition().equals(p.partition()))) {
-                promise.completeExceptionally(noSuchTopicPartition(topicName, input.getPartition()));
-            }
-        } catch (TimeoutException e) {
-            promise.completeExceptionally(noSuchTopic(topicName));
-        }
-
-        if (!promise.isCompletedExceptionally()) {
-            ProducerRecord<String, String> request = new ProducerRecord<>(topicName, input.getPartition(), stringToTimestamp(input.getTimestamp()), key, input.getValue(), headers);
-
-            producer.send(request, (meta, exception) -> {
-                if (exception != null) {
-                    promise.completeExceptionally(exception);
-                } else {
-                    Types.Record result = new Types.Record();
-                    result.setPartition(meta.partition());
-                    if (meta.hasOffset()) {
-                        result.setOffset(meta.offset());
-                    }
-                    if (meta.hasTimestamp()) {
-                        result.setTimestamp(timestampToString(meta.timestamp()));
-                    }
-                    result.setKey(input.getKey());
-                    result.setValue(input.getValue());
-                    result.setHeaders(input.getHeaders());
-                    promise.complete(result);
+        producer.send(request, (meta, exception) -> {
+            if (exception != null) {
+                promise.completeExceptionally(exception);
+            } else {
+                Types.Record result = new Types.Record();
+                result.setPartition(meta.partition());
+                if (meta.hasOffset()) {
+                    result.setOffset(meta.offset());
                 }
-            });
-        }
-
-        return promise.whenComplete((result, exception) -> {
-            try {
-                producer.close(Duration.ZERO);
-            } catch (Exception e) {
-                log.warnf("Exception closing Kafka Producer", e);
+                if (meta.hasTimestamp()) {
+                    result.setTimestamp(timestampToString(meta.timestamp()));
+                }
+                result.setKey(input.getKey());
+                result.setValue(input.getValue());
+                result.setHeaders(input.getHeaders());
+                promise.complete(result);
             }
         });
     }

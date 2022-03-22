@@ -20,8 +20,8 @@ class KeycloakSecuredKafkaContainer extends GenericContainer<KeycloakSecuredKafk
     private int kafkaExposedPort;
     private StringBuilder advertisedListeners;
 
-    KeycloakSecuredKafkaContainer(String version) {
-        super(version);
+    KeycloakSecuredKafkaContainer(String imageName) {
+        super(imageName);
         withExposedPorts(KAFKA_PORT);
     }
 
