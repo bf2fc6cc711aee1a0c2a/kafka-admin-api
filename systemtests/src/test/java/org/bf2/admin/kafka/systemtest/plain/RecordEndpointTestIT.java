@@ -71,20 +71,57 @@ class RecordEndpointTestIT {
             .body("offset", greaterThanOrEqualTo(0));
     }
 
+
+    @Test
+    void testProduceRecordToInvalidTopic() {
+        final String topicName = UUID.randomUUID().toString();
+        ZonedDateTime timestamp = ZonedDateTime.now(ZoneOffset.UTC).minusDays(10).withNano(0);
+
+        given()
+            .log().ifValidationFails()
+            .contentType(ContentType.JSON)
+            .body(recordUtils.buildRecordRequest(0, timestamp, null, null, "record value").toString())
+        .when()
+            .post(RecordUtils.RECORDS_PATH, topicName)
+        .then()
+            .log().ifValidationFails()
+            .statusCode(Status.NOT_FOUND.getStatusCode())
+            .body("code", equalTo(Status.NOT_FOUND.getStatusCode()))
+            .body("error_message", equalTo("No such topic: " + topicName));
+    }
+
+    @Test
+    void testProduceRecordToInvalidPartition() {
+        final String topicName = UUID.randomUUID().toString();
+        topicUtils.createTopics(List.of(topicName), 1, Status.CREATED);
+        ZonedDateTime timestamp = ZonedDateTime.now(ZoneOffset.UTC).minusDays(10).withNano(0);
+
+        given()
+            .log().ifValidationFails()
+            .contentType(ContentType.JSON)
+            .body(recordUtils.buildRecordRequest(1, timestamp, null, null, "record value").toString())
+        .when()
+            .post(RecordUtils.RECORDS_PATH, topicName)
+        .then()
+            .log().ifValidationFails()
+            .statusCode(Status.BAD_REQUEST.getStatusCode())
+            .body("code", equalTo(Status.BAD_REQUEST.getStatusCode()))
+            .body("error_message", equalTo(String.format("No such partition for topic %s: %d", topicName, 1)));
+    }
+
     @Test
     void testConsumeRecordFromInvalidTopic() {
         final String topicName = UUID.randomUUID().toString();
-        topicUtils.createTopics(List.of(topicName), 2, Status.CREATED);
 
         given()
             .log().ifValidationFails()
         .when()
-            .get(RecordUtils.RECORDS_PATH, UUID.randomUUID().toString())
+            .get(RecordUtils.RECORDS_PATH, topicName)
         .then()
             .log().ifValidationFails()
             .statusCode(Status.NOT_FOUND.getStatusCode())
-            .body("code", equalTo(404))
-            .body("error_message", equalTo("No such topic"));
+            .body("code", equalTo(Status.NOT_FOUND.getStatusCode()))
+            .body("error_message", equalTo("No such topic: " + topicName));
     }
 
     @Test
@@ -100,7 +137,7 @@ class RecordEndpointTestIT {
         .then()
             .log().ifValidationFails()
             .statusCode(Status.BAD_REQUEST.getStatusCode())
-            .body("code", equalTo(400))
+            .body("code", equalTo(Status.BAD_REQUEST.getStatusCode()))
             .body("error_message", equalTo(String.format("No such partition for topic %s: %d", topicName, -1)));
     }
 
@@ -177,6 +214,4 @@ class RecordEndpointTestIT {
             .body("items", everyItem(Matchers.aMapWithSize(1)))
             .body("items.headers", everyItem(hasKey("h1")));
     }
-
-
 }

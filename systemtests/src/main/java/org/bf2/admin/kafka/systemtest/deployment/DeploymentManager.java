@@ -1,6 +1,6 @@
 package org.bf2.admin.kafka.systemtest.deployment;
 
-import io.strimzi.StrimziKafkaContainer;
+import io.strimzi.test.container.StrimziKafkaContainer;
 import org.bf2.admin.kafka.admin.KafkaAdminConfigRetriever;
 import org.bf2.admin.kafka.systemtest.Environment;
 import org.jboss.logging.Logger;
@@ -331,6 +331,7 @@ public class DeploymentManager {
                 .withLabels(Collections.singletonMap("test-ident", Environment.TEST_CONTAINER_LABEL))
                 .withLogConsumer(new Slf4jLogConsumer(LoggerFactory.getLogger("systemtests.plain-kafka"), true))
                 .withCreateContainerCmdModifier(cmd -> cmd.withName(name("plain-kafka")))
+                .withKafkaConfigurationMap(Map.of("auto.create.topics.enable", "false"))
                 .withNetwork(testNetwork);
 
         container.start();

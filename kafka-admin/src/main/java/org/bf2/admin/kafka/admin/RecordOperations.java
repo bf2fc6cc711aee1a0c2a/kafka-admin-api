@@ -6,6 +6,7 @@ import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.common.PartitionInfo;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.common.errors.InvalidPartitionsException;
+import org.apache.kafka.common.errors.TimeoutException;
 import org.apache.kafka.common.errors.UnknownTopicOrPartitionException;
 import org.apache.kafka.common.header.Header;
 import org.bf2.admin.kafka.admin.handlers.AdminClientFactory;
@@ -48,7 +49,7 @@ public class RecordOperations {
             List<PartitionInfo> partitions = consumer.partitionsFor(topicName);
 
             if (partitions.isEmpty()) {
-                throw new UnknownTopicOrPartitionException("No such topic");
+                throw noSuchTopic(topicName);
             }
 
             List<TopicPartition> assignments = partitions.stream()
@@ -57,7 +58,7 @@ public class RecordOperations {
                 .collect(Collectors.toList());
 
             if (assignments.isEmpty()) {
-                throw new InvalidPartitionsException(String.format("No such partition for topic %s: %d", topicName, partition));
+                throw noSuchTopicPartition(topicName, partition);
             }
 
             consumer.assign(assignments);
@@ -119,6 +120,33 @@ public class RecordOperations {
     }
 
     public CompletionStage<Types.Record> produceRecord(String topicName, Types.Record input) {
+        CompletableFuture<Types.Record> promise = new CompletableFuture<>();
+        Producer<String, String> producer = clientFactory.createProducer();
+
+        try {
+            List<PartitionInfo> partitions = producer.partitionsFor(topicName);
+
+            if (partitions.isEmpty()) {
+                promise.completeExceptionally(noSuchTopic(topicName));
+            } else if (input.getPartition() != null && partitions.stream().noneMatch(p -> input.getPartition().equals(p.partition()))) {
+                promise.completeExceptionally(noSuchTopicPartition(topicName, input.getPartition()));
+            } else {
+                send(topicName, input, producer, promise);
+            }
+        } catch (TimeoutException e) {
+            promise.completeExceptionally(noSuchTopic(topicName));
+        }
+
+        return promise.whenComplete((result, exception) -> {
+            try {
+                producer.close(Duration.ZERO);
+            } catch (Exception e) {
+                log.warnf("Exception closing Kafka Producer", e);
+            }
+        });
+    }
+
+    void send(String topicName, Types.Record input, Producer<String, String> producer, CompletableFuture<Types.Record> promise) {
         String key = input.getKey();
         List<Header> headers = input.getHeaders() != null ? input.getHeaders()
             .entrySet()
@@ -136,8 +164,6 @@ public class RecordOperations {
             })
             .collect(Collectors.toList()) : Collections.emptyList();
 
-        CompletableFuture<Types.Record> promise = new CompletableFuture<>();
-        Producer<String, String> producer = clientFactory.createProducer();
         ProducerRecord<String, String> request = new ProducerRecord<>(topicName, input.getPartition(), stringToTimestamp(input.getTimestamp()), key, input.getValue(), headers);
 
         producer.send(request, (meta, exception) -> {
@@ -156,14 +182,6 @@ public class RecordOperations {
                 result.setValue(input.getValue());
                 result.setHeaders(input.getHeaders());
                 promise.complete(result);
-            }
-        });
-
-        return promise.whenComplete((result, exception) -> {
-            try {
-                producer.close(Duration.ZERO);
-            } catch (Exception e) {
-                log.warnf("Exception closing Kafka Producer", e);
             }
         });
     }
@@ -186,4 +204,11 @@ public class RecordOperations {
         return ZonedDateTime.parse(value).toInstant().toEpochMilli();
     }
 
+    static UnknownTopicOrPartitionException noSuchTopic(String topicName) {
+        return new UnknownTopicOrPartitionException("No such topic: " + topicName);
+    }
+
+    static InvalidPartitionsException noSuchTopicPartition(String topicName, int partition) {
+        return new InvalidPartitionsException(String.format("No such partition for topic %s: %d", topicName, partition));
+    }
 }
