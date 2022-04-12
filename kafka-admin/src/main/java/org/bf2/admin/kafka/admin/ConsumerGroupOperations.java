@@ -16,6 +16,7 @@ import org.apache.kafka.common.errors.GroupIdNotFoundException;
 import org.apache.kafka.common.errors.InvalidRequestException;
 import org.apache.kafka.common.errors.UnknownTopicOrPartitionException;
 import org.bf2.admin.kafka.admin.handlers.CommonHandler;
+import org.bf2.admin.kafka.admin.model.ConsumerGroupComparator;
 import org.bf2.admin.kafka.admin.model.Types;
 import org.bf2.admin.kafka.admin.model.Types.ConsumerGroupOffsetResetParameters.OffsetType;
 import org.bf2.admin.kafka.admin.model.Types.PagedResponse;
@@ -68,8 +69,8 @@ public class ConsumerGroupOperations {
             .compose(groupDescriptions -> fetchDescriptions(ac, groupDescriptions, topicPattern, -1, BLANK_ORDER))
             .map(groupDescriptions -> groupDescriptions
                  .sorted(Types.SortDirectionEnum.DESC.equals(orderByInput.getOrder()) ?
-                     new CommonHandler.ConsumerGroupComparator(orderByInput.getField()).reversed() :
-                         new CommonHandler.ConsumerGroupComparator(orderByInput.getField()))
+                     new ConsumerGroupComparator(orderByInput.getField()).reversed() :
+                         new ConsumerGroupComparator(orderByInput.getField()))
                  .collect(Collectors.<Types.ConsumerGroup>toList()))
             .compose(list -> {
                 if (pageRequest.isDeprecatedFormat()) {
@@ -155,7 +156,7 @@ public class ConsumerGroupOperations {
                     .onFailure(promise::fail);
         } else {
             parameters.getTopics().forEach(paramPartition -> {
-                Promise promise = Promise.promise();
+                Promise<Void> promise = Promise.promise();
                 promises.add(promise.future());
                 if (paramPartition.getPartitions() == null || paramPartition.getPartitions().isEmpty()) {
                     ac.describeTopics(Collections.singletonList(paramPartition.getTopic())).compose(topicsDesc -> {

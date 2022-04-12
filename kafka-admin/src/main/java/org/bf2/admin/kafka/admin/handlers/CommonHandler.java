@@ -1,7 +1,6 @@
 package org.bf2.admin.kafka.admin.handlers;
 
 import io.strimzi.kafka.oauth.validator.TokenExpiredException;
-import io.vertx.core.Promise;
 import io.vertx.core.json.DecodeException;
 import org.apache.kafka.common.KafkaException;
 import org.apache.kafka.common.errors.AuthenticationException;
@@ -31,16 +30,77 @@ import javax.ws.rs.core.Response.Status.Family;
 import javax.ws.rs.core.Response.StatusType;
 
 import java.security.GeneralSecurityException;
-import java.util.Comparator;
-import java.util.concurrent.CompletionException;
-import java.util.function.Predicate;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
-import java.util.regex.PatternSyntaxException;
+import java.util.Map;
+import java.util.Objects;
+import java.util.function.Function;
 
 public class CommonHandler {
 
     static final Logger log = Logger.getLogger(CommonHandler.class);
+
+    private CommonHandler() {
+    }
+
+    /**
+     * 423 Locked (WebDAV, RFC4918)
+     */
+    static final StatusType LOCKED = new StatusType() {
+        @Override
+        public int getStatusCode() {
+            return 423;
+        }
+
+        @Override
+        public Family getFamily() {
+            return Family.CLIENT_ERROR;
+        }
+
+        @Override
+        public String getReasonPhrase() {
+            return "Locked";
+        }
+    };
+
+    static Map<Class<? extends Throwable>, Function<? extends Throwable, ResponseBuilder>> errorHandlers = Map.ofEntries(
+            entry(WebApplicationException.class, thrown -> errorResponse(thrown, thrown.getResponse().getStatusInfo(), null)),
+            entry(ExceptionInInitializerError.class, thrown -> errorResponse(thrown.getCause(), Status.BAD_REQUEST, null)),
+            entry(UnknownTopicOrPartitionException.class, thrown -> errorResponse(thrown, Status.NOT_FOUND, null)),
+            entry(GroupIdNotFoundException.class, thrown -> errorResponse(thrown, Status.NOT_FOUND, null)),
+            entry(TimeoutException.class, thrown -> errorResponse(thrown, Status.SERVICE_UNAVAILABLE, null)),
+            entry(SslAuthenticationException.class, thrown -> errorResponse(thrown, Status.INTERNAL_SERVER_ERROR, null)),
+            entry(GroupNotEmptyException.class, thrown -> errorResponse(thrown, LOCKED, null)),
+            entry(AuthorizationException.class, thrown -> errorResponse(thrown, Status.FORBIDDEN, null)),
+            entry(AuthenticationException.class, thrown -> errorResponse(thrown, Status.UNAUTHORIZED, null)),
+            entry(TokenExpiredException.class, thrown -> errorResponse(thrown, Status.UNAUTHORIZED, null)),
+            entry(InvalidTopicException.class, thrown -> errorResponse(thrown, Status.BAD_REQUEST, null)),
+            entry(PolicyViolationException.class, thrown -> errorResponse(thrown, Status.BAD_REQUEST, null)),
+            entry(InvalidReplicationFactorException.class, thrown -> errorResponse(thrown, Status.BAD_REQUEST, null)),
+            entry(TopicExistsException.class, thrown -> errorResponse(thrown, Status.CONFLICT, null)),
+            entry(InvalidRequestException.class, thrown -> errorResponse(thrown, Status.BAD_REQUEST, null)),
+            entry(InvalidConfigurationException.class, thrown -> errorResponse(thrown, Status.BAD_REQUEST, null)),
+            entry(IllegalArgumentException.class, thrown -> errorResponse(thrown, Status.BAD_REQUEST, null)),
+            entry(InvalidPartitionsException.class, thrown -> errorResponse(thrown, Status.BAD_REQUEST, null)),
+            entry(com.fasterxml.jackson.core.JsonParseException.class, thrown -> errorResponse(thrown, Status.BAD_REQUEST, "invalid JSON")),
+            entry(com.fasterxml.jackson.databind.JsonMappingException.class, thrown -> errorResponse(thrown, Status.BAD_REQUEST, "invalid JSON")),
+            entry(IllegalStateException.class, thrown -> errorResponse(thrown, Status.UNAUTHORIZED, null)),
+            entry(DecodeException.class, thrown -> errorResponse(thrown, Status.BAD_REQUEST, null)),
+            entry(UnknownMemberIdException.class, thrown -> errorResponse(thrown, Status.BAD_REQUEST, null)),
+            entry(LeaderNotAvailableException.class, thrown -> errorResponse(thrown, Status.BAD_REQUEST, null)),
+            entry(KafkaException.class, thrown -> {
+                    if (thrown.getMessage().contains("Failed to find brokers to send")) {
+                        return errorResponse(thrown, Status.SERVICE_UNAVAILABLE, null);
+                    } else if (thrown.getMessage().contains("JAAS configuration")) {
+                        return errorResponse(thrown, Status.UNAUTHORIZED, null);
+                    } else {
+                        log.error("Unknown exception", thrown);
+                        return errorResponse(thrown, Status.INTERNAL_SERVER_ERROR, null);
+                    }
+                }),
+            entry(GeneralSecurityException.class, thrown -> errorResponse(thrown, Status.UNAUTHORIZED, null)));
+
+    static <T extends Throwable> Map.Entry<Class<T>, Function<T, ResponseBuilder>> entry(Class<T> key, Function<T, ResponseBuilder> value) {
+        return Map.entry(key, value);
+    }
 
     public static boolean isCausedBy(Throwable error, Class<? extends Throwable> searchCause) {
         Throwable cause = error;
@@ -82,178 +142,29 @@ public class CommonHandler {
         return response;
     }
 
-    @SuppressWarnings({ "checkstyle:CyclomaticComplexity" })
-    static ResponseBuilder processFailure(Throwable failureCause) {
-        StatusType status;
-        String errorMessage = null;
+    @SuppressWarnings("unchecked")
+    public static ResponseBuilder mapCause(Throwable error, Class<? extends Throwable> searchCause, Function<? extends Throwable, ResponseBuilder> mapper) {
+        Throwable cause = error;
 
-        if (failureCause instanceof CompletionException) {
-            failureCause = failureCause.getCause();
-        }
-
-        // TODO: Refactor this...
-        if (failureCause instanceof WebApplicationException) {
-            WebApplicationException cause = (WebApplicationException) failureCause;
-            status = cause.getResponse().getStatusInfo();
-        } else if (failureCause instanceof ExceptionInInitializerError) {
-            failureCause = failureCause.getCause();
-            status = Status.BAD_REQUEST;
-        } else if (failureCause instanceof UnknownTopicOrPartitionException
-                || failureCause instanceof GroupIdNotFoundException) {
-            status = Status.NOT_FOUND;
-        } else if (failureCause instanceof TimeoutException) {
-            status = Status.SERVICE_UNAVAILABLE;
-        } else if (failureCause instanceof SslAuthenticationException) {
-            log.error("SSL exception", failureCause);
-            status = Status.INTERNAL_SERVER_ERROR;
-        } else if (failureCause instanceof GroupNotEmptyException) {
-            // 423 Locked (WebDAV, RFC4918)
-            status = new StatusType() {
-                @Override
-                public int getStatusCode() {
-                    return 423;
-                }
-
-                @Override
-                public Family getFamily() {
-                    return Family.CLIENT_ERROR;
-                }
-
-                @Override
-                public String getReasonPhrase() {
-                    return "Locked";
-                }
-            };
-        } else if (failureCause instanceof AuthorizationException) {
-            status = Status.FORBIDDEN;
-        } else if (failureCause instanceof AuthenticationException
-            || failureCause instanceof TokenExpiredException
-            || failureCause.getCause() instanceof AuthenticationException) {
-            status = Status.UNAUTHORIZED;
-        } else if (failureCause instanceof InvalidTopicException
-                || failureCause instanceof PolicyViolationException
-                || failureCause instanceof InvalidReplicationFactorException) {
-            status = Status.BAD_REQUEST;
-        } else if (failureCause instanceof TopicExistsException) {
-            status = Status.CONFLICT;
-        } else if (failureCause instanceof InvalidRequestException
-                || failureCause instanceof InvalidConfigurationException
-                || failureCause instanceof IllegalArgumentException
-                || failureCause instanceof InvalidPartitionsException) {
-            status = Status.BAD_REQUEST;
-        } else if (failureCause instanceof com.fasterxml.jackson.core.JsonParseException
-                || failureCause instanceof com.fasterxml.jackson.databind.JsonMappingException) {
-            status = Status.BAD_REQUEST;
-            errorMessage = "invalid JSON";
-        } else if (failureCause instanceof IllegalStateException) {
-            status = Status.UNAUTHORIZED;
-            log.errorf(failureCause, "%s %s", failureCause.getClass(), failureCause.getMessage());
-        } else if (failureCause instanceof DecodeException
-                || failureCause instanceof UnknownMemberIdException
-                || failureCause instanceof LeaderNotAvailableException) {
-            status = Status.BAD_REQUEST;
-        } else if (failureCause instanceof KafkaException) {
-            // Most of the kafka related exceptions are extended from KafkaException
-            if (failureCause.getMessage().contains("Failed to find brokers to send")) {
-                status = Status.SERVICE_UNAVAILABLE;
-            } else if (failureCause.getMessage().contains("JAAS configuration")) {
-                status = Status.UNAUTHORIZED;
-            } else {
-                log.error("Unknown exception", failureCause);
-                status = Status.INTERNAL_SERVER_ERROR;
+        do {
+            if (searchCause.isInstance(cause)) {
+                return ((Function<Throwable, ResponseBuilder>) mapper).apply(cause);
             }
-        } else if (failureCause instanceof RuntimeException) {
-            RuntimeException iae = (RuntimeException) failureCause;
-            if (iae.getCause() instanceof GeneralSecurityException) {
-                failureCause = iae.getCause();
-                status = Status.UNAUTHORIZED;
-            } else {
-                log.error("Unknown exception", iae.getCause());
-                status = Status.INTERNAL_SERVER_ERROR;
-            }
-        } else {
-            log.error("Unknown exception", failureCause);
-            status = Status.INTERNAL_SERVER_ERROR;
-        }
+        } while (cause != cause.getCause() && (cause = cause.getCause()) != null);
 
-        return errorResponse(failureCause, status, errorMessage);
+        return null;
     }
 
-    public static class TopicComparator implements Comparator<Types.Topic> {
-
-        private final Types.TopicOrderKey key;
-        public TopicComparator(Types.TopicOrderKey key) {
-            this.key = key;
-        }
-
-        public TopicComparator() {
-            this.key = Types.TopicOrderKey.NAME;
-        }
-        @Override
-        public int compare(Types.Topic firstTopic, Types.Topic secondTopic) {
-            switch (key) {
-                case NAME:
-                    return firstTopic.getName().compareToIgnoreCase(secondTopic.getName());
-
-                case PARTITIONS:
-                    return firstTopic.getPartitions().size() - secondTopic.getPartitions().size();
-
-                case RETENTION_BYTES:
-                case RETENTION_MS:
-                    String keyValue = key.getValue();
-                    Types.ConfigEntry first = firstTopic.getConfig().stream().filter(entry -> entry.getKey().equals(keyValue)).findFirst().orElseGet(() -> null);
-                    Types.ConfigEntry second = secondTopic.getConfig().stream().filter(entry -> entry.getKey().equals(keyValue)).findFirst().orElseGet(() -> null);
-
-                    if (first == null || second == null || first.getValue() == null || second.getValue() == null) {
-                        return 0;
-                    } else {
-                        return Long.compare(first.getValue().equals("-1") ? Long.MAX_VALUE : Long.parseLong(first.getValue()), second.getValue().equals("-1") ? Long.MAX_VALUE : Long.parseLong(second.getValue()));
-                    }
-
-                default:
-                    return 0;
-            }
-        }
+    static ResponseBuilder processFailure(Throwable thrown) {
+        return errorHandlers.entrySet()
+            .stream()
+            .map(e -> mapCause(thrown, e.getKey(), e.getValue()))
+            .filter(Objects::nonNull)
+            .findFirst()
+            .orElseGet(() -> {
+                log.error("Unknown exception", thrown);
+                return errorResponse(thrown, Status.INTERNAL_SERVER_ERROR, null);
+            });
     }
 
-    public static class ConsumerGroupComparator implements Comparator<Types.ConsumerGroup> {
-
-        private final Types.ConsumerGroupOrderKey key;
-        public ConsumerGroupComparator(Types.ConsumerGroupOrderKey key) {
-            this.key = key;
-        }
-
-        public ConsumerGroupComparator() {
-            this.key = Types.ConsumerGroupOrderKey.NAME;
-        }
-
-        @Override
-        public int compare(Types.ConsumerGroup firstConsumerGroup, Types.ConsumerGroup secondConsumerGroup) {
-            if (Types.ConsumerGroupOrderKey.NAME.equals(key)) {
-                if (firstConsumerGroup == null || firstConsumerGroup.getGroupId() == null
-                    || secondConsumerGroup == null || secondConsumerGroup.getGroupId() == null) {
-                    return 0;
-                } else {
-                    return firstConsumerGroup.getGroupId().compareToIgnoreCase(secondConsumerGroup.getGroupId());
-                }
-            }
-            return 0;
-        }
-    }
-
-    public static Predicate<String> byName(Pattern pattern, Promise<?> prom) {
-        return topic -> {
-            if (pattern == null) {
-                return true;
-            } else {
-                try {
-                    Matcher matcher = pattern.matcher(topic);
-                    return matcher.find();
-                } catch (PatternSyntaxException ex) {
-                    prom.fail(ex);
-                    return false;
-                }
-            }
-        };
-    }
 }
