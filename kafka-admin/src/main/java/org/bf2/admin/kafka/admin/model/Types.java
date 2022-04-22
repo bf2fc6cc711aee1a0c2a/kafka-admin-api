@@ -1835,6 +1835,7 @@ public class Types {
 
         @QueryParam(Record.PROP_OFFSET)
         @Parameter(description = "Retrieve messages with an offset equal to or greater than this offset. If both `timestamp` and `offset` are requested, `timestamp` is given preference.")
+        @Min(0)
         Integer offset;
 
         @QueryParam(Record.PROP_TIMESTAMP)
