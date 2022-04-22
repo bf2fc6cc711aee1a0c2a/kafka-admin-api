@@ -14,23 +14,26 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
+import javax.inject.Inject;
+import javax.ws.rs.core.Response.Status;
+
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
-
-import javax.inject.Inject;
-import javax.ws.rs.core.Response.Status;
 
 import static io.restassured.RestAssured.given;
 import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.everyItem;
 import static org.hamcrest.Matchers.greaterThanOrEqualTo;
+import static org.hamcrest.Matchers.hasEntry;
 import static org.hamcrest.Matchers.hasKey;
 import static org.hamcrest.Matchers.hasSize;
+import static org.hamcrest.Matchers.nullValue;
 import static org.hamcrest.Matchers.stringContainsInOrder;
 
 @QuarkusTest
@@ -269,5 +272,27 @@ class RecordEndpointTestIT {
             .body("items", hasSize(3))
             .body("items", everyItem(Matchers.aMapWithSize(1)))
             .body("items.headers", everyItem(hasKey("h1")));
+    }
+
+    @Test
+    void testProduceAndConsumeRecordWithNullHeaderValue() {
+        final String topicName = UUID.randomUUID().toString();
+        topicUtils.createTopics(List.of(topicName), 2, Status.CREATED);
+        Map<String, Object> headers = new HashMap<>();
+        headers.put("h1", null);
+        recordUtils.produceRecord(topicName, null, headers, "the-key", "the-value");
+
+        given()
+            .log().ifValidationFails()
+            .param("include", "headers")
+        .when()
+            .get(RecordUtils.RECORDS_PATH, topicName)
+        .then()
+            .log().ifValidationFails()
+            .statusCode(Status.OK.getStatusCode())
+            .body("total", equalTo(1))
+            .body("items", hasSize(1))
+            .body("items", everyItem(Matchers.aMapWithSize(1)))
+            .body("items[0].headers", hasEntry(equalTo("h1"), nullValue()));
     }
 }

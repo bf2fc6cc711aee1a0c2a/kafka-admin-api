@@ -9,6 +9,7 @@ import org.apache.kafka.common.errors.InvalidPartitionsException;
 import org.apache.kafka.common.errors.TimeoutException;
 import org.apache.kafka.common.errors.UnknownTopicOrPartitionException;
 import org.apache.kafka.common.header.Header;
+import org.apache.kafka.common.header.Headers;
 import org.bf2.admin.kafka.admin.handlers.AdminClientFactory;
 import org.bf2.admin.kafka.admin.model.Types;
 import org.jboss.logging.Logger;
@@ -21,6 +22,7 @@ import java.time.Instant;
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
 import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
@@ -109,13 +111,10 @@ public class RecordOperations {
                     setProperty(Types.Record.PROP_PARTITION, include, rec::partition, item::setPartition);
                     setProperty(Types.Record.PROP_OFFSET, include, rec::offset, item::setOffset);
                     setProperty(Types.Record.PROP_TIMESTAMP, include, () -> timestampToString(rec.timestamp()), item::setTimestamp);
-                    setProperty(Types.Record.PROP_TIMESTAMP_TYPE, include, () -> rec.timestampType().name(), item::setTimestampType);
+                    setProperty(Types.Record.PROP_TIMESTAMP_TYPE, include, rec.timestampType()::name, item::setTimestampType);
                     setProperty(Types.Record.PROP_KEY, include, rec::key, item::setKey);
                     setProperty(Types.Record.PROP_VALUE, include, rec::value, item::setValue);
-                    setProperty(Types.Record.PROP_HEADERS, include,
-                            () -> StreamSupport.stream(rec.headers().spliterator(), false)
-                                .collect(Collectors.toMap(Header::key, h -> new String(h.value()))),
-                            item::setHeaders);
+                    setProperty(Types.Record.PROP_HEADERS, include, () -> headersToMap(rec.headers()), item::setHeaders);
 
                     return item;
                 })
@@ -165,7 +164,7 @@ public class RecordOperations {
 
                 @Override
                 public byte[] value() {
-                    return h.getValue().getBytes();
+                    return h.getValue() != null ? h.getValue().getBytes() : null;
                 }
             })
             .collect(Collectors.toList()) : Collections.emptyList();
@@ -196,6 +195,17 @@ public class RecordOperations {
         if (include.isEmpty() || include.contains(fieldName)) {
             target.accept(source.get());
         }
+    }
+
+    Map<String, String> headersToMap(Headers headers) {
+        Map<String, String> headerMap = new LinkedHashMap<>();
+
+        headers.iterator().forEachRemaining(header -> {
+            String value = header.value() != null ? new String(header.value()) : null;
+            headerMap.put(header.key(), value);
+        });
+
+        return headerMap;
     }
 
     String timestampToString(long timestamp) {
