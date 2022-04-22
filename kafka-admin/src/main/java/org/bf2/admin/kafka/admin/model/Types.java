@@ -1846,6 +1846,7 @@ public class Types {
         @QueryParam(PROP_LIMIT)
         @DefaultValue("20")
         @Parameter(description = "Limit the number of records fetched and returned")
+        @Positive
         Integer limit;
 
         @QueryParam(PROP_INCLUDE)

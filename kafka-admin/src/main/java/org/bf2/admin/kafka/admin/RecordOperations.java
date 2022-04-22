@@ -79,10 +79,16 @@ public class RecordOperations {
                             consumer.seekToEnd(List.of(p));
                         }
                     });
-            } else if (offset != null) {
+            } else {
                 Map<TopicPartition, Long> endOffsets = consumer.endOffsets(assignments);
+
                 assignments.forEach(p -> {
-                    if (offset <= endOffsets.get(p)) {
+                    long partitionEnd = endOffsets.get(p);
+
+                    if (offset == null) {
+                        // Fetch the latest records
+                        consumer.seek(p, Math.max(partitionEnd - limit, 0));
+                    } else if (offset <= partitionEnd) {
                         consumer.seek(p, offset);
                     } else {
                         /*

@@ -16,6 +16,7 @@ import org.junit.jupiter.params.provider.ValueSource;
 
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -24,6 +25,7 @@ import javax.inject.Inject;
 import javax.ws.rs.core.Response.Status;
 
 import static io.restassured.RestAssured.given;
+import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.everyItem;
 import static org.hamcrest.Matchers.greaterThanOrEqualTo;
@@ -142,6 +144,24 @@ class RecordEndpointTestIT {
     }
 
     @ParameterizedTest
+    @ValueSource(ints = { -1, 0 })
+    void testConsumeRecordWithInvalidLimit(int limit) {
+        final String topicName = UUID.randomUUID().toString();
+        topicUtils.createTopics(List.of(topicName), 2, Status.CREATED);
+
+        given()
+            .log().ifValidationFails()
+            .queryParam("limit", limit)
+        .when()
+            .get(RecordUtils.RECORDS_PATH, topicName)
+        .then()
+            .log().ifValidationFails()
+            .statusCode(Status.BAD_REQUEST.getStatusCode())
+            .body("code", equalTo(Status.BAD_REQUEST.getStatusCode()))
+            .body("error_message", equalTo("limit must be greater than 0"));
+    }
+
+    @ParameterizedTest
     @CsvSource({
         "2000-01-01T00:00:00.000Z, 2000-01-02T00:00:00.000Z, 2000-01-01T00:00:00.000Z, 2",
         "2000-01-01T00:00:00.000Z, 2000-01-02T00:00:00.000Z, 2000-01-02T00:00:00.000Z, 1",
@@ -191,6 +211,42 @@ class RecordEndpointTestIT {
             .statusCode(Status.OK.getStatusCode())
             .body("total", equalTo(expectedResults))
             .body("items", hasSize(expectedResults));
+    }
+
+    @ParameterizedTest
+    @CsvSource({
+        "1",
+        "2",
+        "3",
+        "4",
+        "20"
+    })
+    void testConsumeLatestRecords(int limit) {
+        final String topicName = UUID.randomUUID().toString();
+        final int totalRecords = 10;
+        topicUtils.createTopics(List.of(topicName), 1, Status.CREATED); // single partition
+        List<String> messageValues = new ArrayList<>();
+
+        for (int i = 0; i < totalRecords; i++) {
+            String value = "the-value-" + i;
+            messageValues.add(value);
+            recordUtils.produceRecord(topicName, null, null, "the-key-" + i, value);
+        }
+
+        int resultCount = Math.min(limit, totalRecords);
+
+        given()
+            .log().ifValidationFails()
+            .queryParam("partition", 0)
+            .queryParam("limit", limit)
+        .when()
+            .get(RecordUtils.RECORDS_PATH, topicName)
+        .then()
+            .log().ifValidationFails()
+            .statusCode(Status.OK.getStatusCode())
+            .body("total", equalTo(resultCount))
+            .body("items", hasSize(resultCount))
+            .body("items.findAll { it }.value", contains(messageValues.subList(totalRecords - resultCount, totalRecords).toArray(String[]::new)));
     }
 
     @Test
