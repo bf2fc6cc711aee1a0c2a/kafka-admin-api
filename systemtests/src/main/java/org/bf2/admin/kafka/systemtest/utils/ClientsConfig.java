@@ -7,6 +7,7 @@ import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.common.config.SaslConfigs;
 import org.apache.kafka.common.config.SslConfigs;
 import org.apache.kafka.common.serialization.StringDeserializer;
+import org.apache.kafka.common.serialization.StringSerializer;
 import org.bf2.admin.kafka.admin.KafkaAdminConfigRetriever;
 import org.eclipse.microprofile.config.Config;
 
@@ -26,10 +27,15 @@ public class ClientsConfig {
     }
 
     public static Properties getProducerConfig(Config config) {
+        String serializer = StringSerializer.class.getName();
+        return getProducerConfig(config, serializer, serializer);
+    }
+
+    public static Properties getProducerConfig(Config config, String keySerializer, String valueSerializer) {
         Properties props = new Properties();
         props.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, config.getValue(KafkaAdminConfigRetriever.BOOTSTRAP_SERVERS, String.class));
-        props.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, "org.apache.kafka.common.serialization.StringSerializer");
-        props.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, "org.apache.kafka.common.serialization.StringSerializer");
+        props.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, keySerializer);
+        props.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, valueSerializer);
         props.put(ProducerConfig.ACKS_CONFIG, "all");
         return props;
     }

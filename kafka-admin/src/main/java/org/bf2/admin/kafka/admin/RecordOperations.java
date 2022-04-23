@@ -17,6 +17,11 @@ import org.jboss.logging.Logger;
 import javax.enterprise.context.RequestScoped;
 import javax.inject.Inject;
 
+import java.io.ByteArrayInputStream;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.io.Reader;
+import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneOffset;
@@ -36,6 +41,8 @@ import java.util.stream.StreamSupport;
 public class RecordOperations {
 
     private static final Logger log = Logger.getLogger(RecordOperations.class);
+    public static final String BINARY_DATA_MESSAGE = "Binary or non-UTF-8 encoded data cannot be displayed";
+    static final int REPLACEMENT_CHARACTER = '\uFFFD';
 
     @Inject
     AdminClientFactory clientFactory;
@@ -47,7 +54,7 @@ public class RecordOperations {
                                               Integer limit,
                                               List<String> include) {
 
-        try (Consumer<String, String> consumer = clientFactory.createConsumer(limit)) {
+        try (Consumer<byte[], byte[]> consumer = clientFactory.createConsumer(limit)) {
             List<PartitionInfo> partitions = consumer.partitionsFor(topicName);
 
             if (partitions.isEmpty()) {
@@ -112,8 +119,8 @@ public class RecordOperations {
                     setProperty(Types.Record.PROP_OFFSET, include, rec::offset, item::setOffset);
                     setProperty(Types.Record.PROP_TIMESTAMP, include, () -> timestampToString(rec.timestamp()), item::setTimestamp);
                     setProperty(Types.Record.PROP_TIMESTAMP_TYPE, include, rec.timestampType()::name, item::setTimestampType);
-                    setProperty(Types.Record.PROP_KEY, include, rec::key, item::setKey);
-                    setProperty(Types.Record.PROP_VALUE, include, rec::value, item::setValue);
+                    setProperty(Types.Record.PROP_KEY, include, rec::key, k -> item.setKey(bytesToString(k)));
+                    setProperty(Types.Record.PROP_VALUE, include, rec::value, v -> item.setValue(bytesToString(v)));
                     setProperty(Types.Record.PROP_HEADERS, include, () -> headersToMap(rec.headers()), item::setHeaders);
 
                     return item;
@@ -197,14 +204,36 @@ public class RecordOperations {
         }
     }
 
+    String bytesToString(byte[] bytes) {
+        if (bytes == null) {
+            return null;
+        }
+
+        if (bytes.length == 0) {
+            return "";
+        }
+
+        StringBuilder buffer = new StringBuilder(bytes.length);
+
+        try (Reader reader = new InputStreamReader(new ByteArrayInputStream(bytes), StandardCharsets.UTF_8)) {
+            int input;
+
+            while ((input = reader.read()) > -1) {
+                if (input == REPLACEMENT_CHARACTER || !Character.isDefined(input)) {
+                    return BINARY_DATA_MESSAGE;
+                }
+                buffer.append((char) input);
+            }
+
+            return buffer.toString();
+        } catch (IOException e) {
+            return BINARY_DATA_MESSAGE;
+        }
+    }
+
     Map<String, String> headersToMap(Headers headers) {
         Map<String, String> headerMap = new LinkedHashMap<>();
-
-        headers.iterator().forEachRemaining(header -> {
-            String value = header.value() != null ? new String(header.value()) : null;
-            headerMap.put(header.key(), value);
-        });
-
+        headers.iterator().forEachRemaining(h -> headerMap.put(h.key(), bytesToString(h.value())));
         return headerMap;
     }
 

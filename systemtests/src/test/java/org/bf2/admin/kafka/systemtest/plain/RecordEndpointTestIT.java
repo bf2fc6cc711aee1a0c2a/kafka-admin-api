@@ -3,7 +3,10 @@ package org.bf2.admin.kafka.systemtest.plain;
 import io.quarkus.test.junit.QuarkusTest;
 import io.quarkus.test.junit.TestProfile;
 import io.restassured.http.ContentType;
+import org.apache.kafka.common.serialization.ByteArraySerializer;
+import org.bf2.admin.kafka.admin.RecordOperations;
 import org.bf2.admin.kafka.systemtest.TestPlainProfile;
+import org.bf2.admin.kafka.systemtest.utils.ConsumerUtils;
 import org.bf2.admin.kafka.systemtest.utils.RecordUtils;
 import org.bf2.admin.kafka.systemtest.utils.TopicUtils;
 import org.eclipse.microprofile.config.Config;
@@ -17,6 +20,8 @@ import org.junit.jupiter.params.provider.ValueSource;
 import javax.inject.Inject;
 import javax.ws.rs.core.Response.Status;
 
+import java.security.NoSuchAlgorithmException;
+import java.security.SecureRandom;
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
 import java.util.ArrayList;
@@ -44,12 +49,14 @@ class RecordEndpointTestIT {
     Config config;
 
     TopicUtils topicUtils;
+    ConsumerUtils groupUtils;
     RecordUtils recordUtils;
 
     @BeforeEach
     void setup() {
         topicUtils = new TopicUtils(config, null);
         topicUtils.deleteAllTopics();
+        groupUtils = new ConsumerUtils(config, null);
         recordUtils = new RecordUtils(config, null);
     }
 
@@ -294,5 +301,34 @@ class RecordEndpointTestIT {
             .body("items", hasSize(1))
             .body("items", everyItem(Matchers.aMapWithSize(1)))
             .body("items[0].headers", hasEntry(equalTo("h1"), nullValue()));
+    }
+
+    @Test
+    void testConsumeRecordWithBinaryValue() throws NoSuchAlgorithmException {
+        final String topicName = UUID.randomUUID().toString();
+        final byte[] data = new byte[512];
+        SecureRandom.getInstanceStrong().nextBytes(data);
+        data[511] = -1; // ensure at least one byte invalid
+
+        groupUtils.request()
+            .topic(topicName, 1)
+            .createTopic(true)
+            .messagesPerTopic(1)
+            .messageSupplier(i -> data)
+            .valueSerializer(ByteArraySerializer.class.getName())
+            .clientId(UUID.randomUUID().toString())
+            .autoClose(true)
+            .consume();
+
+        given()
+            .log().ifValidationFails()
+        .when()
+            .get(RecordUtils.RECORDS_PATH, topicName)
+        .then()
+            .log().ifValidationFails()
+            .statusCode(Status.OK.getStatusCode())
+            .body("total", equalTo(1))
+            .body("items", hasSize(1))
+            .body("items[0].value", equalTo(RecordOperations.BINARY_DATA_MESSAGE));
     }
 }
