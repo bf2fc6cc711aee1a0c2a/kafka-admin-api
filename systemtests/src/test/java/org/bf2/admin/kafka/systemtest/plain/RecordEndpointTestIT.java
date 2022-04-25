@@ -304,6 +304,28 @@ class RecordEndpointTestIT {
     }
 
     @Test
+    void testProduceAndConsumeRecordWithEmptyHeaderValue() {
+        final String topicName = UUID.randomUUID().toString();
+        topicUtils.createTopics(List.of(topicName), 2, Status.CREATED);
+        Map<String, Object> headers = new HashMap<>();
+        headers.put("h1", "");
+        recordUtils.produceRecord(topicName, null, headers, "the-key", "the-value");
+
+        given()
+            .log().ifValidationFails()
+            .param("include", "headers")
+        .when()
+            .get(RecordUtils.RECORDS_PATH, topicName)
+        .then()
+            .log().ifValidationFails()
+            .statusCode(Status.OK.getStatusCode())
+            .body("total", equalTo(1))
+            .body("items", hasSize(1))
+            .body("items", everyItem(Matchers.aMapWithSize(1)))
+            .body("items[0].headers", hasEntry(equalTo("h1"), equalTo("")));
+    }
+
+    @Test
     void testConsumeRecordWithBinaryValue() throws NoSuchAlgorithmException {
         final String topicName = UUID.randomUUID().toString();
         final byte[] data = new byte[512];
@@ -330,5 +352,42 @@ class RecordEndpointTestIT {
             .body("total", equalTo(1))
             .body("items", hasSize(1))
             .body("items[0].value", equalTo(RecordOperations.BINARY_DATA_MESSAGE));
+    }
+
+    @ParameterizedTest
+    @CsvSource({
+        "  1,   1",
+        "  5,   5",
+        " 99,  99",
+        "100, 100",
+        "101, 100",
+        "200, 100",
+        "   , 100",
+    })
+    void testConsumeRecordWithValueLengthLimit(Integer maxValueLength, int responseValueLength) {
+        final String topicName = UUID.randomUUID().toString();
+        topicUtils.createTopics(List.of(topicName), 1, Status.CREATED);
+        String h1Value = "h".repeat(100);
+        String key = "k".repeat(100);
+        String value = "v".repeat(100);
+        recordUtils.produceRecord(topicName, null, Map.of("h1", h1Value), key, value);
+        Map<String, Object> queryParams = new HashMap<>(1);
+        if (maxValueLength != null) {
+            queryParams.put("maxValueLength", maxValueLength);
+        }
+
+        given()
+            .log().ifValidationFails()
+            .queryParams(queryParams)
+        .when()
+            .get(RecordUtils.RECORDS_PATH, topicName)
+        .then()
+            .log().ifValidationFails()
+            .statusCode(Status.OK.getStatusCode())
+            .body("total", equalTo(1))
+            .body("items", hasSize(1))
+            .body("items[0].headers", hasEntry(equalTo("h1"), equalTo(h1Value.subSequence(0, responseValueLength))))
+            .body("items[0].key", equalTo(key.subSequence(0, responseValueLength)))
+            .body("items[0].value", equalTo(value.subSequence(0, responseValueLength)));
     }
 }

@@ -52,7 +52,8 @@ public class RecordOperations {
                                               Integer offset,
                                               String timestamp,
                                               Integer limit,
-                                              List<String> include) {
+                                              List<String> include,
+                                              Integer maxValueLength) {
 
         try (Consumer<byte[], byte[]> consumer = clientFactory.createConsumer(limit)) {
             List<PartitionInfo> partitions = consumer.partitionsFor(topicName);
@@ -119,9 +120,9 @@ public class RecordOperations {
                     setProperty(Types.Record.PROP_OFFSET, include, rec::offset, item::setOffset);
                     setProperty(Types.Record.PROP_TIMESTAMP, include, () -> timestampToString(rec.timestamp()), item::setTimestamp);
                     setProperty(Types.Record.PROP_TIMESTAMP_TYPE, include, rec.timestampType()::name, item::setTimestampType);
-                    setProperty(Types.Record.PROP_KEY, include, rec::key, k -> item.setKey(bytesToString(k)));
-                    setProperty(Types.Record.PROP_VALUE, include, rec::value, v -> item.setValue(bytesToString(v)));
-                    setProperty(Types.Record.PROP_HEADERS, include, () -> headersToMap(rec.headers()), item::setHeaders);
+                    setProperty(Types.Record.PROP_KEY, include, rec::key, k -> item.setKey(bytesToString(k, maxValueLength)));
+                    setProperty(Types.Record.PROP_VALUE, include, rec::value, v -> item.setValue(bytesToString(v, maxValueLength)));
+                    setProperty(Types.Record.PROP_HEADERS, include, () -> headersToMap(rec.headers(), maxValueLength), item::setHeaders);
 
                     return item;
                 })
@@ -204,7 +205,7 @@ public class RecordOperations {
         }
     }
 
-    String bytesToString(byte[] bytes) {
+    String bytesToString(byte[] bytes, Integer maxValueLength) {
         if (bytes == null) {
             return null;
         }
@@ -213,7 +214,8 @@ public class RecordOperations {
             return "";
         }
 
-        StringBuilder buffer = new StringBuilder(bytes.length);
+        int bufferSize = maxValueLength != null ? Math.min(maxValueLength, bytes.length) : bytes.length;
+        StringBuilder buffer = new StringBuilder(bufferSize);
 
         try (Reader reader = new InputStreamReader(new ByteArrayInputStream(bytes), StandardCharsets.UTF_8)) {
             int input;
@@ -222,7 +224,12 @@ public class RecordOperations {
                 if (input == REPLACEMENT_CHARACTER || !Character.isDefined(input)) {
                     return BINARY_DATA_MESSAGE;
                 }
+
                 buffer.append((char) input);
+
+                if (maxValueLength != null && buffer.length() == maxValueLength) {
+                    break;
+                }
             }
 
             return buffer.toString();
@@ -231,9 +238,9 @@ public class RecordOperations {
         }
     }
 
-    Map<String, String> headersToMap(Headers headers) {
+    Map<String, String> headersToMap(Headers headers, Integer maxValueLength) {
         Map<String, String> headerMap = new LinkedHashMap<>();
-        headers.iterator().forEachRemaining(h -> headerMap.put(h.key(), bytesToString(h.value())));
+        headers.iterator().forEachRemaining(h -> headerMap.put(h.key(), bytesToString(h.value(), maxValueLength)));
         return headerMap;
     }
 

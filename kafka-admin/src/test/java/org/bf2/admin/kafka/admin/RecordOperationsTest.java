@@ -24,7 +24,7 @@ class RecordOperationsTest {
     })
     void testBytesToStringValid(String input) {
         RecordOperations target = new RecordOperations();
-        String out = target.bytesToString(input != null ? input.getBytes() : null);
+        String out = target.bytesToString(input != null ? input.getBytes() : null, null);
         assertEquals(input, out);
     }
 
@@ -36,7 +36,7 @@ class RecordOperationsTest {
     })
     void testBytesToStringNoncharacters(String sequence) {
         RecordOperations target = new RecordOperations();
-        String out = target.bytesToString(sequence.getBytes());
+        String out = target.bytesToString(sequence.getBytes(), null);
         assertEquals(RecordOperations.BINARY_DATA_MESSAGE, out);
     }
 
@@ -44,7 +44,7 @@ class RecordOperationsTest {
     void testBytesToStringNoncharacterRange() {
         for (char i = '\uFDD0'; i < '\uFDEF' + 1; i++) {
             RecordOperations target = new RecordOperations();
-            String out = target.bytesToString(String.valueOf(i).getBytes());
+            String out = target.bytesToString(String.valueOf(i).getBytes(), null);
             assertEquals(RecordOperations.BINARY_DATA_MESSAGE, out);
         }
     }
@@ -52,7 +52,7 @@ class RecordOperationsTest {
     @Test
     void testBytesToStringUnmappable() throws UnsupportedEncodingException {
         RecordOperations target = new RecordOperations();
-        String out = target.bytesToString("¬".getBytes("ISO-8859-1"));
+        String out = target.bytesToString("¬".getBytes("ISO-8859-1"), null);
         assertEquals(RecordOperations.BINARY_DATA_MESSAGE, out);
     }
 
@@ -63,7 +63,7 @@ class RecordOperationsTest {
         try (Writer writer = new OutputStreamWriter(bytes, "windows-1252")) {
             writer.write("©");
         }
-        String out = target.bytesToString(bytes.toByteArray());
+        String out = target.bytesToString(bytes.toByteArray(), null);
         assertEquals(RecordOperations.BINARY_DATA_MESSAGE, out);
     }
 
@@ -72,7 +72,7 @@ class RecordOperationsTest {
         RecordOperations target = new RecordOperations();
         String out = target.bytesToString(new byte[] {
             (byte) 0xC1
-        });
+        }, null);
         assertEquals(RecordOperations.BINARY_DATA_MESSAGE, out);
     }
 
@@ -86,7 +86,7 @@ class RecordOperationsTest {
         RecordOperations target = new RecordOperations();
         String out = target.bytesToString(new byte[] {
             (byte) continuation
-        });
+        }, null);
         assertEquals(RecordOperations.BINARY_DATA_MESSAGE, out);
     }
 }

@@ -824,6 +824,16 @@ paths:
           default: "20"
           minimum: 1
           type: integer
+      - name: maxValueLength
+        in: query
+        description: "Maximum length of string values returned in the response. Values\
+          \ with a length that exceeds this parameter will be truncated. When this\
+          \ parameter is not included in the request, the full string values will\
+          \ be returned."
+        schema:
+          format: int32
+          minimum: 1
+          type: integer
       - name: offset
         in: query
         description: "Retrieve messages with an offset equal to or greater than this\
