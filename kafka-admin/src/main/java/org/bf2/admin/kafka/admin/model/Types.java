@@ -1827,6 +1827,7 @@ public class Types {
 
     public static class RecordFilterParams {
         public static final String PROP_LIMIT = "limit";
+        public static final String PROP_MAX_VALUE_LENGTH = "maxValueLength";
         public static final String PROP_INCLUDE = "include";
 
         @QueryParam(Record.PROP_PARTITION)
@@ -1835,6 +1836,7 @@ public class Types {
 
         @QueryParam(Record.PROP_OFFSET)
         @Parameter(description = "Retrieve messages with an offset equal to or greater than this offset. If both `timestamp` and `offset` are requested, `timestamp` is given preference.")
+        @Min(0)
         Integer offset;
 
         @QueryParam(Record.PROP_TIMESTAMP)
@@ -1846,6 +1848,7 @@ public class Types {
         @QueryParam(PROP_LIMIT)
         @DefaultValue("20")
         @Parameter(description = "Limit the number of records fetched and returned")
+        @Positive
         Integer limit;
 
         @QueryParam(PROP_INCLUDE)
@@ -1854,6 +1857,13 @@ public class Types {
             explode = Explode.FALSE,
             schema = @Schema(implementation = RecordIncludedProperty[].class))
         String include;
+
+        @QueryParam(PROP_MAX_VALUE_LENGTH)
+        @Parameter(description = "Maximum length of string values returned in the response. "
+                + "Values with a length that exceeds this parameter will be truncated. When this parameter is not "
+                + "included in the request, the full string values will be returned.")
+        @Positive
+        Integer maxValueLength;
 
         @AssertTrue(message = "invalid timestamp")
         public boolean isTimestampValid() {
@@ -1914,6 +1924,14 @@ public class Types {
 
         public void setInclude(String include) {
             this.include = include;
+        }
+
+        public Integer getMaxValueLength() {
+            return maxValueLength;
+        }
+
+        public void setMaxValueLength(Integer maxValueLength) {
+            this.maxValueLength = maxValueLength;
         }
     }
 

@@ -9,6 +9,7 @@ import org.apache.kafka.common.errors.InvalidPartitionsException;
 import org.apache.kafka.common.errors.TimeoutException;
 import org.apache.kafka.common.errors.UnknownTopicOrPartitionException;
 import org.apache.kafka.common.header.Header;
+import org.apache.kafka.common.header.Headers;
 import org.bf2.admin.kafka.admin.handlers.AdminClientFactory;
 import org.bf2.admin.kafka.admin.model.Types;
 import org.jboss.logging.Logger;
@@ -16,11 +17,17 @@ import org.jboss.logging.Logger;
 import javax.enterprise.context.RequestScoped;
 import javax.inject.Inject;
 
+import java.io.ByteArrayInputStream;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.io.Reader;
+import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
 import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
@@ -34,6 +41,8 @@ import java.util.stream.StreamSupport;
 public class RecordOperations {
 
     private static final Logger log = Logger.getLogger(RecordOperations.class);
+    public static final String BINARY_DATA_MESSAGE = "Binary or non-UTF-8 encoded data cannot be displayed";
+    static final int REPLACEMENT_CHARACTER = '\uFFFD';
 
     @Inject
     AdminClientFactory clientFactory;
@@ -43,9 +52,10 @@ public class RecordOperations {
                                               Integer offset,
                                               String timestamp,
                                               Integer limit,
-                                              List<String> include) {
+                                              List<String> include,
+                                              Integer maxValueLength) {
 
-        try (Consumer<String, String> consumer = clientFactory.createConsumer(limit)) {
+        try (Consumer<byte[], byte[]> consumer = clientFactory.createConsumer(limit)) {
             List<PartitionInfo> partitions = consumer.partitionsFor(topicName);
 
             if (partitions.isEmpty()) {
@@ -79,10 +89,16 @@ public class RecordOperations {
                             consumer.seekToEnd(List.of(p));
                         }
                     });
-            } else if (offset != null) {
+            } else {
                 Map<TopicPartition, Long> endOffsets = consumer.endOffsets(assignments);
+
                 assignments.forEach(p -> {
-                    if (offset <= endOffsets.get(p)) {
+                    long partitionEnd = endOffsets.get(p);
+
+                    if (offset == null) {
+                        // Fetch the latest records
+                        consumer.seek(p, Math.max(partitionEnd - limit, 0));
+                    } else if (offset <= partitionEnd) {
                         consumer.seek(p, offset);
                     } else {
                         /*
@@ -103,13 +119,10 @@ public class RecordOperations {
                     setProperty(Types.Record.PROP_PARTITION, include, rec::partition, item::setPartition);
                     setProperty(Types.Record.PROP_OFFSET, include, rec::offset, item::setOffset);
                     setProperty(Types.Record.PROP_TIMESTAMP, include, () -> timestampToString(rec.timestamp()), item::setTimestamp);
-                    setProperty(Types.Record.PROP_TIMESTAMP_TYPE, include, () -> rec.timestampType().name(), item::setTimestampType);
-                    setProperty(Types.Record.PROP_KEY, include, rec::key, item::setKey);
-                    setProperty(Types.Record.PROP_VALUE, include, rec::value, item::setValue);
-                    setProperty(Types.Record.PROP_HEADERS, include,
-                            () -> StreamSupport.stream(rec.headers().spliterator(), false)
-                                .collect(Collectors.toMap(Header::key, h -> new String(h.value()))),
-                            item::setHeaders);
+                    setProperty(Types.Record.PROP_TIMESTAMP_TYPE, include, rec.timestampType()::name, item::setTimestampType);
+                    setProperty(Types.Record.PROP_KEY, include, rec::key, k -> item.setKey(bytesToString(k, maxValueLength)));
+                    setProperty(Types.Record.PROP_VALUE, include, rec::value, v -> item.setValue(bytesToString(v, maxValueLength)));
+                    setProperty(Types.Record.PROP_HEADERS, include, () -> headersToMap(rec.headers(), maxValueLength), item::setHeaders);
 
                     return item;
                 })
@@ -159,7 +172,7 @@ public class RecordOperations {
 
                 @Override
                 public byte[] value() {
-                    return h.getValue().getBytes();
+                    return h.getValue() != null ? h.getValue().getBytes() : null;
                 }
             })
             .collect(Collectors.toList()) : Collections.emptyList();
@@ -190,6 +203,45 @@ public class RecordOperations {
         if (include.isEmpty() || include.contains(fieldName)) {
             target.accept(source.get());
         }
+    }
+
+    String bytesToString(byte[] bytes, Integer maxValueLength) {
+        if (bytes == null) {
+            return null;
+        }
+
+        if (bytes.length == 0) {
+            return "";
+        }
+
+        int bufferSize = maxValueLength != null ? Math.min(maxValueLength, bytes.length) : bytes.length;
+        StringBuilder buffer = new StringBuilder(bufferSize);
+
+        try (Reader reader = new InputStreamReader(new ByteArrayInputStream(bytes), StandardCharsets.UTF_8)) {
+            int input;
+
+            while ((input = reader.read()) > -1) {
+                if (input == REPLACEMENT_CHARACTER || !Character.isDefined(input)) {
+                    return BINARY_DATA_MESSAGE;
+                }
+
+                buffer.append((char) input);
+
+                if (maxValueLength != null && buffer.length() == maxValueLength) {
+                    break;
+                }
+            }
+
+            return buffer.toString();
+        } catch (IOException e) {
+            return BINARY_DATA_MESSAGE;
+        }
+    }
+
+    Map<String, String> headersToMap(Headers headers, Integer maxValueLength) {
+        Map<String, String> headerMap = new LinkedHashMap<>();
+        headers.iterator().forEachRemaining(h -> headerMap.put(h.key(), bytesToString(h.value(), maxValueLength)));
+        return headerMap;
     }
 
     String timestampToString(long timestamp) {

@@ -9,6 +9,7 @@ import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerRecord;
+import org.apache.kafka.common.serialization.StringSerializer;
 import org.eclipse.microprofile.config.Config;
 
 import java.io.Closeable;
@@ -20,6 +21,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 public class ConsumerUtils {
@@ -42,6 +44,9 @@ public class ConsumerUtils {
         List<NewTopic> topics = new ArrayList<>();
         boolean createTopic = true;
         int messagesPerTopic = 0;
+        Function<Integer, Object> messageSupplier = i -> "message-" + i;
+        String keySerializer = StringSerializer.class.getName();
+        String valueSerializer = StringSerializer.class.getName();
         int consumeMessages = 0;
         boolean autoClose = false;
 
@@ -72,6 +77,16 @@ public class ConsumerUtils {
 
         public ConsumerRequest messagesPerTopic(int messagesPerTopic) {
             this.messagesPerTopic = messagesPerTopic;
+            return this;
+        }
+
+        public ConsumerRequest messageSupplier(Function<Integer, Object> messageSupplier) {
+            this.messageSupplier = messageSupplier;
+            return this;
+        }
+
+        public ConsumerRequest valueSerializer(String valueSerializer) {
+            this.valueSerializer = valueSerializer;
             return this;
         }
 
@@ -164,12 +179,12 @@ public class ConsumerUtils {
 
         Properties producerConfig = token != null ?
             ClientsConfig.getProducerConfigOauth(config, token) :
-            ClientsConfig.getProducerConfig(config);
+            ClientsConfig.getProducerConfig(config, consumerRequest.keySerializer, consumerRequest.valueSerializer);
 
-        try (var producer = new KafkaProducer<String, String>(producerConfig)) {
+        try (var producer = new KafkaProducer<String, Object>(producerConfig)) {
             for (int i = 0; i < consumerRequest.messagesPerTopic; i++) {
                 for (NewTopic topic : consumerRequest.topics) {
-                    producer.send(new ProducerRecord<>(topic.name(), "message-" + i)).get();
+                    producer.send(new ProducerRecord<>(topic.name(), consumerRequest.messageSupplier.apply(i))).get();
                 }
             }
         } catch (InterruptedException | ExecutionException e) {
