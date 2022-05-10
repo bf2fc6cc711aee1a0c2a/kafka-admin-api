@@ -19,4 +19,7 @@ public class Operations {
     public static final String GET_ACLS = "getAcls";
     public static final String CREATE_ACL = "createAcl";
     public static final String DELETE_ACLS = "deleteAcls";
+
+    public static final String GET_ERROR = "getError";
+    public static final String GET_ERRORS = "getErrors";
 }

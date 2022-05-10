@@ -25,6 +25,8 @@ tags:
     description: Access Control Management (ACLs)
   - name: records
     description: Send and receive records interactively
+  - name: errors
+    description: Error Type Retrieval
 paths:
   /api/v1/topics:
     get:

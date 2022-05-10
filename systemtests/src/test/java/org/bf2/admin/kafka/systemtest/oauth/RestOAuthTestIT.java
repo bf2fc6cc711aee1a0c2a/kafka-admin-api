@@ -4,6 +4,7 @@ import io.quarkus.test.common.http.TestHTTPResource;
 import io.quarkus.test.junit.QuarkusTest;
 import io.quarkus.test.junit.TestProfile;
 import io.restassured.http.ContentType;
+import org.bf2.admin.kafka.admin.model.ErrorType;
 import org.bf2.admin.kafka.systemtest.TestOAuthProfile;
 import org.bf2.admin.kafka.systemtest.deployment.DeploymentManager.UserType;
 import org.bf2.admin.kafka.systemtest.utils.MetricsUtils;
@@ -29,10 +30,10 @@ import javax.ws.rs.core.HttpHeaders;
 import javax.ws.rs.core.Response.Status;
 
 import static io.restassured.RestAssured.given;
+import static org.bf2.admin.kafka.systemtest.utils.ErrorTypeMatcher.matchesError;
 import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.hasSize;
-import static org.hamcrest.Matchers.notNullValue;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 @QuarkusTest
@@ -173,6 +174,7 @@ class RestOAuthTestIT {
         final String topicName = UUID.randomUUID().toString();
         final int numPartitions = 2;
         topicUtils.createTopics(List.of(topicName), numPartitions, Status.CREATED);
+        final ErrorType expectedError = ErrorType.NOT_AUTHORIZED;
 
         given()
             .log().ifValidationFails()
@@ -181,11 +183,9 @@ class RestOAuthTestIT {
             .get(TopicUtils.TOPIC_PATH, topicName)
         .then()
             .log().ifValidationFails()
-            // User not authorized to view the group, therefore the list is empty
-            .statusCode(Status.FORBIDDEN.getStatusCode())
         .assertThat()
-            .body("code", equalTo(Status.FORBIDDEN.getStatusCode()))
-            .body("error_message", notNullValue());
+            .statusCode(expectedError.getHttpStatus().getStatusCode())
+            .body("", matchesError(expectedError));
     }
 
     @Test
@@ -217,6 +217,7 @@ class RestOAuthTestIT {
         String topicName = UUID.randomUUID().toString();
         int numPartitions = 3;
         String minInSyncReplicas = "1";
+        final ErrorType expectedError = ErrorType.NOT_AUTHORIZED;
 
         given()
             .log().ifValidationFails()
@@ -227,11 +228,9 @@ class RestOAuthTestIT {
             .post(TopicUtils.TOPIC_COLLECTION_PATH)
         .then()
             .log().ifValidationFails()
-            // User not authorized to view the group, therefore the list is empty
-            .statusCode(Status.FORBIDDEN.getStatusCode())
         .assertThat()
-            .body("code", equalTo(Status.FORBIDDEN.getStatusCode()))
-            .body("error_message", notNullValue());
+            .statusCode(expectedError.getHttpStatus().getStatusCode())
+            .body("", matchesError(expectedError));
     }
 
     @Test
@@ -303,6 +302,7 @@ class RestOAuthTestIT {
         final String topicName = UUID.randomUUID().toString();
         final int numPartitions = 2;
         topicUtils.createTopics(List.of(topicName), numPartitions, Status.CREATED);
+        final ErrorType expectedError = ErrorType.NOT_AUTHORIZED;
 
         given()
             .log().ifValidationFails()
@@ -311,11 +311,9 @@ class RestOAuthTestIT {
             .delete(TopicUtils.TOPIC_PATH, topicName)
         .then()
             .log().ifValidationFails()
-            // User not authorized to view the group, therefore the list is empty
-            .statusCode(Status.FORBIDDEN.getStatusCode())
         .assertThat()
-            .body("code", equalTo(Status.FORBIDDEN.getStatusCode()))
-            .body("error_message", notNullValue());
+            .statusCode(expectedError.getHttpStatus().getStatusCode())
+            .body("", matchesError(expectedError));
 
         // Confirm it still exists
         given()
@@ -363,6 +361,7 @@ class RestOAuthTestIT {
         final String topicName = UUID.randomUUID().toString();
         final int numPartitions = 2;
         String minInSyncReplicas = "1";
+        final ErrorType expectedError = ErrorType.NOT_AUTHORIZED;
 
         topicUtils.createTopics(List.of(topicName), numPartitions, Status.CREATED);
 
@@ -376,11 +375,9 @@ class RestOAuthTestIT {
             .patch(TopicUtils.TOPIC_PATH, topicName)
         .then()
             .log().ifValidationFails()
-            // User not authorized to view the group, therefore the list is empty
-            .statusCode(Status.FORBIDDEN.getStatusCode())
         .assertThat()
-            .body("code", equalTo(Status.FORBIDDEN.getStatusCode()))
-            .body("error_message", notNullValue());
+            .statusCode(expectedError.getHttpStatus().getStatusCode())
+            .body("", matchesError(expectedError));
 
         // Confirm unchanged
         given()

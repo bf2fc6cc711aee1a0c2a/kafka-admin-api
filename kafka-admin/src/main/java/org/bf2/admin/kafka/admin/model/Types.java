@@ -11,7 +11,6 @@ import io.vertx.core.Future;
 import org.apache.kafka.common.ConsumerGroupState;
 import org.apache.kafka.common.acl.AccessControlEntry;
 import org.apache.kafka.common.acl.AccessControlEntryFilter;
-import org.apache.kafka.common.errors.InvalidRequestException;
 import org.apache.kafka.common.resource.ResourcePattern;
 import org.apache.kafka.common.resource.ResourcePatternFilter;
 import org.eclipse.microprofile.openapi.annotations.enums.Explode;
@@ -51,6 +50,61 @@ import java.util.function.UnaryOperator;
 import java.util.stream.Collectors;
 
 public class Types {
+
+    public static class ObjectReference {
+        @JsonIgnore
+        String contextPath;
+
+        String id;
+        @NotNull
+        @Schema(readOnly = true)
+        String kind;
+        String href;
+
+        public ObjectReference() {
+            this.kind = getClass().getSimpleName();
+            setId(null);
+        }
+
+        public ObjectReference(String contextPath) {
+            this();
+            this.contextPath = contextPath;
+        }
+
+        public String getId() {
+            return id;
+        }
+
+        public void setId(String id) {
+            this.id = id;
+
+            if (contextPath != null) {
+                if (id != null) {
+                    this.href = String.format("/api/v1/%s/%s", contextPath, id);
+                } else {
+                    this.href = String.format("/api/v1/%s", contextPath);
+                }
+            } else {
+                this.href = null;
+            }
+        }
+
+        public String getKind() {
+            return kind;
+        }
+
+        public void setKind(String kind) {
+            this.kind = kind;
+        }
+
+        public String getHref() {
+            return href;
+        }
+
+        public void setHref(String href) {
+            this.href = href;
+        }
+    }
 
     @Schema(description = "Identifier for a Kafka server / broker.")
     public static class Node {
@@ -171,8 +225,10 @@ public class Types {
         }
     }
 
-    @Schema(title = "Root Type for NewTopicInput", description = "Kafka Topic (A feed where records are stored and published)")
-    public static class Topic implements Comparable<Topic> {
+    @Schema(title = "Root Type for NewTopicInput",
+            description = "Kafka Topic (A feed where records are stored and published)",
+            allOf = ObjectReference.class)
+    public static class Topic extends ObjectReference implements Comparable<Topic> {
         // ID
         @Schema(description = "The name of the topic.")
         private String name;
@@ -185,11 +241,16 @@ public class Types {
         @Schema(description = "Topic configuration entry.")
         private List<ConfigEntry> config;
 
+        public Topic() {
+            super("topics");
+        }
+
         public String getName() {
             return name;
         }
 
         public void setName(String name) {
+            super.setId(name);
             this.name = name;
         }
 
@@ -724,8 +785,8 @@ public class Types {
         }
     }
 
-    @Schema(description = "A group of Kafka consumers")
-    public static class ConsumerGroup {
+    @Schema(description = "A group of Kafka consumers", allOf = ObjectReference.class)
+    public static class ConsumerGroup extends ObjectReference {
 
         @NotBlank
         @Schema(description = "Unique identifier for the consumer group")
@@ -740,9 +801,11 @@ public class Types {
         private ConsumerGroupMetrics metrics;
 
         public ConsumerGroup() {
+            super("consumer-groups");
         }
 
         public ConsumerGroup(String groupId, ConsumerGroupState state, List<Consumer> consumers, ConsumerGroupMetrics metrics) {
+            this();
             this.groupId = groupId;
             this.state = state;
             this.consumers = consumers;
@@ -754,6 +817,7 @@ public class Types {
         }
 
         public void setGroupId(String groupId) {
+            super.setId(groupId);
             this.groupId = groupId;
         }
 
@@ -822,6 +886,7 @@ public class Types {
     }
 
     @JsonInclude(Include.NON_NULL)
+    @Schema(name = "List")
     public static class PagedResponse<T> {
         @NotNull
         private List<T> items;
@@ -854,7 +919,7 @@ public class Types {
             final int total = items.size();
 
             if (total > 0 && offset >= total) {
-                return Future.failedFuture(new InvalidRequestException("Requested pagination incorrect. Beginning of list greater than full list size ("
+                return Future.failedFuture(new AdminServerException(ErrorType.INVALID_REQUEST, "Requested pagination incorrect. Beginning of list greater than full list size ("
                         + items.size() + ")"));
             }
 
@@ -1036,14 +1101,22 @@ public class Types {
         }
     }
 
-    @Schema(title = "Root Type for ConsumerGroupResetOffsetResult")
+    @Schema(title = "Root Type for ConsumerGroupResetOffsetResult",
+            properties = {
+                @SchemaProperty(name = "items", implementation = TopicPartitionResetResult[].class)
+            },
+            allOf = PagedResponse.class)
     public static class ConsumerGroupResetOffsetResult extends PagedResponse<TopicPartitionResetResult> {
     }
 
     @Schema(
         name = "AclBindingListPage",
         title = "ACL Binding List Page",
-        description = "A page of ACL binding entries")
+        description = "A page of ACL binding entries",
+        properties = {
+            @SchemaProperty(name = "items", implementation = AclBinding[].class)
+        },
+        allOf = PagedResponse.class)
     public static class AclBindingList extends PagedResponse<AclBinding> {
     }
 
@@ -1462,8 +1535,10 @@ public class Types {
 
     @Schema(
         title = "ACL Binding",
-        description = "Represents a binding between a resource pattern and an access control entry")
-    public static class AclBinding {
+        description = "Represents a binding between a resource pattern and an access control entry",
+        allOf = ObjectReference.class)
+    @JsonInclude(Include.NON_NULL)
+    public static class AclBinding extends ObjectReference {
         public static final String PROP_RESOURCE_TYPE = "resourceType";
         public static final String PROP_RESOURCE_NAME = "resourceName";
         public static final String PROP_PATTERN_TYPE = "patternType";
@@ -1579,6 +1654,10 @@ public class Types {
             return map(permission, org.apache.kafka.common.acl.AclPermissionType::fromString);
         }
 
+        public AclBinding() {
+            super("acls");
+        }
+
         public AclResourceType getResourceType() {
             return resourceType;
         }
@@ -1646,13 +1725,31 @@ public class Types {
 
     @JsonInclude(Include.NON_NULL)
     @Schema(name = "Error", description = "General error response")
-    public static class Error {
+    public static class Error extends ObjectReference {
+
+        @Schema(description = "General reason for the error. Does not change between specific occurrences.")
+        String reason;
+
+        @Schema(description = "Detail specific to an error occurrence. May be different depending on the condition(s) that trigger the error.")
+        String detail;
+
         int code;
+
         @JsonProperty("error_message")
+        @Deprecated(forRemoval = true)
         String errorMessage;
+
         @JsonProperty("class")
-        @Schema(deprecated = true)
+        @Deprecated(forRemoval = true)
         String className;
+
+        public static Error forErrorType(ErrorType type) {
+            Types.Error err = new Types.Error();
+            err.setId(type.getId());
+            err.setHref(String.format("/api/v1/errors/%s", type.getId()));
+            err.setReason(type.getReason());
+            return err;
+        }
 
         public Error(int code, String errorMessage) {
             this.code = code;
@@ -1686,25 +1783,53 @@ public class Types {
             this.className = className;
         }
 
+        public String getReason() {
+            return reason;
+        }
+
+        public void setReason(String reason) {
+            this.reason = reason;
+        }
+
+        public String getDetail() {
+            return detail;
+        }
+
+        public void setDetail(String detail) {
+            this.detail = detail;
+        }
+    }
+
+    @Schema(
+        title = "Error List",
+        description = "List of errors",
+        properties = {
+            @SchemaProperty(name = "total", description = "Total number of error returned in this request")
+        },
+        allOf = PagedResponse.class)
+    public static class ErrorList extends PagedResponse<Error> {
     }
 
     @Schema(
         title = "Record List",
         description = "A page of records consumed from a topic",
         properties = {
+            @SchemaProperty(name = "items", implementation = Record[].class),
             @SchemaProperty(name = "total", description = "Total number of records returned in this request. This value does not indicate the total number of records in the topic."),
             // Scanner should hide these due to `hidden = true`
             @SchemaProperty(name = "size", description = "Not used"),
             @SchemaProperty(name = "page", description = "Not used")
-        })
+        },
+        allOf = PagedResponse.class)
     public static class RecordList extends PagedResponse<Record> {
     }
 
     @Schema(
         title = "Record",
-        description = "An individual record consumed from a topic or produced to a topic")
+        description = "An individual record consumed from a topic or produced to a topic",
+        allOf = ObjectReference.class)
     @JsonInclude(Include.NON_NULL)
-    public static class Record {
+    public static class Record extends ObjectReference {
         public static final String PROP_PARTITION = "partition";
         public static final String PROP_OFFSET = "offset";
         public static final String PROP_TIMESTAMP = "timestamp";
@@ -1712,6 +1837,9 @@ public class Types {
         public static final String PROP_HEADERS = "headers";
         public static final String PROP_KEY = "key";
         public static final String PROP_VALUE = "value";
+
+        @JsonIgnore
+        String topic;
 
         @Schema(description = "The record's partition within the topic")
         Integer partition;
@@ -1736,10 +1864,16 @@ public class Types {
         String value;
 
         public Record() {
+            super();
         }
 
-        public Record(Integer partition, String timestamp, Map<String, String> headers, String key, String value) {
-            super();
+        public Record(String topic) {
+            super("topics/" + topic + "/records");
+            this.topic = topic;
+        }
+
+        public Record(String topic, Integer partition, String timestamp, Map<String, String> headers, String key, String value) {
+            this(topic);
             this.partition = partition;
             this.timestamp = timestamp;
             this.headers = headers;
@@ -1752,6 +1886,15 @@ public class Types {
             builder.queryParam(PROP_PARTITION, partition);
             builder.queryParam(PROP_OFFSET, offset);
             return builder.build(topicName);
+        }
+
+        public Record updateHref() {
+            if (partition != null && offset != null) {
+                setHref(String.format("/api/v1/%s?partition=%d&offset=%d", super.contextPath, partition, offset));
+            } else {
+                setHref(null);
+            }
+            return this;
         }
 
         @AssertTrue(message = "invalid timestamp")

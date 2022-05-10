@@ -80,7 +80,7 @@ public class OASModelFilter implements OASFilter {
         var consumerGroupResetExample = new Types.ConsumerGroupOffsetResetParameters(OffsetType.ABSOLUTE, "4",
                    List.of(new Types.TopicsToResetOffset("my-topic", List.of(0))));
 
-        var recordProduceExample = new Types.Record(1, null, Map.of("X-Custom-Header", "header-value-1"), null, "{ \"examplekey\": \"example-value\" }");
+        var recordProduceExample = new Types.Record("my-topic", 1, null, Map.of("X-Custom-Header", "header-value-1"), null, "{ \"examplekey\": \"example-value\" }");
 
         Map<String, Example> examples = new LinkedHashMap<>();
 

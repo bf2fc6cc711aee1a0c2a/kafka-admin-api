@@ -6,7 +6,7 @@ info:
   license:
     name: Apache 2.0
     url: https://www.apache.org/licenses/LICENSE-2.0
-  version: 0.10.0
+  version: 0.10.1-SNAPSHOT
 servers:
 - url: /
   description: Kafka Admin REST API
@@ -21,6 +21,8 @@ tags:
   description: Access Control Management (ACLs)
 - name: records
   description: Send and receive records interactively
+- name: errors
+  description: Error Type Retrieval
 paths:
   /api/v1/topics:
     get:
@@ -792,6 +794,45 @@ paths:
           $ref: '#/components/responses/NotAuthorized'
         "500":
           $ref: '#/components/responses/ServerError'
+  /api/v1/errors:
+    get:
+      tags:
+      - errors
+      summary: Get list of errors
+      operationId: getErrors
+      responses:
+        "200":
+          description: Error listing
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorList'
+        "500":
+          $ref: '#/components/responses/ServerError'
+  /api/v1/errors/{errorId}:
+    get:
+      tags:
+      - errors
+      summary: Get an error by its unique ID
+      operationId: getError
+      parameters:
+      - name: errorId
+        in: path
+        description: Error identifier
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          description: Error details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        "404":
+          $ref: '#/components/responses/NotFound'
+        "500":
+          $ref: '#/components/responses/ServerError'
   /api/v1/topics/{topicName}/records:
     get:
       tags:
@@ -926,6 +967,8 @@ components:
       - operation
       - permission
       type: object
+      allOf:
+      - $ref: '#/components/schemas/ObjectReference'
       properties:
         resourceType:
           $ref: '#/components/schemas/AclResourceType'
@@ -958,29 +1001,14 @@ components:
     AclBindingListPage:
       title: ACL Binding List Page
       description: A page of ACL binding entries
-      required:
-      - items
-      - total
       type: object
+      allOf:
+      - $ref: '#/components/schemas/List'
       properties:
         items:
           type: array
           items:
             $ref: '#/components/schemas/AclBinding'
-          nullable: false
-        total:
-          format: int32
-          description: Total number of entries in the full result set
-          type: integer
-          nullable: false
-        size:
-          format: int32
-          description: Number of entries per page (returned for fetch requests)
-          type: integer
-        page:
-          format: int32
-          description: Current page number (returned for fetch requests)
-          type: integer
     AclBindingOrderKey:
       enum:
       - resourceType
@@ -1146,6 +1174,8 @@ components:
       - groupId
       - consumers
       type: object
+      allOf:
+      - $ref: '#/components/schemas/ObjectReference'
       properties:
         groupId:
           description: Unique identifier for the consumer group
@@ -1276,29 +1306,14 @@ components:
             $ref: '#/components/schemas/TopicsToResetOffset'
     ConsumerGroupResetOffsetResult:
       title: Root Type for ConsumerGroupResetOffsetResult
-      required:
-      - items
-      - total
       type: object
+      allOf:
+      - $ref: '#/components/schemas/List'
       properties:
         items:
           type: array
           items:
             $ref: '#/components/schemas/ConsumerGroupResetOffsetResultItem'
-          nullable: false
-        total:
-          format: int32
-          description: Total number of entries in the full result set
-          type: integer
-          nullable: false
-        size:
-          format: int32
-          description: Number of entries per page (returned for fetch requests)
-          type: integer
-        page:
-          format: int32
-          description: Current page number (returned for fetch requests)
-          type: integer
       example:
         total: 2
         page: 1
@@ -1336,16 +1351,68 @@ components:
       type: string
     Error:
       description: General error response
+      required:
+      - kind
       type: object
       properties:
+        id:
+          type: string
+        kind:
+          type: string
+          readOnly: true
+          nullable: false
+        href:
+          type: string
+        reason:
+          description: General reason for the error. Does not change between specific
+            occurrences.
+          type: string
+        detail:
+          description: Detail specific to an error occurrence. May be different depending
+            on the condition(s) that trigger the error.
+          type: string
         code:
           format: int32
           type: integer
         error_message:
           type: string
+          deprecated: true
         class:
           type: string
           deprecated: true
+    ErrorList:
+      title: Error List
+      description: List of errors
+      type: object
+      allOf:
+      - $ref: '#/components/schemas/List'
+      properties:
+        total:
+          description: Total number of error returned in this request
+    List:
+      required:
+      - items
+      - total
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            type: object
+          nullable: false
+        total:
+          format: int32
+          description: Total number of entries in the full result set
+          type: integer
+          nullable: false
+        size:
+          format: int32
+          description: Number of entries per page (returned for fetch requests)
+          type: integer
+        page:
+          format: int32
+          description: Current page number (returned for fetch requests)
+          type: integer
     NewTopicInput:
       description: Input object to create a new topic.
       required:
@@ -1378,6 +1445,19 @@ components:
         id:
           format: int32
           type: integer
+    ObjectReference:
+      required:
+      - kind
+      type: object
+      properties:
+        id:
+          type: string
+        kind:
+          type: string
+          readOnly: true
+          nullable: false
+        href:
+          type: string
     OffsetType:
       enum:
       - timestamp
@@ -1431,6 +1511,8 @@ components:
       required:
       - value
       type: object
+      allOf:
+      - $ref: '#/components/schemas/ObjectReference'
       properties:
         partition:
           format: int32
@@ -1476,30 +1558,21 @@ components:
     RecordList:
       title: Record List
       description: A page of records consumed from a topic
-      required:
-      - items
-      - total
       type: object
+      allOf:
+      - $ref: '#/components/schemas/List'
       properties:
-        total:
-          format: int32
-          description: Total number of records returned in this request. This value
-            does not indicate the total number of records in the topic.
-          type: integer
-          nullable: false
-        size:
-          format: int32
-          description: Not used
-          type: integer
-        page:
-          format: int32
-          description: Not used
-          type: integer
         items:
           type: array
           items:
             $ref: '#/components/schemas/Record'
-          nullable: false
+        total:
+          description: Total number of records returned in this request. This value
+            does not indicate the total number of records in the topic.
+        size:
+          description: Not used
+        page:
+          description: Not used
     SortDirection:
       enum:
       - asc
@@ -1509,6 +1582,8 @@ components:
       title: Root Type for NewTopicInput
       description: Kafka Topic (A feed where records are stored and published)
       type: object
+      allOf:
+      - $ref: '#/components/schemas/ObjectReference'
       properties:
         name:
           description: The name of the topic.
@@ -1734,6 +1809,9 @@ components:
     ConsumerGroupExample:
       description: Sample consumer group with 3 partitions and 3 active consumers
       value:
+        id: null
+        kind: ConsumerGroup
+        href: null
         groupId: consumer_group_1
         state: STABLE
         consumers:
@@ -1776,6 +1854,7 @@ components:
       description: "Sample record to produce a record to partition 1, including a\
         \ custom header"
       value:
+        kind: Record
         partition: 1
         headers:
           X-Custom-Header: header-value-1

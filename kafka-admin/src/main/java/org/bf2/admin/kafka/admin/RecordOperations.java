@@ -114,7 +114,7 @@ public class RecordOperations {
 
             List<Types.Record> items = StreamSupport.stream(records.spliterator(), false)
                 .map(rec -> {
-                    Types.Record item = new Types.Record();
+                    Types.Record item = new Types.Record(topicName);
 
                     setProperty(Types.Record.PROP_PARTITION, include, rec::partition, item::setPartition);
                     setProperty(Types.Record.PROP_OFFSET, include, rec::offset, item::setOffset);
@@ -123,6 +123,7 @@ public class RecordOperations {
                     setProperty(Types.Record.PROP_KEY, include, rec::key, k -> item.setKey(bytesToString(k, maxValueLength)));
                     setProperty(Types.Record.PROP_VALUE, include, rec::value, v -> item.setValue(bytesToString(v, maxValueLength)));
                     setProperty(Types.Record.PROP_HEADERS, include, () -> headersToMap(rec.headers(), maxValueLength), item::setHeaders);
+                    item.updateHref();
 
                     return item;
                 })
@@ -183,7 +184,7 @@ public class RecordOperations {
             if (exception != null) {
                 promise.completeExceptionally(exception);
             } else {
-                Types.Record result = new Types.Record();
+                Types.Record result = new Types.Record(topicName);
                 result.setPartition(meta.partition());
                 if (meta.hasOffset()) {
                     result.setOffset(meta.offset());

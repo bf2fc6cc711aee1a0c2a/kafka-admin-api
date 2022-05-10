@@ -11,16 +11,15 @@ import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.common.config.SaslConfigs;
 import org.apache.kafka.common.serialization.ByteArrayDeserializer;
 import org.bf2.admin.kafka.admin.KafkaAdminConfigRetriever;
+import org.bf2.admin.kafka.admin.model.AdminServerException;
+import org.bf2.admin.kafka.admin.model.ErrorType;
 import org.eclipse.microprofile.jwt.JsonWebToken;
 import org.jboss.logging.Logger;
 
 import javax.enterprise.context.RequestScoped;
 import javax.enterprise.inject.Instance;
 import javax.inject.Inject;
-import javax.ws.rs.NotAuthorizedException;
 import javax.ws.rs.core.HttpHeaders;
-import javax.ws.rs.core.Response;
-import javax.ws.rs.core.Response.Status;
 
 import java.util.Base64;
 import java.util.Map;
@@ -68,7 +67,7 @@ public class AdminClientFactory {
             if (token.isResolvable()) {
                 final String accessToken = token.get().getRawToken();
                 if (accessToken == null) {
-                    throw new NotAuthorizedException(Response.status(Status.UNAUTHORIZED));
+                    throw new AdminServerException(ErrorType.NOT_AUTHENTICATED);
                 }
                 acConfig.put(SaslConfigs.SASL_JAAS_CONFIG, String.format(SASL_OAUTH_CONFIG_TEMPLATE, accessToken));
             } else {
@@ -78,7 +77,7 @@ public class AdminClientFactory {
             extractCredentials(Optional.ofNullable(headers.get().getHeaderString(HttpHeaders.AUTHORIZATION)))
                 .ifPresentOrElse(credentials -> acConfig.put(SaslConfigs.SASL_JAAS_CONFIG, credentials),
                     () -> {
-                        throw new NotAuthorizedException("Invalid or missing credentials", Response.status(Status.UNAUTHORIZED).build());
+                        throw new AdminServerException(ErrorType.NOT_AUTHENTICATED);
                     });
         } else {
             log.debug("OAuth is disabled - no attempt to set access token in Admin Client config");
@@ -117,7 +116,7 @@ public class AdminClientFactory {
             extractCredentials(Optional.ofNullable(headers.get().getHeaderString(HttpHeaders.AUTHORIZATION)))
                 .ifPresentOrElse(credentials -> props.put(SaslConfigs.SASL_JAAS_CONFIG, credentials),
                     () -> {
-                        throw new NotAuthorizedException("Invalid or missing credentials", Response.status(Status.UNAUTHORIZED).build());
+                        throw new AdminServerException(ErrorType.NOT_AUTHENTICATED);
                     });
         } else {
             log.debug("OAuth is disabled - no attempt to set access token in Admin Client config");
@@ -151,7 +150,7 @@ public class AdminClientFactory {
             extractCredentials(Optional.ofNullable(headers.get().getHeaderString(HttpHeaders.AUTHORIZATION)))
                 .ifPresentOrElse(credentials -> props.put(SaslConfigs.SASL_JAAS_CONFIG, credentials),
                     () -> {
-                        throw new NotAuthorizedException("Invalid or missing credentials", Response.status(Status.UNAUTHORIZED).build());
+                        throw new AdminServerException(ErrorType.NOT_AUTHENTICATED);
                     });
         } else {
             log.debug("OAuth is disabled - no attempt to set access token in Admin Client config");

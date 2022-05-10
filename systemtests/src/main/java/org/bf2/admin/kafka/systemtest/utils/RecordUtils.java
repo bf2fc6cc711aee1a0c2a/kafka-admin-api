@@ -18,7 +18,7 @@ import static io.restassured.RestAssured.given;
 
 public class RecordUtils {
 
-    public static final String RECORDS_PATH = "/rest/topics/{topicName}/records";
+    public static final String RECORDS_PATH = "/api/v1/topics/{topicName}/records";
 
     static final Logger log = Logger.getLogger(RecordUtils.class);
     final Config config;

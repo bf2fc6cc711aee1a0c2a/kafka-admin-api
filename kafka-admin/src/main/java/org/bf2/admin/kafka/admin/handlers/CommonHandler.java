@@ -1,7 +1,6 @@
 package org.bf2.admin.kafka.admin.handlers;
 
 import io.strimzi.kafka.oauth.validator.TokenExpiredException;
-import io.vertx.core.json.DecodeException;
 import org.apache.kafka.common.KafkaException;
 import org.apache.kafka.common.errors.AuthenticationException;
 import org.apache.kafka.common.errors.AuthorizationException;
@@ -9,7 +8,6 @@ import org.apache.kafka.common.errors.GroupIdNotFoundException;
 import org.apache.kafka.common.errors.GroupNotEmptyException;
 import org.apache.kafka.common.errors.InvalidConfigurationException;
 import org.apache.kafka.common.errors.InvalidPartitionsException;
-import org.apache.kafka.common.errors.InvalidReplicationFactorException;
 import org.apache.kafka.common.errors.InvalidRequestException;
 import org.apache.kafka.common.errors.InvalidTopicException;
 import org.apache.kafka.common.errors.LeaderNotAvailableException;
@@ -19,18 +17,17 @@ import org.apache.kafka.common.errors.TimeoutException;
 import org.apache.kafka.common.errors.TopicExistsException;
 import org.apache.kafka.common.errors.UnknownMemberIdException;
 import org.apache.kafka.common.errors.UnknownTopicOrPartitionException;
+import org.bf2.admin.kafka.admin.model.AdminServerException;
+import org.bf2.admin.kafka.admin.model.ErrorType;
 import org.bf2.admin.kafka.admin.model.Types;
 import org.jboss.logging.Logger;
 
-import javax.ws.rs.WebApplicationException;
 import javax.ws.rs.core.Response;
 import javax.ws.rs.core.Response.ResponseBuilder;
-import javax.ws.rs.core.Response.Status;
 import javax.ws.rs.core.Response.Status.Family;
-import javax.ws.rs.core.Response.StatusType;
 
 import java.security.GeneralSecurityException;
-import java.util.Map;
+import java.util.List;
 import java.util.Objects;
 import java.util.function.Function;
 
@@ -41,105 +38,88 @@ public class CommonHandler {
     private CommonHandler() {
     }
 
-    /**
-     * 423 Locked (WebDAV, RFC4918)
-     */
-    static final StatusType LOCKED = new StatusType() {
-        @Override
-        public int getStatusCode() {
-            return 423;
-        }
+    static class ErrorHandler<T extends Throwable> {
+        Class<T> causeType;
+        Function<T, ResponseBuilder> mapper;
 
-        @Override
-        public Family getFamily() {
-            return Family.CLIENT_ERROR;
+        public ErrorHandler(Class<T> causeType, Function<T, ResponseBuilder> mapper) {
+            this.causeType = causeType;
+            this.mapper = mapper;
         }
+    }
 
-        @Override
-        public String getReasonPhrase() {
-            return "Locked";
-        }
-    };
+    static List<ErrorHandler<?>> errorHandlers = List.of(
+            entry(AdminServerException.class, thrown -> errorResponse(thrown, thrown.getError(), thrown.getMessage())),
 
-    static Map<Class<? extends Throwable>, Function<? extends Throwable, ResponseBuilder>> errorHandlers = Map.ofEntries(
-            entry(WebApplicationException.class, thrown -> errorResponse(thrown, thrown.getResponse().getStatusInfo(), null)),
-            entry(ExceptionInInitializerError.class, thrown -> errorResponse(thrown.getCause(), Status.BAD_REQUEST, null)),
-            entry(UnknownTopicOrPartitionException.class, thrown -> errorResponse(thrown, Status.NOT_FOUND, null)),
-            entry(GroupIdNotFoundException.class, thrown -> errorResponse(thrown, Status.NOT_FOUND, null)),
-            entry(TimeoutException.class, thrown -> errorResponse(thrown, Status.SERVICE_UNAVAILABLE, null)),
-            entry(SslAuthenticationException.class, thrown -> errorResponse(thrown, Status.INTERNAL_SERVER_ERROR, null)),
-            entry(GroupNotEmptyException.class, thrown -> errorResponse(thrown, LOCKED, null)),
-            entry(AuthorizationException.class, thrown -> errorResponse(thrown, Status.FORBIDDEN, null)),
-            entry(AuthenticationException.class, thrown -> errorResponse(thrown, Status.UNAUTHORIZED, null)),
-            entry(TokenExpiredException.class, thrown -> errorResponse(thrown, Status.UNAUTHORIZED, null)),
-            entry(InvalidTopicException.class, thrown -> errorResponse(thrown, Status.BAD_REQUEST, null)),
-            entry(PolicyViolationException.class, thrown -> errorResponse(thrown, Status.BAD_REQUEST, null)),
-            entry(InvalidReplicationFactorException.class, thrown -> errorResponse(thrown, Status.BAD_REQUEST, null)),
-            entry(TopicExistsException.class, thrown -> errorResponse(thrown, Status.CONFLICT, null)),
-            entry(InvalidRequestException.class, thrown -> errorResponse(thrown, Status.BAD_REQUEST, null)),
-            entry(InvalidConfigurationException.class, thrown -> errorResponse(thrown, Status.BAD_REQUEST, null)),
-            entry(IllegalArgumentException.class, thrown -> errorResponse(thrown, Status.BAD_REQUEST, null)),
-            entry(InvalidPartitionsException.class, thrown -> errorResponse(thrown, Status.BAD_REQUEST, null)),
-            entry(com.fasterxml.jackson.core.JsonParseException.class, thrown -> errorResponse(thrown, Status.BAD_REQUEST, "invalid JSON")),
-            entry(com.fasterxml.jackson.databind.JsonMappingException.class, thrown -> errorResponse(thrown, Status.BAD_REQUEST, "invalid JSON")),
-            entry(IllegalStateException.class, thrown -> errorResponse(thrown, Status.UNAUTHORIZED, null)),
-            entry(DecodeException.class, thrown -> errorResponse(thrown, Status.BAD_REQUEST, null)),
-            entry(UnknownMemberIdException.class, thrown -> errorResponse(thrown, Status.BAD_REQUEST, null)),
-            entry(LeaderNotAvailableException.class, thrown -> errorResponse(thrown, Status.BAD_REQUEST, null)),
+            // 400 Bad Request
+            entry(InvalidTopicException.class, thrown -> errorResponse(thrown, ErrorType.TOPIC_PARTITION_INVALID)),
+            entry(PolicyViolationException.class, thrown -> errorResponse(thrown, ErrorType.POLICY_VIOLATION)),
+            entry(InvalidRequestException.class, thrown -> errorResponse(thrown, ErrorType.INVALID_CONFIGURATION)),
+            entry(InvalidConfigurationException.class, thrown -> errorResponse(thrown, ErrorType.INVALID_CONFIGURATION, thrown.getMessage())),
+            entry(InvalidPartitionsException.class, thrown -> errorResponse(thrown, ErrorType.TOPIC_PARTITION_INVALID, thrown.getMessage())),
+            entry(com.fasterxml.jackson.core.JsonParseException.class, thrown -> errorResponse(thrown, ErrorType.INVALID_REQUEST_FORMAT)),
+            entry(com.fasterxml.jackson.databind.JsonMappingException.class, thrown -> errorResponse(thrown, ErrorType.INVALID_REQUEST_FORMAT)),
+            entry(UnknownMemberIdException.class, thrown -> errorResponse(thrown, ErrorType.UNKNOWN_MEMBER)),
+
+            // 500 Internal Server Error
+            entry(SslAuthenticationException.class, thrown -> errorResponse(thrown, ErrorType.SERVER_ERROR)),
+
+            // 401 Unauthorized
+            entry(AuthenticationException.class, thrown -> errorResponse(thrown, ErrorType.NOT_AUTHENTICATED)),
+            entry(TokenExpiredException.class, thrown -> errorResponse(thrown, ErrorType.NOT_AUTHENTICATED)),
+            entry(IllegalStateException.class, thrown -> errorResponse(thrown, ErrorType.NOT_AUTHENTICATED)),
+            entry(GeneralSecurityException.class, thrown -> errorResponse(thrown, ErrorType.NOT_AUTHENTICATED)),
+
+            // 403 Forbidden
+            entry(AuthorizationException.class, thrown -> errorResponse(thrown, ErrorType.NOT_AUTHORIZED)),
+
+            // 404 Not Found
+            entry(UnknownTopicOrPartitionException.class, thrown -> errorResponse(thrown, ErrorType.TOPIC_NOT_FOUND)),
+            entry(GroupIdNotFoundException.class, thrown -> errorResponse(thrown, ErrorType.GROUP_NOT_FOUND)),
+
+            // 409 Conflict
+            entry(TopicExistsException.class, thrown -> errorResponse(thrown, ErrorType.TOPIC_DUPLICATED)),
+
+            // 423 Locked
+            entry(GroupNotEmptyException.class, thrown -> errorResponse(thrown, ErrorType.GROUP_NOT_EMPTY)),
+
+            // 503 Service Unavailable
+            entry(TimeoutException.class, thrown -> errorResponse(thrown, ErrorType.CLUSTER_NOT_AVAILABLE)),
+            entry(LeaderNotAvailableException.class, thrown -> errorResponse(thrown, ErrorType.CLUSTER_NOT_AVAILABLE)),
+
+            // Other
             entry(KafkaException.class, thrown -> {
-                    if (thrown.getMessage().contains("Failed to find brokers to send")) {
-                        return errorResponse(thrown, Status.SERVICE_UNAVAILABLE, null);
-                    } else if (thrown.getMessage().contains("JAAS configuration")) {
-                        return errorResponse(thrown, Status.UNAUTHORIZED, null);
-                    } else {
-                        log.error("Unknown exception", thrown);
-                        return errorResponse(thrown, Status.INTERNAL_SERVER_ERROR, null);
-                    }
-                }),
-            entry(GeneralSecurityException.class, thrown -> errorResponse(thrown, Status.UNAUTHORIZED, null)));
+                if (thrown.getMessage().contains("Failed to find brokers to send")) {
+                    return errorResponse(thrown, ErrorType.CLUSTER_NOT_AVAILABLE);
+                } else if (thrown.getMessage().contains("JAAS configuration")) {
+                    return errorResponse(thrown, ErrorType.NOT_AUTHORIZED);
+                } else {
+                    log.error("Unknown exception", thrown);
+                    return errorResponse(thrown, ErrorType.SERVER_ERROR);
+                }
+            }));
 
-    static <T extends Throwable> Map.Entry<Class<T>, Function<T, ResponseBuilder>> entry(Class<T> key, Function<T, ResponseBuilder> value) {
-        return Map.entry(key, value);
+    static <T extends Throwable> ErrorHandler<T> entry(Class<T> key, Function<T, ResponseBuilder> value) {
+        return new ErrorHandler<>(key, value);
     }
 
-    public static boolean isCausedBy(Throwable error, Class<? extends Throwable> searchCause) {
-        Throwable cause = error;
-
-        do {
-            if (searchCause.isInstance(cause)) {
-                return true;
-            }
-        } while (cause != cause.getCause() && (cause = cause.getCause()) != null);
-
-        return false;
+    static ResponseBuilder errorResponse(Throwable cause, ErrorType errorType) {
+        return errorResponse(cause, errorType, null);
     }
 
-    static ResponseBuilder errorResponse(Throwable error, StatusType status, String errorMessage) {
-
-        if (status.getFamily() == Family.SERVER_ERROR) {
-            log.errorf(error, "%s %s", error.getClass(), error.getMessage());
+    static ResponseBuilder errorResponse(Throwable cause, ErrorType errorType, String detail) {
+        if (errorType.getHttpStatus().getFamily() == Family.SERVER_ERROR) {
+            log.errorf(cause, "%s %s", cause.getClass(), cause.getMessage());
         } else {
-            log.warnf("%s %s", error.getClass(), error.getMessage());
+            log.warnf("%s %s", cause.getClass(), cause.getMessage());
         }
 
-        final int statusCode = status.getStatusCode();
-        ResponseBuilder response = Response.status(statusCode);
-        Types.Error errorEntity = new Types.Error();
+        Types.Error errorEntity = Types.Error.forErrorType(errorType);
+        errorEntity.setCode(errorType.getHttpStatus().getStatusCode());
+        errorEntity.setErrorMessage(errorType.getReason());
+        errorEntity.setDetail(detail);
 
-        errorEntity.setCode(statusCode);
-
-        if (errorMessage != null) {
-            errorEntity.setErrorMessage(errorMessage);
-        } else if (status == Status.INTERNAL_SERVER_ERROR) {
-            errorEntity.setErrorMessage(status.getReasonPhrase());
-        } else {
-            errorEntity.setErrorMessage(error.getMessage());
-            errorEntity.setClassName(error.getClass().getSimpleName());
-        }
-
-        response.entity(errorEntity);
-
-        return response;
+        return Response.status(errorType.getHttpStatus()).entity(errorEntity);
     }
 
     @SuppressWarnings("unchecked")
@@ -156,14 +136,13 @@ public class CommonHandler {
     }
 
     static ResponseBuilder processFailure(Throwable thrown) {
-        return errorHandlers.entrySet()
-            .stream()
-            .map(e -> mapCause(thrown, e.getKey(), e.getValue()))
+        return errorHandlers.stream()
+            .map(e -> mapCause(thrown, e.causeType, e.mapper))
             .filter(Objects::nonNull)
             .findFirst()
             .orElseGet(() -> {
                 log.error("Unknown exception", thrown);
-                return errorResponse(thrown, Status.INTERNAL_SERVER_ERROR, null);
+                return errorResponse(thrown, ErrorType.SERVER_ERROR);
             });
     }
 
