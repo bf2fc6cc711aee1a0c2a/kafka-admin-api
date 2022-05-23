@@ -179,7 +179,7 @@
                 <version>0.8.6</version>
                 <configuration>
                     <excludes>
-                        <exclude>systemtests</exclude>
+                        <exclude>systemtests/**</exclude>
                     </excludes>
                 </configuration>
                 <executions>
