@@ -179,6 +179,12 @@
                 <version>0.8.8</version>
                 <executions>
                     <execution>
+                        <id>prepare-agent</id>
+                        <goals>
+                            <goal>prepare-agent</goal>
+                        </goals>
+                    </execution>
+                    <execution>
                         <id>default-report</id>
                         <goals>
                             <goal>report</goal>
