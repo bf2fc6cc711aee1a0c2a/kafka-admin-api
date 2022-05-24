@@ -20,7 +20,6 @@ import org.bf2.admin.kafka.admin.model.ErrorType;
 import org.bf2.admin.kafka.admin.model.Types;
 import org.bf2.admin.kafka.admin.model.Types.ConsumerGroupOffsetResetParameters.OffsetType;
 import org.bf2.admin.kafka.admin.model.Types.PagedResponse;
-import org.bf2.admin.kafka.admin.model.Types.PagedResponseDeprecated;
 import org.bf2.admin.kafka.admin.model.Types.TopicPartitionResetResult;
 import org.jboss.logging.Logger;
 
@@ -72,10 +71,10 @@ public class ConsumerGroupOperations {
                      new ConsumerGroupComparator(orderByInput.getField()).reversed() :
                          new ConsumerGroupComparator(orderByInput.getField()))
                  .collect(Collectors.<Types.ConsumerGroup>toList()))
-            .compose(list -> {
+            .map(list -> {
                 if (pageRequest.isDeprecatedFormat()) {
                     if (pageRequest.getOffset() > list.size()) {
-                        return Future.failedFuture(new AdminServerException(ErrorType.INVALID_REQUEST, "Offset (" + pageRequest.getOffset() + ") cannot be greater than consumer group list size (" + list.size() + ")"));
+                        throw new AdminServerException(ErrorType.INVALID_REQUEST, "Offset (" + pageRequest.getOffset() + ") cannot be greater than consumer group list size (" + list.size() + ")");
                     }
 
                     int tmpLimit = pageRequest.getLimit();
@@ -83,7 +82,7 @@ public class ConsumerGroupOperations {
                         tmpLimit = list.size();
                     }
 
-                    var response = new PagedResponseDeprecated<Types.ConsumerGroup>();
+                    var response = new Types.ConsumerGroupList();
                     response.setLimit(pageRequest.getLimit());
                     response.setOffset(pageRequest.getOffset());
 
@@ -91,10 +90,10 @@ public class ConsumerGroupOperations {
                     response.setCount(croppedList.size());
                     response.setItems(croppedList);
 
-                    return Future.succeededFuture(response);
+                    return response;
                 }
 
-                return PagedResponse.forPage(pageRequest, list);
+                return PagedResponse.forPage(pageRequest, Types.ConsumerGroup.class, list);
             })
             .onComplete(finalRes -> {
                 if (finalRes.failed()) {
@@ -291,9 +290,7 @@ public class ConsumerGroupOperations {
                         })
                         .collect(Collectors.toList());
 
-                Types.PagedResponse.forItems(result)
-                    .onSuccess(promise::complete)
-                    .onFailure(promise::fail);
+                promise.complete(Types.PagedResponse.forItems(Types.TopicPartitionResetResult.class, result));
             });
             return promise.future();
         }).onComplete(res -> {

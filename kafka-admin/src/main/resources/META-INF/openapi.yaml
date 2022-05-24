@@ -42,6 +42,17 @@ paths:
 
   /api/v1/topics/{topicName}: {}
 
+  /api/v1/topics/{topicName}/records:
+    get:
+      # Parameters listed to establish a fixed order (support stability for downstream generated code)
+      parameters:
+        - { in: query, schema: {}, name: include }
+        - { in: query, schema: {}, name: limit }
+        - { in: query, schema: {}, name: maxValueLength }
+        - { in: query, schema: {}, name: offset }
+        - { in: query, schema: {}, name: partition }
+        - { in: query, schema: {}, name: timestamp }
+
   /api/v1/consumer-groups:
     get:
       # Parameters listed to establish a fixed order (support stability for downstream generated code)
@@ -128,6 +139,7 @@ paths:
 
   /api/v1/acls/resource-operations:
     get:
+      security: [ { } ]
       responses:
         "200":
           description: ""
@@ -152,6 +164,14 @@ paths:
                 disabled:
                   summary: No configuration of ACL bindings is allowed
                   value: '{}'
+
+  /api/v1/errors:
+    get:
+      security: [{}]
+
+  /api/v1/errors/{errorId}:
+    get:
+      security: [{}]
 
 components:
   schemas:

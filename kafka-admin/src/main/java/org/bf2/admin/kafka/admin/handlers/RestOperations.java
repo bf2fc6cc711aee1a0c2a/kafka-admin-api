@@ -226,7 +226,11 @@ public class RestOperations implements OperationsHandler {
     @Timed("get_errors_request_time")
     public Response getErrors() {
         var errors = Arrays.stream(ErrorType.values())
-                .map(Types.Error::forErrorType)
+                .map(errorType -> {
+                    Types.Error error = Types.Error.forErrorType(errorType);
+                    error.setCode(errorType.getHttpStatus().getStatusCode());
+                    return error;
+                })
                 .collect(Collectors.toList());
 
         Types.ErrorList errorList = new Types.ErrorList();
@@ -242,15 +246,19 @@ public class RestOperations implements OperationsHandler {
     @Counted("get_error_requests")
     @Timed("get_error_request_time")
     public Response getError(String errorId) {
-        var error = Arrays.stream(ErrorType.values())
+        var errorEntity = Arrays.stream(ErrorType.values())
                 .filter(err -> err.getId().equals(errorId))
-                .map(Types.Error::forErrorType)
+                .map(errorType -> {
+                    Types.Error error = Types.Error.forErrorType(errorType);
+                    error.setCode(errorType.getHttpStatus().getStatusCode());
+                    return error;
+                })
                 .findFirst()
                 .orElseThrow(() -> {
                     throw new AdminServerException(ErrorType.ERROR_NOT_FOUND);
                 });
 
-        return Response.ok().entity(error).build();
+        return Response.ok().entity(errorEntity).build();
     }
 
     private UriBuilder uriBuilder(String methodName) {

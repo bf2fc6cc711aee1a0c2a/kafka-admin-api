@@ -127,11 +127,9 @@ public class AccessControlOperations {
         KafkaFuture.allOf(pendingResults.toArray(KafkaFuture[]::new))
             .whenComplete((nothing, error) ->
                 collectBindings(pendingResults, sortOrder, error)
+                    .map(bindings -> PagedResponse.forPage(pageRequest, Types.AclBinding.class, bindings))
                     .onFailure(promise::fail)
-                    .onSuccess(bindings ->
-                        PagedResponse.forPage(pageRequest, bindings)
-                            .onFailure(promise::fail)
-                            .onSuccess(promise::complete)));
+                    .onSuccess(promise::complete));
 
         return promise.future().toCompletionStage();
     }
@@ -145,11 +143,9 @@ public class AccessControlOperations {
             .all()
             .whenComplete((bindingCollection, error) ->
                 collectBindings(bindingCollection, error)
+                    .map(bindings -> PagedResponse.forItems(Types.AclBinding.class, bindings))
                     .onFailure(promise::fail)
-                    .onSuccess(bindings ->
-                        PagedResponse.forItems(bindings)
-                            .onFailure(promise::fail)
-                            .onSuccess(promise::complete)));
+                    .onSuccess(promise::complete));
 
         return promise.future().toCompletionStage();
     }

@@ -129,7 +129,7 @@ public class RecordOperations {
                 })
                 .collect(Collectors.toList());
 
-            return Types.PagedResponse.forItems(items).result();
+            return Types.PagedResponse.forItems(Types.Record.class, items);
         }
     }
 

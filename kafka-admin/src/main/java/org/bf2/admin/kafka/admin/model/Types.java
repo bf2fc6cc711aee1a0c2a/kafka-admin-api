@@ -7,7 +7,6 @@ import com.fasterxml.jackson.annotation.JsonInclude.Include;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonValue;
 import com.fasterxml.jackson.databind.JsonNode;
-import io.vertx.core.Future;
 import org.apache.kafka.common.ConsumerGroupState;
 import org.apache.kafka.common.acl.AccessControlEntry;
 import org.apache.kafka.common.acl.AccessControlEntryFilter;
@@ -225,7 +224,7 @@ public class Types {
         }
     }
 
-    @Schema(title = "Root Type for NewTopicInput",
+    @Schema(title = "Topic",
             description = "Kafka Topic (A feed where records are stored and published)",
             allOf = ObjectReference.class)
     public static class Topic extends ObjectReference implements Comparable<Topic> {
@@ -888,6 +887,9 @@ public class Types {
     @JsonInclude(Include.NON_NULL)
     @Schema(name = "List")
     public static class PagedResponse<T> {
+
+        private String kind;
+
         @NotNull
         private List<T> items;
 
@@ -901,39 +903,50 @@ public class Types {
         @Schema(description = "Current page number (returned for fetch requests)")
         private Integer page;
 
-        public static <I> Future<PagedResponse<I>> forItems(List<I> items) {
+        public static <I> PagedResponse<I> forItems(Class<I> kind, List<I> items) {
             PageRequest allResults = new PageRequest();
             allResults.setPage(1);
             allResults.setSize(items.size());
 
-            return forPage(allResults, items).map(response -> {
-                // Remove paging information when returning a full result set
-                response.setPage(null);
-                response.setSize(null);
-                return response;
-            });
+            PagedResponse<I> response = forPage(allResults, kind, items);
+            // Remove paging information when returning a full result set
+            response.setPage(null);
+            response.setSize(null);
+            return response;
         }
 
-        public static <I> Future<PagedResponse<I>> forPage(PageRequest pageRequest, List<I> items) {
+        public static <I> PagedResponse<I> forPage(PageRequest pageRequest, Class<I> kind, List<I> items) {
             final int offset = (pageRequest.getPage() - 1) * pageRequest.getSize();
             final int total = items.size();
 
             if (total > 0 && offset >= total) {
-                return Future.failedFuture(new AdminServerException(ErrorType.INVALID_REQUEST, "Requested pagination incorrect. Beginning of list greater than full list size ("
-                        + items.size() + ")"));
+                throw new AdminServerException(ErrorType.INVALID_REQUEST, "Requested pagination incorrect. Beginning of list greater than full list size ("
+                        + items.size() + ")");
             }
 
             final int pageSize = pageRequest.getSize();
             final int pageNumber = pageRequest.getPage();
             final int offsetEnd = Math.min(pageSize * pageNumber, total);
 
-            PagedResponse<I> response = new PagedResponse<>();
+            PagedResponse<I> response = new PagedResponse<>(kind);
             response.setSize(pageSize);
             response.setPage(pageNumber);
             response.setItems(items.subList(offset, offsetEnd));
             response.setTotal(total);
 
-            return Future.succeededFuture(response);
+            return response;
+        }
+
+        PagedResponse(Class<T> kind) {
+            this.kind = kind.getSimpleName() + "List";
+        }
+
+        public String getKind() {
+            return kind;
+        }
+
+        public void setKind(String kind) {
+            this.kind = kind;
         }
 
         public List<T> getItems() {
@@ -972,6 +985,11 @@ public class Types {
 
     @JsonInclude(Include.NON_NULL)
     public static class PagedResponseDeprecated<T> extends PagedResponse<T> {
+
+        PagedResponseDeprecated(Class<T> kind) {
+            super(kind);
+        }
+
         /**
          * @deprecated
          */
@@ -1018,8 +1036,11 @@ public class Types {
         }
     }
 
-    @Schema(description = "A list of consumer groups")
+    @Schema(title = "ConsumerGroup List", description = "A list of consumer groups")
     public static class ConsumerGroupList extends PagedResponseDeprecated<ConsumerGroup> {
+        public ConsumerGroupList() {
+            super(ConsumerGroup.class);
+        }
     }
 
     @Schema(name = "ConsumerGroupOrderKey")
@@ -1071,8 +1092,11 @@ public class Types {
         }
     }
 
-    @Schema(name = "TopicsList", description = "A list of topics.")
+    @Schema(name = "TopicsList", title = "Topic List", description = "A list of topics.")
     public static class TopicList extends PagedResponseDeprecated<Topic> {
+        public TopicList() {
+            super(Topic.class);
+        }
     }
 
     @Schema(name = "TopicOrderKey")
@@ -1107,17 +1131,23 @@ public class Types {
             },
             allOf = PagedResponse.class)
     public static class ConsumerGroupResetOffsetResult extends PagedResponse<TopicPartitionResetResult> {
+        public ConsumerGroupResetOffsetResult() {
+            super(TopicPartitionResetResult.class);
+        }
     }
 
     @Schema(
         name = "AclBindingListPage",
-        title = "ACL Binding List Page",
+        title = "ACL Binding List",
         description = "A page of ACL binding entries",
         properties = {
             @SchemaProperty(name = "items", implementation = AclBinding[].class)
         },
         allOf = PagedResponse.class)
     public static class AclBindingList extends PagedResponse<AclBinding> {
+        public AclBindingList() {
+            super(AclBinding.class);
+        }
     }
 
     @Schema(
@@ -1249,7 +1279,7 @@ public class Types {
         }
     }
 
-    @Schema
+    @Schema(title = "ACL Binding Order Key")
     public enum AclBindingOrderKey {
         RESOURCE_TYPE(AclBinding.PROP_RESOURCE_TYPE),
         RESOURCE_NAME(AclBinding.PROP_RESOURCE_NAME),
@@ -1804,10 +1834,14 @@ public class Types {
         title = "Error List",
         description = "List of errors",
         properties = {
-            @SchemaProperty(name = "total", description = "Total number of error returned in this request")
+            @SchemaProperty(name = "items", implementation = Error[].class),
+            @SchemaProperty(name = "total", description = "Total number of errors returned in this request")
         },
         allOf = PagedResponse.class)
     public static class ErrorList extends PagedResponse<Error> {
+        public ErrorList() {
+            super(Error.class);
+        }
     }
 
     @Schema(
@@ -1822,6 +1856,9 @@ public class Types {
         },
         allOf = PagedResponse.class)
     public static class RecordList extends PagedResponse<Record> {
+        public RecordList() {
+            super(Record.class);
+        }
     }
 
     @Schema(

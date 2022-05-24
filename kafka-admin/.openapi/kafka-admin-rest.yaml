@@ -229,6 +229,126 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Topic'
+  /api/v1/topics/{topicName}/records:
+    get:
+      tags:
+      - records
+      summary: Consume records from a topic
+      description: "Consume a limited number of records from a topic, optionally specifying\
+        \ a partition and an absolute offset or timestamp as the starting point for\
+        \ message retrieval."
+      operationId: consumeRecords
+      parameters:
+      - name: include
+        in: query
+        description: List of properties to include for each record in the response
+        schema:
+          type: array
+          items:
+            $ref: '#/components/schemas/RecordIncludedProperty'
+        explode: false
+      - name: limit
+        in: query
+        description: Limit the number of records fetched and returned
+        schema:
+          format: int32
+          default: "20"
+          minimum: 1
+          type: integer
+      - name: maxValueLength
+        in: query
+        description: "Maximum length of string values returned in the response. Values\
+          \ with a length that exceeds this parameter will be truncated. When this\
+          \ parameter is not included in the request, the full string values will\
+          \ be returned."
+        schema:
+          format: int32
+          minimum: 1
+          type: integer
+      - name: offset
+        in: query
+        description: "Retrieve messages with an offset equal to or greater than this\
+          \ offset. If both `timestamp` and `offset` are requested, `timestamp` is\
+          \ given preference."
+        schema:
+          format: int32
+          minimum: 0
+          type: integer
+      - name: partition
+        in: query
+        description: Retrieve messages only from this partition
+        schema:
+          format: int32
+          type: integer
+      - name: timestamp
+        in: query
+        description: "Retrieve messages with a timestamp equal to or later than this\
+          \ timestamp. If both `timestamp` and `offset` are requested, `timestamp`\
+          \ is given preference."
+        schema:
+          format: date-time
+      - name: topicName
+        in: path
+        description: Topic name
+        required: true
+        schema:
+          type: string
+      responses:
+        "400":
+          $ref: '#/components/responses/BadRequest'
+        "401":
+          $ref: '#/components/responses/NotAuthorized'
+        "403":
+          $ref: '#/components/responses/Forbidden'
+        "500":
+          $ref: '#/components/responses/ServerError'
+        "503":
+          $ref: '#/components/responses/ServiceUnavailable'
+        "200":
+          description: List of records matching the request query parameters.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RecordList'
+    post:
+      tags:
+      - records
+      summary: Send a record to a topic
+      description: Produce (write) a single record to a topic.
+      operationId: produceRecord
+      parameters:
+      - name: topicName
+        in: path
+        description: Topic name
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Record'
+            examples:
+              RecordProduceExample:
+                $ref: '#/components/examples/RecordProduceExample'
+        required: true
+      responses:
+        "400":
+          $ref: '#/components/responses/BadRequest'
+        "401":
+          $ref: '#/components/responses/NotAuthorized'
+        "403":
+          $ref: '#/components/responses/Forbidden'
+        "500":
+          $ref: '#/components/responses/ServerError'
+        "503":
+          $ref: '#/components/responses/ServiceUnavailable'
+        "201":
+          description: Record was successfully sent to the topic
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Record'
   /api/v1/consumer-groups:
     get:
       tags:
@@ -794,6 +914,8 @@ paths:
           $ref: '#/components/responses/NotAuthorized'
         "500":
           $ref: '#/components/responses/ServerError'
+      security:
+      - {}
   /api/v1/errors:
     get:
       tags:
@@ -809,6 +931,8 @@ paths:
                 $ref: '#/components/schemas/ErrorList'
         "500":
           $ref: '#/components/responses/ServerError'
+      security:
+      - {}
   /api/v1/errors/{errorId}:
     get:
       tags:
@@ -833,126 +957,8 @@ paths:
           $ref: '#/components/responses/NotFound'
         "500":
           $ref: '#/components/responses/ServerError'
-  /api/v1/topics/{topicName}/records:
-    get:
-      tags:
-      - records
-      summary: Consume records from a topic
-      description: "Consume a limited number of records from a topic, optionally specifying\
-        \ a partition and an absolute offset or timestamp as the starting point for\
-        \ message retrieval."
-      operationId: consumeRecords
-      parameters:
-      - name: topicName
-        in: path
-        description: Topic name
-        required: true
-        schema:
-          type: string
-      - name: include
-        in: query
-        description: List of properties to include for each record in the response
-        schema:
-          type: array
-          items:
-            $ref: '#/components/schemas/RecordIncludedProperty'
-        explode: false
-      - name: limit
-        in: query
-        description: Limit the number of records fetched and returned
-        schema:
-          format: int32
-          default: "20"
-          minimum: 1
-          type: integer
-      - name: maxValueLength
-        in: query
-        description: "Maximum length of string values returned in the response. Values\
-          \ with a length that exceeds this parameter will be truncated. When this\
-          \ parameter is not included in the request, the full string values will\
-          \ be returned."
-        schema:
-          format: int32
-          minimum: 1
-          type: integer
-      - name: offset
-        in: query
-        description: "Retrieve messages with an offset equal to or greater than this\
-          \ offset. If both `timestamp` and `offset` are requested, `timestamp` is\
-          \ given preference."
-        schema:
-          format: int32
-          minimum: 0
-          type: integer
-      - name: partition
-        in: query
-        description: Retrieve messages only from this partition
-        schema:
-          format: int32
-          type: integer
-      - name: timestamp
-        in: query
-        description: "Retrieve messages with a timestamp equal to or later than this\
-          \ timestamp. If both `timestamp` and `offset` are requested, `timestamp`\
-          \ is given preference."
-        schema:
-          format: date-time
-      responses:
-        "400":
-          $ref: '#/components/responses/BadRequest'
-        "401":
-          $ref: '#/components/responses/NotAuthorized'
-        "403":
-          $ref: '#/components/responses/Forbidden'
-        "500":
-          $ref: '#/components/responses/ServerError'
-        "503":
-          $ref: '#/components/responses/ServiceUnavailable'
-        "200":
-          description: List of records matching the request query parameters.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/RecordList'
-    post:
-      tags:
-      - records
-      summary: Send a record to a topic
-      description: Produce (write) a single record to a topic.
-      operationId: produceRecord
-      parameters:
-      - name: topicName
-        in: path
-        description: Topic name
-        required: true
-        schema:
-          type: string
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/Record'
-            examples:
-              RecordProduceExample:
-                $ref: '#/components/examples/RecordProduceExample'
-        required: true
-      responses:
-        "400":
-          $ref: '#/components/responses/BadRequest'
-        "401":
-          $ref: '#/components/responses/NotAuthorized'
-        "403":
-          $ref: '#/components/responses/Forbidden'
-        "500":
-          $ref: '#/components/responses/ServerError'
-        "503":
-          $ref: '#/components/responses/ServiceUnavailable'
-        "201":
-          description: Record was successfully sent to the topic
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Record'
+      security:
+      - {}
 components:
   schemas:
     AclBinding:
@@ -999,7 +1005,7 @@ components:
         operation: READ
         permission: ALLOW
     AclBindingListPage:
-      title: ACL Binding List Page
+      title: ACL Binding List
       description: A page of ACL binding entries
       type: object
       allOf:
@@ -1010,6 +1016,7 @@ components:
           items:
             $ref: '#/components/schemas/AclBinding'
     AclBindingOrderKey:
+      title: ACL Binding Order Key
       enum:
       - resourceType
       - resourceName
@@ -1200,12 +1207,15 @@ components:
       - partition
       type: string
     ConsumerGroupList:
+      title: ConsumerGroup List
       description: A list of consumer groups
       required:
       - items
       - total
       type: object
       properties:
+        kind:
+          type: string
         items:
           type: array
           items:
@@ -1387,14 +1397,20 @@ components:
       allOf:
       - $ref: '#/components/schemas/List'
       properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Error'
         total:
-          description: Total number of error returned in this request
+          description: Total number of errors returned in this request
     List:
       required:
       - items
       - total
       type: object
       properties:
+        kind:
+          type: string
         items:
           type: array
           items:
@@ -1579,7 +1595,7 @@ components:
       - desc
       type: string
     Topic:
-      title: Root Type for NewTopicInput
+      title: Topic
       description: Kafka Topic (A feed where records are stored and published)
       type: object
       allOf:
@@ -1660,12 +1676,15 @@ components:
         - key: max.message.bytes
           value: "1050000"
     TopicsList:
+      title: Topic List
       description: A list of topics.
       required:
       - items
       - total
       type: object
       properties:
+        kind:
+          type: string
         items:
           type: array
           items:
