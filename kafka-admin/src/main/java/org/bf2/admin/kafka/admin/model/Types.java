@@ -54,10 +54,14 @@ public class Types {
         @JsonIgnore
         String contextPath;
 
+        @Schema(description = "Unique identifier for the object. Not supported for all object kinds.")
         String id;
+
         @NotNull
         @Schema(readOnly = true)
         String kind;
+
+        @Schema(description = "Link path to request the object. Not supported for all object kinds.")
         String href;
 
         public ObjectReference() {
@@ -805,7 +809,7 @@ public class Types {
 
         public ConsumerGroup(String groupId, ConsumerGroupState state, List<Consumer> consumers, ConsumerGroupMetrics metrics) {
             this();
-            this.groupId = groupId;
+            setGroupId(groupId);
             this.state = state;
             this.consumers = consumers;
             this.metrics = metrics;

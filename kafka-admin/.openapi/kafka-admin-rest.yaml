@@ -425,11 +425,15 @@ paths:
               examples:
                 List of consumer groups:
                   value:
+                    kind: ConsumerGroupList
                     count: 1
                     limit: 10
                     offset: 0
                     items:
-                    - groupId: consumer_group_1
+                    - id: consumer_group_1
+                      kind: ConsumerGroup
+                      href: /api/v1/consumer-groups/consumer_group_1
+                      groupId: consumer_group_1
                       consumers:
                       - groupId: consumer_group_1
                         topic: topic-1
@@ -998,6 +1002,7 @@ components:
         permission:
           $ref: '#/components/schemas/AclPermissionType'
       example:
+        kind: AclBinding
         resourceType: TOPIC
         resourceName: '*'
         patternType: LITERAL
@@ -1250,11 +1255,15 @@ components:
           type: integer
           deprecated: true
       example:
+        kind: ConsumerGroupList
         count: 1
         limit: 10
         offset: 0
         items:
-        - groupId: consumer_group_1
+        - id: consumer_group_1
+          kind: ConsumerGroup
+          href: /api/v1/consumer-groups/consumer_group_1
+          groupId: consumer_group_1
           consumers:
           - groupId: consumer_group_1
             topic: topic-1
@@ -1366,12 +1375,16 @@ components:
       type: object
       properties:
         id:
+          description: Unique identifier for the object. Not supported for all object
+            kinds.
           type: string
         kind:
           type: string
           readOnly: true
           nullable: false
         href:
+          description: Link path to request the object. Not supported for all object
+            kinds.
           type: string
         reason:
           description: General reason for the error. Does not change between specific
@@ -1467,12 +1480,16 @@ components:
       type: object
       properties:
         id:
+          description: Unique identifier for the object. Not supported for all object
+            kinds.
           type: string
         kind:
           type: string
           readOnly: true
           nullable: false
         href:
+          description: Link path to request the object. Not supported for all object
+            kinds.
           type: string
     OffsetType:
       enum:
@@ -1617,6 +1634,9 @@ components:
           items:
             $ref: '#/components/schemas/ConfigEntry'
       example:
+        id: my-topic
+        kind: Topic
+        href: /api/v1/topics/my-topic
         name: my-topic
         config:
         - key: min.insync.replicas
@@ -1719,8 +1739,12 @@ components:
           type: integer
           deprecated: true
       example:
+        kind: TopicList
         items:
-        - name: my-topic
+        - id: my-topic
+          kind: Topic
+          href: /api/v1/topics/my-topic
+          name: my-topic
           config:
           - key: min.insync.replicas
             value: "1"
@@ -1828,9 +1852,9 @@ components:
     ConsumerGroupExample:
       description: Sample consumer group with 3 partitions and 3 active consumers
       value:
-        id: null
+        id: consumer_group_1
         kind: ConsumerGroup
-        href: null
+        href: /api/v1/consumer-groups/consumer_group_1
         groupId: consumer_group_1
         state: STABLE
         consumers:
