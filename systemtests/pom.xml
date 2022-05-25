@@ -14,7 +14,6 @@
         <!-- System test image dependencies -->
         <keycloak.image>quay.io/keycloak/keycloak:14.0.0</keycloak.image>
         <strimzi-kafka.tag>quay.io/strimzi/kafka:0.26.0-kafka-3.0.0</strimzi-kafka.tag>
-        <jacoco.skip>true</jacoco.skip>
     </properties>
 
     <build>
