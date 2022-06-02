@@ -230,7 +230,7 @@ public class Types {
 
     @Schema(title = "Topic",
             description = "Kafka Topic (A feed where records are stored and published)",
-            allOf = ObjectReference.class)
+            allOf = { ObjectReference.class, Topic.class })
     public static class Topic extends ObjectReference implements Comparable<Topic> {
         // ID
         @Schema(description = "The name of the topic.")
@@ -788,7 +788,8 @@ public class Types {
         }
     }
 
-    @Schema(description = "A group of Kafka consumers", allOf = ObjectReference.class)
+    @Schema(description = "A group of Kafka consumers",
+            allOf = { ObjectReference.class, ConsumerGroup.class })
     public static class ConsumerGroup extends ObjectReference {
 
         @NotBlank
@@ -988,6 +989,7 @@ public class Types {
     }
 
     @JsonInclude(Include.NON_NULL)
+    @Schema(name = "ListDeprecated", allOf = { PagedResponse.class, PagedResponseDeprecated.class })
     public static class PagedResponseDeprecated<T> extends PagedResponse<T> {
 
         PagedResponseDeprecated(Class<T> kind) {
@@ -1040,7 +1042,13 @@ public class Types {
         }
     }
 
-    @Schema(title = "ConsumerGroup List", description = "A list of consumer groups")
+    @Schema(title = "ConsumerGroup List",
+            description = "A list of consumer groups",
+            properties = {
+                @SchemaProperty(name = "items", implementation = ConsumerGroup[].class)
+            },
+            allOf = { PagedResponseDeprecated.class, ConsumerGroupList.class }
+            )
     public static class ConsumerGroupList extends PagedResponseDeprecated<ConsumerGroup> {
         public ConsumerGroupList() {
             super(ConsumerGroup.class);
@@ -1096,7 +1104,13 @@ public class Types {
         }
     }
 
-    @Schema(name = "TopicsList", title = "Topic List", description = "A list of topics.")
+    @Schema(name = "TopicsList",
+            title = "Topic List",
+            description = "A list of topics.",
+            properties = {
+                @SchemaProperty(name = "items", implementation = Topic[].class)
+            },
+            allOf = { PagedResponseDeprecated.class, TopicList.class })
     public static class TopicList extends PagedResponseDeprecated<Topic> {
         public TopicList() {
             super(Topic.class);
@@ -1133,7 +1147,7 @@ public class Types {
             properties = {
                 @SchemaProperty(name = "items", implementation = TopicPartitionResetResult[].class)
             },
-            allOf = PagedResponse.class)
+            allOf = { PagedResponse.class, ConsumerGroupResetOffsetResult.class })
     public static class ConsumerGroupResetOffsetResult extends PagedResponse<TopicPartitionResetResult> {
         public ConsumerGroupResetOffsetResult() {
             super(TopicPartitionResetResult.class);
@@ -1147,7 +1161,7 @@ public class Types {
         properties = {
             @SchemaProperty(name = "items", implementation = AclBinding[].class)
         },
-        allOf = PagedResponse.class)
+        allOf = { PagedResponse.class, AclBindingList.class })
     public static class AclBindingList extends PagedResponse<AclBinding> {
         public AclBindingList() {
             super(AclBinding.class);
@@ -1570,7 +1584,7 @@ public class Types {
     @Schema(
         title = "ACL Binding",
         description = "Represents a binding between a resource pattern and an access control entry",
-        allOf = ObjectReference.class)
+        allOf = { ObjectReference.class, AclBinding.class })
     @JsonInclude(Include.NON_NULL)
     public static class AclBinding extends ObjectReference {
         public static final String PROP_RESOURCE_TYPE = "resourceType";
@@ -1758,7 +1772,9 @@ public class Types {
     }
 
     @JsonInclude(Include.NON_NULL)
-    @Schema(name = "Error", description = "General error response")
+    @Schema(name = "Error",
+            description = "General error response",
+            allOf = { ObjectReference.class, Error.class })
     public static class Error extends ObjectReference {
 
         @Schema(description = "General reason for the error. Does not change between specific occurrences.")
@@ -1841,7 +1857,7 @@ public class Types {
             @SchemaProperty(name = "items", implementation = Error[].class),
             @SchemaProperty(name = "total", description = "Total number of errors returned in this request")
         },
-        allOf = PagedResponse.class)
+        allOf = { PagedResponse.class, ErrorList.class })
     public static class ErrorList extends PagedResponse<Error> {
         public ErrorList() {
             super(Error.class);
@@ -1858,7 +1874,7 @@ public class Types {
             @SchemaProperty(name = "size", description = "Not used"),
             @SchemaProperty(name = "page", description = "Not used")
         },
-        allOf = PagedResponse.class)
+        allOf = { PagedResponse.class, RecordList.class })
     public static class RecordList extends PagedResponse<Record> {
         public RecordList() {
             super(Record.class);
@@ -1868,7 +1884,7 @@ public class Types {
     @Schema(
         title = "Record",
         description = "An individual record consumed from a topic or produced to a topic",
-        allOf = ObjectReference.class)
+        allOf = { ObjectReference.class, Record.class })
     @JsonInclude(Include.NON_NULL)
     public static class Record extends ObjectReference {
         public static final String PROP_PARTITION = "partition";
