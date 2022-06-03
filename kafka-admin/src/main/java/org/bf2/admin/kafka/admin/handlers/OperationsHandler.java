@@ -387,4 +387,35 @@ public interface OperationsHandler {
     @APIResponse(responseCode = "503", ref = "ServiceUnavailable")
     CompletionStage<Response> deleteAcls(@BeanParam Types.AclBindingFilterParams filterParams);
 
+    @GET
+    @Path("errors")
+    @Produces(MediaType.APPLICATION_JSON)
+    // OpenAPI
+    @Tag(name = "errors")
+    @Operation(operationId = Operations.GET_ERRORS, summary = "Get list of errors")
+    @APIResponse(
+        responseCode = "200",
+        description = "Error listing",
+        content = @Content(
+            schema = @Schema(implementation = Types.ErrorList.class)))
+    @APIResponse(responseCode = "500", ref = "ServerError")
+    Response getErrors();
+
+    @GET
+    @Path("errors/{errorId}")
+    @Produces(MediaType.APPLICATION_JSON)
+    // OpenAPI
+    @Tag(name = "errors")
+    @Operation(operationId = Operations.GET_ERROR, summary = "Get an error by its unique ID")
+    @Parameter(
+        name = "errorId",
+        description = "Error identifier")
+    @APIResponse(
+        responseCode = "200",
+        description = "Error details",
+        content = @Content(
+            schema = @Schema(implementation = Types.Error.class)))
+    @APIResponse(responseCode = "404", ref = "NotFound")
+    @APIResponse(responseCode = "500", ref = "ServerError")
+    Response getError(@PathParam("errorId") String errorId);
 }

@@ -4,6 +4,7 @@ import io.quarkus.test.common.http.TestHTTPResource;
 import io.quarkus.test.junit.QuarkusTest;
 import io.quarkus.test.junit.TestProfile;
 import io.restassured.http.ContentType;
+import org.bf2.admin.kafka.admin.model.ErrorType;
 import org.bf2.admin.kafka.systemtest.TestOAuthProfile;
 import org.bf2.admin.kafka.systemtest.deployment.DeploymentManager.UserType;
 import org.bf2.admin.kafka.systemtest.utils.MetricsUtils;
@@ -24,8 +25,7 @@ import javax.inject.Inject;
 import javax.ws.rs.core.Response.Status;
 
 import static io.restassured.RestAssured.given;
-import static org.hamcrest.Matchers.equalTo;
-import static org.hamcrest.Matchers.notNullValue;
+import static org.bf2.admin.kafka.systemtest.utils.ErrorTypeMatcher.matchesError;
 
 @QuarkusTest
 @TestProfile(TestOAuthProfile.class)
@@ -79,6 +79,7 @@ class RecordEndpointOAuthTestIT {
     void testProduceRecordAsUnauthorizedUser() {
         final String topicName = UUID.randomUUID().toString();
         topicUtils.createTopics(List.of(topicName), 2, Status.CREATED);
+        final ErrorType expectedError = ErrorType.NOT_AUTHORIZED;
 
         given()
             .log().ifValidationFails()
@@ -90,9 +91,8 @@ class RecordEndpointOAuthTestIT {
         .then()
             .log().ifValidationFails()
         .assertThat()
-            .statusCode(Status.FORBIDDEN.getStatusCode())
-            .body("code", equalTo(Status.FORBIDDEN.getStatusCode()))
-            .body("error_message", notNullValue());
+            .statusCode(expectedError.getHttpStatus().getStatusCode())
+            .body("", matchesError(expectedError));
     }
 
     @Test
@@ -115,6 +115,7 @@ class RecordEndpointOAuthTestIT {
     void testConsumeRecordsAsUnauthorizedUser() {
         final String topicName = UUID.randomUUID().toString();
         topicUtils.createTopics(List.of(topicName), 2, Status.CREATED);
+        final ErrorType expectedError = ErrorType.NOT_AUTHORIZED;
 
         given()
             .log().ifValidationFails()
@@ -124,8 +125,7 @@ class RecordEndpointOAuthTestIT {
         .then()
             .log().ifValidationFails()
         .assertThat()
-            .statusCode(Status.FORBIDDEN.getStatusCode())
-            .body("code", equalTo(Status.FORBIDDEN.getStatusCode()))
-            .body("error_message", notNullValue());
+            .statusCode(expectedError.getHttpStatus().getStatusCode())
+            .body("", matchesError(expectedError));
     }
 }

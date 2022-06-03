@@ -11,6 +11,8 @@ import org.bf2.admin.kafka.admin.ConsumerGroupOperations;
 import org.bf2.admin.kafka.admin.KafkaAdminConfigRetriever;
 import org.bf2.admin.kafka.admin.RecordOperations;
 import org.bf2.admin.kafka.admin.TopicOperations;
+import org.bf2.admin.kafka.admin.model.AdminServerException;
+import org.bf2.admin.kafka.admin.model.ErrorType;
 import org.bf2.admin.kafka.admin.model.Types;
 import org.bf2.admin.kafka.admin.model.Types.RecordFilterParams;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
@@ -25,12 +27,14 @@ import javax.ws.rs.core.Response.ResponseBuilder;
 import javax.ws.rs.core.Response.Status;
 import javax.ws.rs.core.UriBuilder;
 
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.function.Function;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 @Path("/api/v1")
 public class RestOperations implements OperationsHandler {
@@ -69,9 +73,8 @@ public class RestOperations implements OperationsHandler {
     @Timed("create_topic_request_time")
     public CompletionStage<Response> createTopic(Types.NewTopic inputTopic) {
         if (!numPartitionsValid(inputTopic.getSettings(), maxPartitions)) {
-            return badRequest(String.format("Number of partitions for topic %s must between 1 and %d (inclusive)",
-                    inputTopic.getName(),
-                    maxPartitions));
+            return CompletableFuture.failedStage(new AdminServerException(ErrorType.INVALID_REQUEST,
+                                                                          String.format("numPartitions must be between 1 and %d (inclusive)", maxPartitions)));
         }
 
         return withAdminClient(client -> topicOperations.createTopic(KafkaAdminClient.create(vertx, client), inputTopic))
@@ -91,9 +94,8 @@ public class RestOperations implements OperationsHandler {
     @Timed("update_topic_request_time")
     public CompletionStage<Response> updateTopic(String topicName, Types.TopicSettings updatedTopic) {
         if (!numPartitionsLessThanEqualToMax(updatedTopic, maxPartitions)) {
-            return badRequest(String.format("Number of partitions for topic %s must between 1 and %d (inclusive)",
-                                            topicName,
-                                            maxPartitions));
+            return CompletableFuture.failedStage(new AdminServerException(ErrorType.INVALID_REQUEST,
+                                                                          String.format("numPartitions must be between 1 and %d (inclusive)", maxPartitions)));
         }
 
         return withAdminClient(client -> topicOperations.updateTopic(KafkaAdminClient.create(vertx, client), topicName, updatedTopic))
@@ -140,6 +142,7 @@ public class RestOperations implements OperationsHandler {
     @Timed("produce_record_request_time")
     public CompletionStage<Response> produceRecord(String topicName, Types.Record input) {
         return threadContext.withContextCapture(recordOperations.produceRecord(topicName, input))
+                .thenApply(Types.Record::updateHref)
                 .thenApply(result -> Response.created(result.buildUri(uriBuilder("consumeRecords"), topicName))
                            .entity(result).build());
     }
@@ -216,6 +219,46 @@ public class RestOperations implements OperationsHandler {
     public CompletionStage<Response> deleteAcls(@BeanParam Types.AclBindingFilterParams filterParams) {
         return withAdminClient(client -> aclOperations.deleteAcls(client, filterParams))
                 .thenApply(aclList -> Response.ok().entity(aclList).build());
+    }
+
+    @Override
+    @Counted("get_errors_requests")
+    @Timed("get_errors_request_time")
+    public Response getErrors() {
+        var errors = Arrays.stream(ErrorType.values())
+                .map(errorType -> {
+                    Types.Error error = Types.Error.forErrorType(errorType);
+                    error.setCode(errorType.getHttpStatus().getStatusCode());
+                    return error;
+                })
+                .collect(Collectors.toList());
+
+        Types.ErrorList errorList = new Types.ErrorList();
+        errorList.setItems(errors);
+        errorList.setPage(1);
+        errorList.setSize(errors.size());
+        errorList.setTotal(errors.size());
+
+        return Response.ok().entity(errorList).build();
+    }
+
+    @Override
+    @Counted("get_error_requests")
+    @Timed("get_error_request_time")
+    public Response getError(String errorId) {
+        var errorEntity = Arrays.stream(ErrorType.values())
+                .filter(err -> err.getId().equals(errorId))
+                .map(errorType -> {
+                    Types.Error error = Types.Error.forErrorType(errorType);
+                    error.setCode(errorType.getHttpStatus().getStatusCode());
+                    return error;
+                })
+                .findFirst()
+                .orElseThrow(() -> {
+                    throw new AdminServerException(ErrorType.ERROR_NOT_FOUND);
+                });
+
+        return Response.ok().entity(errorEntity).build();
     }
 
     private UriBuilder uriBuilder(String methodName) {

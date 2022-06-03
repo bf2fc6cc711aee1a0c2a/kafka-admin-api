@@ -7,11 +7,9 @@ import com.fasterxml.jackson.annotation.JsonInclude.Include;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonValue;
 import com.fasterxml.jackson.databind.JsonNode;
-import io.vertx.core.Future;
 import org.apache.kafka.common.ConsumerGroupState;
 import org.apache.kafka.common.acl.AccessControlEntry;
 import org.apache.kafka.common.acl.AccessControlEntryFilter;
-import org.apache.kafka.common.errors.InvalidRequestException;
 import org.apache.kafka.common.resource.ResourcePattern;
 import org.apache.kafka.common.resource.ResourcePatternFilter;
 import org.eclipse.microprofile.openapi.annotations.enums.Explode;
@@ -51,6 +49,65 @@ import java.util.function.UnaryOperator;
 import java.util.stream.Collectors;
 
 public class Types {
+
+    public static class ObjectReference {
+        @JsonIgnore
+        String contextPath;
+
+        @Schema(description = "Unique identifier for the object. Not supported for all object kinds.")
+        String id;
+
+        @NotNull
+        @Schema(readOnly = true)
+        String kind;
+
+        @Schema(description = "Link path to request the object. Not supported for all object kinds.")
+        String href;
+
+        public ObjectReference() {
+            this.kind = getClass().getSimpleName();
+            setId(null);
+        }
+
+        public ObjectReference(String contextPath) {
+            this();
+            this.contextPath = contextPath;
+        }
+
+        public String getId() {
+            return id;
+        }
+
+        public void setId(String id) {
+            this.id = id;
+
+            if (contextPath != null) {
+                if (id != null) {
+                    this.href = String.format("/api/v1/%s/%s", contextPath, id);
+                } else {
+                    this.href = String.format("/api/v1/%s", contextPath);
+                }
+            } else {
+                this.href = null;
+            }
+        }
+
+        public String getKind() {
+            return kind;
+        }
+
+        public void setKind(String kind) {
+            this.kind = kind;
+        }
+
+        public String getHref() {
+            return href;
+        }
+
+        public void setHref(String href) {
+            this.href = href;
+        }
+    }
 
     @Schema(description = "Identifier for a Kafka server / broker.")
     public static class Node {
@@ -171,8 +228,10 @@ public class Types {
         }
     }
 
-    @Schema(title = "Root Type for NewTopicInput", description = "Kafka Topic (A feed where records are stored and published)")
-    public static class Topic implements Comparable<Topic> {
+    @Schema(title = "Topic",
+            description = "Kafka Topic (A feed where records are stored and published)",
+            allOf = { ObjectReference.class, Topic.class })
+    public static class Topic extends ObjectReference implements Comparable<Topic> {
         // ID
         @Schema(description = "The name of the topic.")
         private String name;
@@ -185,11 +244,16 @@ public class Types {
         @Schema(description = "Topic configuration entry.")
         private List<ConfigEntry> config;
 
+        public Topic() {
+            super("topics");
+        }
+
         public String getName() {
             return name;
         }
 
         public void setName(String name) {
+            super.setId(name);
             this.name = name;
         }
 
@@ -724,8 +788,9 @@ public class Types {
         }
     }
 
-    @Schema(description = "A group of Kafka consumers")
-    public static class ConsumerGroup {
+    @Schema(description = "A group of Kafka consumers",
+            allOf = { ObjectReference.class, ConsumerGroup.class })
+    public static class ConsumerGroup extends ObjectReference {
 
         @NotBlank
         @Schema(description = "Unique identifier for the consumer group")
@@ -740,10 +805,12 @@ public class Types {
         private ConsumerGroupMetrics metrics;
 
         public ConsumerGroup() {
+            super("consumer-groups");
         }
 
         public ConsumerGroup(String groupId, ConsumerGroupState state, List<Consumer> consumers, ConsumerGroupMetrics metrics) {
-            this.groupId = groupId;
+            this();
+            setGroupId(groupId);
             this.state = state;
             this.consumers = consumers;
             this.metrics = metrics;
@@ -754,6 +821,7 @@ public class Types {
         }
 
         public void setGroupId(String groupId) {
+            super.setId(groupId);
             this.groupId = groupId;
         }
 
@@ -822,7 +890,11 @@ public class Types {
     }
 
     @JsonInclude(Include.NON_NULL)
+    @Schema(name = "List")
     public static class PagedResponse<T> {
+
+        private String kind;
+
         @NotNull
         private List<T> items;
 
@@ -836,39 +908,50 @@ public class Types {
         @Schema(description = "Current page number (returned for fetch requests)")
         private Integer page;
 
-        public static <I> Future<PagedResponse<I>> forItems(List<I> items) {
+        public static <I> PagedResponse<I> forItems(Class<I> kind, List<I> items) {
             PageRequest allResults = new PageRequest();
             allResults.setPage(1);
             allResults.setSize(items.size());
 
-            return forPage(allResults, items).map(response -> {
-                // Remove paging information when returning a full result set
-                response.setPage(null);
-                response.setSize(null);
-                return response;
-            });
+            PagedResponse<I> response = forPage(allResults, kind, items);
+            // Remove paging information when returning a full result set
+            response.setPage(null);
+            response.setSize(null);
+            return response;
         }
 
-        public static <I> Future<PagedResponse<I>> forPage(PageRequest pageRequest, List<I> items) {
+        public static <I> PagedResponse<I> forPage(PageRequest pageRequest, Class<I> kind, List<I> items) {
             final int offset = (pageRequest.getPage() - 1) * pageRequest.getSize();
             final int total = items.size();
 
             if (total > 0 && offset >= total) {
-                return Future.failedFuture(new InvalidRequestException("Requested pagination incorrect. Beginning of list greater than full list size ("
-                        + items.size() + ")"));
+                throw new AdminServerException(ErrorType.INVALID_REQUEST, "Requested pagination incorrect. Beginning of list greater than full list size ("
+                        + items.size() + ")");
             }
 
             final int pageSize = pageRequest.getSize();
             final int pageNumber = pageRequest.getPage();
             final int offsetEnd = Math.min(pageSize * pageNumber, total);
 
-            PagedResponse<I> response = new PagedResponse<>();
+            PagedResponse<I> response = new PagedResponse<>(kind);
             response.setSize(pageSize);
             response.setPage(pageNumber);
             response.setItems(items.subList(offset, offsetEnd));
             response.setTotal(total);
 
-            return Future.succeededFuture(response);
+            return response;
+        }
+
+        PagedResponse(Class<T> kind) {
+            this.kind = kind.getSimpleName() + "List";
+        }
+
+        public String getKind() {
+            return kind;
+        }
+
+        public void setKind(String kind) {
+            this.kind = kind;
         }
 
         public List<T> getItems() {
@@ -906,7 +989,13 @@ public class Types {
     }
 
     @JsonInclude(Include.NON_NULL)
+    @Schema(name = "ListDeprecated", allOf = { PagedResponse.class, PagedResponseDeprecated.class })
     public static class PagedResponseDeprecated<T> extends PagedResponse<T> {
+
+        PagedResponseDeprecated(Class<T> kind) {
+            super(kind);
+        }
+
         /**
          * @deprecated
          */
@@ -953,8 +1042,17 @@ public class Types {
         }
     }
 
-    @Schema(description = "A list of consumer groups")
+    @Schema(title = "ConsumerGroup List",
+            description = "A list of consumer groups",
+            properties = {
+                @SchemaProperty(name = "items", implementation = ConsumerGroup[].class)
+            },
+            allOf = { PagedResponseDeprecated.class, ConsumerGroupList.class }
+            )
     public static class ConsumerGroupList extends PagedResponseDeprecated<ConsumerGroup> {
+        public ConsumerGroupList() {
+            super(ConsumerGroup.class);
+        }
     }
 
     @Schema(name = "ConsumerGroupOrderKey")
@@ -1006,8 +1104,17 @@ public class Types {
         }
     }
 
-    @Schema(name = "TopicsList", description = "A list of topics.")
+    @Schema(name = "TopicsList",
+            title = "Topic List",
+            description = "A list of topics.",
+            properties = {
+                @SchemaProperty(name = "items", implementation = Topic[].class)
+            },
+            allOf = { PagedResponseDeprecated.class, TopicList.class })
     public static class TopicList extends PagedResponseDeprecated<Topic> {
+        public TopicList() {
+            super(Topic.class);
+        }
     }
 
     @Schema(name = "TopicOrderKey")
@@ -1036,15 +1143,29 @@ public class Types {
         }
     }
 
-    @Schema(title = "Root Type for ConsumerGroupResetOffsetResult")
+    @Schema(title = "Root Type for ConsumerGroupResetOffsetResult",
+            properties = {
+                @SchemaProperty(name = "items", implementation = TopicPartitionResetResult[].class)
+            },
+            allOf = { PagedResponse.class, ConsumerGroupResetOffsetResult.class })
     public static class ConsumerGroupResetOffsetResult extends PagedResponse<TopicPartitionResetResult> {
+        public ConsumerGroupResetOffsetResult() {
+            super(TopicPartitionResetResult.class);
+        }
     }
 
     @Schema(
         name = "AclBindingListPage",
-        title = "ACL Binding List Page",
-        description = "A page of ACL binding entries")
+        title = "ACL Binding List",
+        description = "A page of ACL binding entries",
+        properties = {
+            @SchemaProperty(name = "items", implementation = AclBinding[].class)
+        },
+        allOf = { PagedResponse.class, AclBindingList.class })
     public static class AclBindingList extends PagedResponse<AclBinding> {
+        public AclBindingList() {
+            super(AclBinding.class);
+        }
     }
 
     @Schema(
@@ -1176,7 +1297,7 @@ public class Types {
         }
     }
 
-    @Schema
+    @Schema(title = "ACL Binding Order Key")
     public enum AclBindingOrderKey {
         RESOURCE_TYPE(AclBinding.PROP_RESOURCE_TYPE),
         RESOURCE_NAME(AclBinding.PROP_RESOURCE_NAME),
@@ -1462,8 +1583,10 @@ public class Types {
 
     @Schema(
         title = "ACL Binding",
-        description = "Represents a binding between a resource pattern and an access control entry")
-    public static class AclBinding {
+        description = "Represents a binding between a resource pattern and an access control entry",
+        allOf = { ObjectReference.class, AclBinding.class })
+    @JsonInclude(Include.NON_NULL)
+    public static class AclBinding extends ObjectReference {
         public static final String PROP_RESOURCE_TYPE = "resourceType";
         public static final String PROP_RESOURCE_NAME = "resourceName";
         public static final String PROP_PATTERN_TYPE = "patternType";
@@ -1579,6 +1702,10 @@ public class Types {
             return map(permission, org.apache.kafka.common.acl.AclPermissionType::fromString);
         }
 
+        public AclBinding() {
+            super("acls");
+        }
+
         public AclResourceType getResourceType() {
             return resourceType;
         }
@@ -1645,14 +1772,34 @@ public class Types {
     }
 
     @JsonInclude(Include.NON_NULL)
-    @Schema(name = "Error", description = "General error response")
-    public static class Error {
+    @Schema(name = "Error",
+            description = "General error response",
+            allOf = { ObjectReference.class, Error.class })
+    public static class Error extends ObjectReference {
+
+        @Schema(description = "General reason for the error. Does not change between specific occurrences.")
+        String reason;
+
+        @Schema(description = "Detail specific to an error occurrence. May be different depending on the condition(s) that trigger the error.")
+        String detail;
+
         int code;
+
         @JsonProperty("error_message")
+        @Deprecated(forRemoval = true)
         String errorMessage;
+
         @JsonProperty("class")
-        @Schema(deprecated = true)
+        @Deprecated(forRemoval = true)
         String className;
+
+        public static Error forErrorType(ErrorType type) {
+            Types.Error err = new Types.Error();
+            err.setId(type.getId());
+            err.setHref(String.format("/api/v1/errors/%s", type.getId()));
+            err.setReason(type.getReason());
+            return err;
+        }
 
         public Error(int code, String errorMessage) {
             this.code = code;
@@ -1686,25 +1833,60 @@ public class Types {
             this.className = className;
         }
 
+        public String getReason() {
+            return reason;
+        }
+
+        public void setReason(String reason) {
+            this.reason = reason;
+        }
+
+        public String getDetail() {
+            return detail;
+        }
+
+        public void setDetail(String detail) {
+            this.detail = detail;
+        }
+    }
+
+    @Schema(
+        title = "Error List",
+        description = "List of errors",
+        properties = {
+            @SchemaProperty(name = "items", implementation = Error[].class),
+            @SchemaProperty(name = "total", description = "Total number of errors returned in this request")
+        },
+        allOf = { PagedResponse.class, ErrorList.class })
+    public static class ErrorList extends PagedResponse<Error> {
+        public ErrorList() {
+            super(Error.class);
+        }
     }
 
     @Schema(
         title = "Record List",
         description = "A page of records consumed from a topic",
         properties = {
+            @SchemaProperty(name = "items", implementation = Record[].class),
             @SchemaProperty(name = "total", description = "Total number of records returned in this request. This value does not indicate the total number of records in the topic."),
             // Scanner should hide these due to `hidden = true`
             @SchemaProperty(name = "size", description = "Not used"),
             @SchemaProperty(name = "page", description = "Not used")
-        })
+        },
+        allOf = { PagedResponse.class, RecordList.class })
     public static class RecordList extends PagedResponse<Record> {
+        public RecordList() {
+            super(Record.class);
+        }
     }
 
     @Schema(
         title = "Record",
-        description = "An individual record consumed from a topic or produced to a topic")
+        description = "An individual record consumed from a topic or produced to a topic",
+        allOf = { ObjectReference.class, Record.class })
     @JsonInclude(Include.NON_NULL)
-    public static class Record {
+    public static class Record extends ObjectReference {
         public static final String PROP_PARTITION = "partition";
         public static final String PROP_OFFSET = "offset";
         public static final String PROP_TIMESTAMP = "timestamp";
@@ -1712,6 +1894,9 @@ public class Types {
         public static final String PROP_HEADERS = "headers";
         public static final String PROP_KEY = "key";
         public static final String PROP_VALUE = "value";
+
+        @JsonIgnore
+        String topic;
 
         @Schema(description = "The record's partition within the topic")
         Integer partition;
@@ -1736,10 +1921,16 @@ public class Types {
         String value;
 
         public Record() {
+            super();
         }
 
-        public Record(Integer partition, String timestamp, Map<String, String> headers, String key, String value) {
-            super();
+        public Record(String topic) {
+            super("topics/" + topic + "/records");
+            this.topic = topic;
+        }
+
+        public Record(String topic, Integer partition, String timestamp, Map<String, String> headers, String key, String value) {
+            this(topic);
             this.partition = partition;
             this.timestamp = timestamp;
             this.headers = headers;
@@ -1752,6 +1943,15 @@ public class Types {
             builder.queryParam(PROP_PARTITION, partition);
             builder.queryParam(PROP_OFFSET, offset);
             return builder.build(topicName);
+        }
+
+        public Record updateHref() {
+            if (partition != null && offset != null) {
+                setHref(String.format("/api/v1/%s?partition=%d&offset=%d", super.contextPath, partition, offset));
+            } else {
+                setHref(null);
+            }
+            return this;
         }
 
         @AssertTrue(message = "invalid timestamp")

@@ -3,6 +3,7 @@ package org.bf2.admin.kafka.systemtest.plain;
 import io.quarkus.test.junit.QuarkusTest;
 import io.quarkus.test.junit.TestProfile;
 import io.restassured.http.ContentType;
+import org.bf2.admin.kafka.admin.model.ErrorType;
 import org.bf2.admin.kafka.systemtest.TestPlainProfile;
 import org.bf2.admin.kafka.systemtest.deployment.KafkaUnsecuredResourceManager;
 import org.bf2.admin.kafka.systemtest.utils.TopicUtils;
@@ -25,11 +26,11 @@ import javax.inject.Inject;
 import javax.ws.rs.core.Response.Status;
 
 import static io.restassured.RestAssured.given;
+import static org.bf2.admin.kafka.systemtest.utils.ErrorTypeMatcher.matchesError;
 import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.equalTo;
-import static org.hamcrest.Matchers.notNullValue;
 
 @QuarkusTest
 @TestProfile(TestPlainProfile.class)
@@ -147,13 +148,17 @@ class RestEndpointTestIT {
     }
 
     @ParameterizedTest
-    @ValueSource(ints = { 3, -1 })
-    void testTopicListWithInvalidPagination(int page) throws Exception {
+    @CsvSource({
+        " 3, Requested pagination incorrect. Beginning of list greater than full list size (5)",
+        "-1, page must be greater than 0"
+    })
+    void testTopicListWithInvalidPagination(int page, String detail) throws Exception {
         int pageSize = 3;
         List<String> topicNames = IntStream.range(0, 5)
                 .mapToObj(i -> UUID.randomUUID().toString())
                 .sorted() // API sorts by name by default
                 .collect(Collectors.toList());
+        final ErrorType expectedError = ErrorType.INVALID_REQUEST;
 
         topicUtils.createTopics(topicNames, 1, Status.CREATED);
 
@@ -165,10 +170,9 @@ class RestEndpointTestIT {
             .get(TopicUtils.TOPIC_COLLECTION_PATH)
         .then()
             .log().ifValidationFails()
-            .statusCode(Status.BAD_REQUEST.getStatusCode())
         .assertThat()
-            .body("code", equalTo(Status.BAD_REQUEST.getStatusCode()))
-            .body("error_message", notNullValue());
+            .statusCode(expectedError.getHttpStatus().getStatusCode())
+            .body("", matchesError(expectedError, detail));
     }
 
     @ParameterizedTest
@@ -291,8 +295,15 @@ class RestEndpointTestIT {
     }
 
     @ParameterizedTest
-    @ValueSource(ints = { -1, 0, 1, 3, 50 })
-    void testTopicListWithPage(int page) throws Exception {
+    @CsvSource({
+        "-1, 'page must be greater than 0'",
+        " 0, 'page must be greater than 0'",
+        " 1, ",
+        " 3, 'Requested pagination incorrect. Beginning of list greater than full list size (3)'",
+        "50, 'Requested pagination incorrect. Beginning of list greater than full list size (3)'"
+    })
+
+    void testTopicListWithPage(int page, String errorDetail) throws Exception {
         int totalTopics = 3;
         List<String> topicNames = IntStream.range(0, totalTopics)
                 .mapToObj(i -> UUID.randomUUID().toString())
@@ -310,16 +321,14 @@ class RestEndpointTestIT {
             .then()
                 .log().ifValidationFails();
 
-        if (page != 1) {
-            response
-                .statusCode(Status.BAD_REQUEST.getStatusCode())
-            .assertThat()
-                .body("code", equalTo(Status.BAD_REQUEST.getStatusCode()))
-                .body("error_message", notNullValue());
+        if (errorDetail != null) {
+            ErrorType expectedError = ErrorType.INVALID_REQUEST;
+            response.assertThat()
+                .statusCode(expectedError.getHttpStatus().getStatusCode())
+                .body("", matchesError(expectedError, errorDetail));
         } else {
-            response
+            response.assertThat()
                 .statusCode(Status.OK.getStatusCode())
-            .assertThat()
                 .body("page", equalTo(page))
                 .body("size", equalTo(10)) // default
                 .body("total", equalTo(totalTopics))
@@ -417,10 +426,12 @@ class RestEndpointTestIT {
     @ParameterizedTest
     @ValueSource(strings = {
         "{./as}",
-        "{ \"name\": \"name_ok\", \"numPartitions\": \"not_a_number\" }",
+        "{ \"name\": \"name_ok\", \"settings\": { \"numPartitions\": \"not_a_number\" } }",
         "{{ \"name\": \"name_ok\", \"numPartitions\": 1 }", // extra opening brace
     })
     void testCreateTopicWithInvalidJson(String invalidJson) throws InterruptedException {
+        ErrorType expectedError = ErrorType.INVALID_REQUEST_FORMAT;
+
         given()
             .body(invalidJson)
             .contentType(ContentType.JSON)
@@ -429,16 +440,17 @@ class RestEndpointTestIT {
             .post(TopicUtils.TOPIC_COLLECTION_PATH)
         .then()
             .log().ifValidationFails()
-            .statusCode(Status.BAD_REQUEST.getStatusCode())
         .assertThat()
-            .body("code", equalTo(Status.BAD_REQUEST.getStatusCode()))
-            .body("error_message", notNullValue());
+            .statusCode(expectedError.getHttpStatus().getStatusCode())
+            .body("", matchesError(expectedError));
 
         topicUtils.assertNoTopicsExist();
     }
 
     @Test
     void testCreateTopicWithInvalidName() {
+        ErrorType expectedError = ErrorType.TOPIC_PARTITION_INVALID;
+
         given()
             .body(TopicUtils.buildNewTopicRequest("testTopic3_9-=", 3, Collections.emptyMap()).toString())
             .contentType(ContentType.JSON)
@@ -447,16 +459,17 @@ class RestEndpointTestIT {
             .post(TopicUtils.TOPIC_COLLECTION_PATH)
         .then()
             .log().ifValidationFails()
-            .statusCode(Status.BAD_REQUEST.getStatusCode())
         .assertThat()
-            .body("code", equalTo(Status.BAD_REQUEST.getStatusCode()))
-            .body("error_message", notNullValue());
+            .statusCode(expectedError.getHttpStatus().getStatusCode())
+            .body("", matchesError(expectedError));
 
         topicUtils.assertNoTopicsExist();
     }
 
     @Test
     void testCreateFaultTopic() {
+        ErrorType expectedError = ErrorType.INVALID_CONFIGURATION;
+
         given()
             // Invalid value for configuration cleanup.policy: String must be one of: compact, delete
             .body(TopicUtils.buildNewTopicRequest(UUID.randomUUID().toString(), 3, Map.of("cleanup.policy", "true")).toString())
@@ -466,10 +479,9 @@ class RestEndpointTestIT {
             .post(TopicUtils.TOPIC_COLLECTION_PATH)
         .then()
             .log().ifValidationFails()
-            .statusCode(Status.BAD_REQUEST.getStatusCode())
         .assertThat()
-            .body("code", equalTo(Status.BAD_REQUEST.getStatusCode()))
-            .body("error_message", notNullValue());
+            .statusCode(expectedError.getHttpStatus().getStatusCode())
+            .body("", matchesError(expectedError, "Invalid value true for configuration cleanup.policy: String must be one of: compact, delete"));
 
         topicUtils.assertNoTopicsExist();
     }
@@ -479,6 +491,7 @@ class RestEndpointTestIT {
         final String topicName = UUID.randomUUID().toString();
         final int numPartitions = 2;
         topicUtils.createTopics(List.of(topicName), numPartitions, Status.CREATED);
+        final ErrorType expectedError = ErrorType.TOPIC_DUPLICATED;
 
         given()
             .body(TopicUtils.buildNewTopicRequest(topicName, 1, Collections.emptyMap()).toString())
@@ -488,16 +501,20 @@ class RestEndpointTestIT {
             .post(TopicUtils.TOPIC_COLLECTION_PATH)
         .then()
             .log().ifValidationFails()
-            .statusCode(Status.CONFLICT.getStatusCode())
         .assertThat()
-            .body("code", equalTo(Status.CONFLICT.getStatusCode()))
-            .body("error_message", notNullValue());
+            .statusCode(expectedError.getHttpStatus().getStatusCode())
+            .body("", matchesError(expectedError));
     }
 
     @ParameterizedTest
-    @ValueSource(ints = { -1, 0, KafkaUnsecuredResourceManager.EXCESSIVE_PARTITIONS })
-    void testCreateTopicWithInvalidNumPartitions(int numPartitions) throws InterruptedException {
+    @CsvSource({
+        "-1, 'numPartitions must be greater than 0'",
+        " 0, 'numPartitions must be greater than 0'",
+        KafkaUnsecuredResourceManager.EXCESSIVE_PARTITIONS + ", 'numPartitions must be between 1 and 100 (inclusive)'"
+    })
+    void testCreateTopicWithInvalidNumPartitions(int numPartitions, String errorDetail) throws InterruptedException {
         final String topicName = UUID.randomUUID().toString();
+        final ErrorType expectedError = ErrorType.INVALID_REQUEST;
 
         given()
             .body(TopicUtils.buildNewTopicRequest(topicName, numPartitions, Collections.emptyMap()).toString())
@@ -507,10 +524,9 @@ class RestEndpointTestIT {
             .post(TopicUtils.TOPIC_COLLECTION_PATH)
         .then()
             .log().ifValidationFails()
-            .statusCode(Status.BAD_REQUEST.getStatusCode())
         .assertThat()
-            .body("code", equalTo(Status.BAD_REQUEST.getStatusCode()))
-            .body("error_message", notNullValue());
+            .statusCode(expectedError.getHttpStatus().getStatusCode())
+            .body("", matchesError(expectedError, errorDetail));
 
         topicUtils.assertNoTopicsExist();
     }
@@ -551,16 +567,17 @@ class RestEndpointTestIT {
 
     @Test
     void testTopicDeleteNotExisting() {
+        final ErrorType expectedError = ErrorType.TOPIC_NOT_FOUND;
+
         given()
             .log().ifValidationFails()
         .when()
             .delete(TopicUtils.TOPIC_PATH, "nosuchtopic-" + UUID.randomUUID().toString())
         .then()
             .log().ifValidationFails()
-            .statusCode(Status.NOT_FOUND.getStatusCode())
         .assertThat()
-            .body("code", equalTo(Status.NOT_FOUND.getStatusCode()))
-            .body("error_message", notNullValue());
+            .statusCode(expectedError.getHttpStatus().getStatusCode())
+            .body("", matchesError(expectedError));
 
         topicUtils.assertNoTopicsExist();
     }
@@ -647,6 +664,7 @@ class RestEndpointTestIT {
         final String topicName = UUID.randomUUID().toString();
         final int originalNumPartitions = 3;
         final int updatedNumPartitions = 2;
+        final ErrorType expectedError = ErrorType.TOPIC_PARTITION_INVALID;
 
         topicUtils.createTopics(List.of(topicName), originalNumPartitions, Status.CREATED);
 
@@ -658,10 +676,9 @@ class RestEndpointTestIT {
             .patch(TopicUtils.TOPIC_PATH, topicName)
         .then()
             .log().ifValidationFails()
-            .statusCode(Status.BAD_REQUEST.getStatusCode())
         .assertThat()
-            .body("code", equalTo(Status.BAD_REQUEST.getStatusCode()))
-            .body("error_message", notNullValue());
+            .statusCode(expectedError.getHttpStatus().getStatusCode())
+            .body("", matchesError(expectedError, "Topic currently has 3 partitions, which is higher than the requested 2."));
     }
 
     @Test

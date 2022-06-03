@@ -5,20 +5,17 @@ import io.quarkus.test.junit.TestProfile;
 import io.restassured.http.ContentType;
 import org.apache.kafka.common.serialization.ByteArraySerializer;
 import org.bf2.admin.kafka.admin.RecordOperations;
+import org.bf2.admin.kafka.admin.model.ErrorType;
 import org.bf2.admin.kafka.systemtest.TestPlainProfile;
 import org.bf2.admin.kafka.systemtest.utils.ConsumerUtils;
 import org.bf2.admin.kafka.systemtest.utils.RecordUtils;
 import org.bf2.admin.kafka.systemtest.utils.TopicUtils;
 import org.eclipse.microprofile.config.Config;
-import org.hamcrest.Matchers;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.ValueSource;
-
-import javax.inject.Inject;
-import javax.ws.rs.core.Response.Status;
 
 import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
@@ -30,7 +27,13 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
+import javax.inject.Inject;
+import javax.ws.rs.core.Response.Status;
+
 import static io.restassured.RestAssured.given;
+import static org.bf2.admin.kafka.systemtest.utils.ErrorTypeMatcher.matchesError;
+import static org.hamcrest.Matchers.aMapWithSize;
+import static org.hamcrest.Matchers.allOf;
 import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.everyItem;
@@ -88,6 +91,7 @@ class RecordEndpointTestIT {
     void testProduceRecordToInvalidTopic() {
         final String topicName = UUID.randomUUID().toString();
         ZonedDateTime timestamp = ZonedDateTime.now(ZoneOffset.UTC).minusDays(10).withNano(0);
+        final ErrorType expected = ErrorType.TOPIC_NOT_FOUND;
 
         given()
             .log().ifValidationFails()
@@ -97,9 +101,8 @@ class RecordEndpointTestIT {
             .post(RecordUtils.RECORDS_PATH, topicName)
         .then()
             .log().ifValidationFails()
-            .statusCode(Status.NOT_FOUND.getStatusCode())
-            .body("code", equalTo(Status.NOT_FOUND.getStatusCode()))
-            .body("error_message", equalTo("No such topic: " + topicName));
+            .statusCode(expected.getHttpStatus().getStatusCode())
+            .body("", matchesError(expected));
     }
 
     @Test
@@ -107,6 +110,7 @@ class RecordEndpointTestIT {
         final String topicName = UUID.randomUUID().toString();
         topicUtils.createTopics(List.of(topicName), 1, Status.CREATED);
         ZonedDateTime timestamp = ZonedDateTime.now(ZoneOffset.UTC).minusDays(10).withNano(0);
+        final ErrorType expected = ErrorType.TOPIC_PARTITION_INVALID;
 
         given()
             .log().ifValidationFails()
@@ -116,14 +120,15 @@ class RecordEndpointTestIT {
             .post(RecordUtils.RECORDS_PATH, topicName)
         .then()
             .log().ifValidationFails()
-            .statusCode(Status.BAD_REQUEST.getStatusCode())
-            .body("code", equalTo(Status.BAD_REQUEST.getStatusCode()))
-            .body("error_message", equalTo(String.format("No such partition for topic %s: %d", topicName, 1)));
+        .assertThat()
+            .statusCode(expected.getHttpStatus().getStatusCode())
+            .body("", matchesError(expected, "No such partition for topic " + topicName + ": 1"));
     }
 
     @Test
     void testConsumeRecordFromInvalidTopic() {
         final String topicName = UUID.randomUUID().toString();
+        final ErrorType expected = ErrorType.TOPIC_NOT_FOUND;
 
         given()
             .log().ifValidationFails()
@@ -131,15 +136,15 @@ class RecordEndpointTestIT {
             .get(RecordUtils.RECORDS_PATH, topicName)
         .then()
             .log().ifValidationFails()
-            .statusCode(Status.NOT_FOUND.getStatusCode())
-            .body("code", equalTo(Status.NOT_FOUND.getStatusCode()))
-            .body("error_message", equalTo("No such topic: " + topicName));
+            .statusCode(expected.getHttpStatus().getStatusCode())
+            .body("", matchesError(expected));
     }
 
     @Test
     void testConsumeRecordFromInvalidPartition() {
         final String topicName = UUID.randomUUID().toString();
         topicUtils.createTopics(List.of(topicName), 2, Status.CREATED);
+        final ErrorType expected = ErrorType.TOPIC_PARTITION_INVALID;
 
         given()
             .log().ifValidationFails()
@@ -148,9 +153,8 @@ class RecordEndpointTestIT {
             .get(RecordUtils.RECORDS_PATH, topicName)
         .then()
             .log().ifValidationFails()
-            .statusCode(Status.BAD_REQUEST.getStatusCode())
-            .body("code", equalTo(Status.BAD_REQUEST.getStatusCode()))
-            .body("error_message", equalTo(String.format("No such partition for topic %s: %d", topicName, -1)));
+            .statusCode(expected.getHttpStatus().getStatusCode())
+            .body("", matchesError(expected, "No such partition for topic " + topicName + ": -1"));
     }
 
     @ParameterizedTest
@@ -158,6 +162,7 @@ class RecordEndpointTestIT {
     void testConsumeRecordWithInvalidLimit(int limit) {
         final String topicName = UUID.randomUUID().toString();
         topicUtils.createTopics(List.of(topicName), 2, Status.CREATED);
+        final ErrorType expected = ErrorType.INVALID_REQUEST;
 
         given()
             .log().ifValidationFails()
@@ -166,9 +171,8 @@ class RecordEndpointTestIT {
             .get(RecordUtils.RECORDS_PATH, topicName)
         .then()
             .log().ifValidationFails()
-            .statusCode(Status.BAD_REQUEST.getStatusCode())
-            .body("code", equalTo(Status.BAD_REQUEST.getStatusCode()))
-            .body("error_message", equalTo("limit must be greater than 0"));
+            .statusCode(expected.getHttpStatus().getStatusCode())
+            .body("", matchesError(expected, "limit must be greater than 0"));
     }
 
     @ParameterizedTest
@@ -277,7 +281,7 @@ class RecordEndpointTestIT {
             .statusCode(Status.OK.getStatusCode())
             .body("total", equalTo(3))
             .body("items", hasSize(3))
-            .body("items", everyItem(Matchers.aMapWithSize(1)))
+            .body("items", everyItem(allOf(aMapWithSize(2), hasEntry("kind", "Record"))))
             .body("items.headers", everyItem(hasKey("h1")));
     }
 
@@ -299,7 +303,7 @@ class RecordEndpointTestIT {
             .statusCode(Status.OK.getStatusCode())
             .body("total", equalTo(1))
             .body("items", hasSize(1))
-            .body("items", everyItem(Matchers.aMapWithSize(1)))
+            .body("items", everyItem(allOf(aMapWithSize(2), hasEntry("kind", "Record"))))
             .body("items[0].headers", hasEntry(equalTo("h1"), nullValue()));
     }
 
@@ -321,7 +325,7 @@ class RecordEndpointTestIT {
             .statusCode(Status.OK.getStatusCode())
             .body("total", equalTo(1))
             .body("items", hasSize(1))
-            .body("items", everyItem(Matchers.aMapWithSize(1)))
+            .body("items", everyItem(allOf(aMapWithSize(2), hasEntry("kind", "Record"))))
             .body("items[0].headers", hasEntry(equalTo("h1"), equalTo("")));
     }
 

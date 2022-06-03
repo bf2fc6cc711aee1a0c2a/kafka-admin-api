@@ -11,6 +11,7 @@ import org.apache.kafka.common.resource.PatternType;
 import org.apache.kafka.common.resource.ResourceType;
 import org.bf2.admin.kafka.admin.AccessControlOperations;
 import org.bf2.admin.kafka.admin.KafkaAdminConfigRetriever;
+import org.bf2.admin.kafka.admin.model.ErrorType;
 import org.bf2.admin.kafka.admin.model.Types;
 import org.bf2.admin.kafka.systemtest.TestOAuthProfile;
 import org.bf2.admin.kafka.systemtest.deployment.DeploymentManager.UserType;
@@ -43,11 +44,12 @@ import javax.json.JsonObjectBuilder;
 import javax.json.JsonString;
 import javax.json.JsonValue.ValueType;
 import javax.ws.rs.core.Response.Status;
+import javax.ws.rs.core.Response.StatusType;
 
 import static io.restassured.RestAssured.given;
+import static org.bf2.admin.kafka.systemtest.utils.ErrorTypeMatcher.matchesError;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.hasSize;
-import static org.hamcrest.Matchers.notNullValue;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
@@ -89,12 +91,12 @@ class AccessControlListIT {
 
     @ParameterizedTest
     @CsvSource({
-        "OWNER,   OK,           OK",
-        "USER,    FORBIDDEN,    OK",
-        "OTHER,   FORBIDDEN,    FORBIDDEN", // OTHER user always restricted from cluster (per Keycloak RBAC)
-        "INVALID, UNAUTHORIZED, UNAUTHORIZED"
+        "OWNER,   OK          ,               , OK          , ",
+        "USER,    FORBIDDEN   , NOT_AUTHORIZED, OK          , ",
+        "OTHER,   FORBIDDEN   , NOT_AUTHORIZED, FORBIDDEN   , NOT_AUTHORIZED", // OTHER user always restricted from cluster (per Keycloak RBAC)
+        "INVALID, UNAUTHORIZED,               , UNAUTHORIZED, "
     })
-    void testGetAclsByUserTypeWithGrant(UserType userType, Status beforeStatus, Status afterStatus) {
+    void testGetAclsByUserTypeWithGrant(UserType userType, Status beforeStatus, ErrorType beforeError, Status afterStatus, ErrorType afterError) {
         JsonObject newBinding = aclBinding(ResourceType.CLUSTER,
                                     "kafka-cluster",
                                     PatternType.LITERAL,
@@ -113,8 +115,7 @@ class AccessControlListIT {
              */
             beforeResponse.header("content-length", equalTo("0"));
         } else {
-            beforeResponse.body("code", equalTo(beforeStatus.getStatusCode()))
-                .body("error_message", notNullValue());
+            beforeResponse.body("", matchesError(beforeError));
         }
 
         createAcl(UserType.OWNER, newBinding.toString()); // Grant allow describe on cluster to USER
@@ -131,8 +132,7 @@ class AccessControlListIT {
              */
             afterResponse.header("content-length", equalTo("0"));
         } else {
-            afterResponse.body("code", equalTo(afterStatus.getStatusCode()))
-                .body("error_message", notNullValue());
+            beforeResponse.body("", matchesError(afterError));
         }
     }
 
@@ -145,9 +145,10 @@ class AccessControlListIT {
                                            AclOperation.ALL,
                                            AclPermissionType.ALLOW);
 
-        createAcl(UserType.OWNER, newBinding.toString(), Status.BAD_REQUEST)
-            .body("code", equalTo(400))
-            .body("error_message", equalTo(AccessControlOperations.INVALID_ACL_RESOURCE_OPERATION));
+        final ErrorType expectedError = ErrorType.INVALID_ACL_RESOURCE_OP;
+
+        createAcl(UserType.OWNER, newBinding.toString(), expectedError.getHttpStatus())
+            .body("", matchesError(expectedError));
     }
 
     @Test
@@ -352,6 +353,15 @@ class AccessControlListIT {
                         List<JsonObject> responseValues = responseBody.getJsonArray("items")
                             .stream()
                             .map(JsonObject.class::cast)
+                            .map(obj ->
+                                Json.createObjectBuilder()
+                                    .add(Types.AclBinding.PROP_PERMISSION, obj.get(Types.AclBinding.PROP_PERMISSION))
+                                    .add(Types.AclBinding.PROP_RESOURCE_TYPE, obj.get(Types.AclBinding.PROP_RESOURCE_TYPE))
+                                    .add(Types.AclBinding.PROP_PATTERN_TYPE, obj.get(Types.AclBinding.PROP_PATTERN_TYPE))
+                                    .add(Types.AclBinding.PROP_OPERATION, obj.get(Types.AclBinding.PROP_OPERATION))
+                                    .add(Types.AclBinding.PROP_PRINCIPAL, obj.get(Types.AclBinding.PROP_PRINCIPAL))
+                                    .add(Types.AclBinding.PROP_RESOURCE_NAME, obj.get(Types.AclBinding.PROP_RESOURCE_NAME))
+                                    .build())
                             .collect(Collectors.toList());
 
                         assertEquals(expectedValues, responseValues, "Unexpected response order");
@@ -365,7 +375,7 @@ class AccessControlListIT {
 
     // Utilities
 
-    ValidatableResponse getAcls(UserType userType, Map<String, String> filters, Status expectedStatus) {
+    ValidatableResponse getAcls(UserType userType, Map<String, String> filters, StatusType expectedStatus) {
         return aclRequest(Method.GET, filters, userType, null, expectedStatus);
     }
 
@@ -373,7 +383,7 @@ class AccessControlListIT {
         return getAcls(userType, filters, Status.OK);
     }
 
-    ValidatableResponse createAcl(UserType userType, String newBinding, Status expectedStatus) {
+    ValidatableResponse createAcl(UserType userType, String newBinding, StatusType expectedStatus) {
         return aclRequest(Method.POST, Map.of(), userType, newBinding, expectedStatus);
     }
 
@@ -393,7 +403,7 @@ class AccessControlListIT {
                                   Map<String, String> filters,
                                   UserType userType,
                                   String body,
-                                  Status expectedStatus) {
+                                  StatusType expectedStatus) {
 
         var request = given()
                 .header(tokenUtils.authorizationHeader(userType.getUsername()));
@@ -427,6 +437,7 @@ class AccessControlListIT {
                 .add(Types.AclBinding.PROP_PRINCIPAL, principal)
                 .add(Types.AclBinding.PROP_OPERATION, operation.name())
                 .add(Types.AclBinding.PROP_PERMISSION, permission.name())
+                .add("kind", "AclBinding")
                 .build();
     }
 

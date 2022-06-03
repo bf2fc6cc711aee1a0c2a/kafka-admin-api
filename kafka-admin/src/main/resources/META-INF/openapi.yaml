@@ -25,6 +25,8 @@ tags:
     description: Access Control Management (ACLs)
   - name: records
     description: Send and receive records interactively
+  - name: errors
+    description: Error Type Retrieval
 paths:
   /api/v1/topics:
     get:
@@ -39,6 +41,17 @@ paths:
         - { in: query, schema: {}, name: orderKey }
 
   /api/v1/topics/{topicName}: {}
+
+  /api/v1/topics/{topicName}/records:
+    get:
+      # Parameters listed to establish a fixed order (support stability for downstream generated code)
+      parameters:
+        - { in: query, schema: {}, name: include }
+        - { in: query, schema: {}, name: limit }
+        - { in: query, schema: {}, name: maxValueLength }
+        - { in: query, schema: {}, name: offset }
+        - { in: query, schema: {}, name: partition }
+        - { in: query, schema: {}, name: timestamp }
 
   /api/v1/consumer-groups:
     get:
@@ -60,11 +73,15 @@ paths:
               examples:
                 List of consumer groups:
                   value:
+                    kind: ConsumerGroupList
                     count: 1
                     limit: 10
                     offset: 0
                     items:
-                      - groupId: consumer_group_1
+                      - id: consumer_group_1
+                        kind: ConsumerGroup
+                        href: "/api/v1/consumer-groups/consumer_group_1"
+                        groupId: consumer_group_1
                         consumers:
                           - groupId: consumer_group_1
                             topic: topic-1
@@ -126,6 +143,7 @@ paths:
 
   /api/v1/acls/resource-operations:
     get:
+      security: [ { } ]
       responses:
         "200":
           description: ""
@@ -151,10 +169,19 @@ paths:
                   summary: No configuration of ACL bindings is allowed
                   value: '{}'
 
+  /api/v1/errors:
+    get:
+      security: [{}]
+
+  /api/v1/errors/{errorId}:
+    get:
+      security: [{}]
+
 components:
   schemas:
     AclBinding:
       example:
+        kind: AclBinding
         resourceType: TOPIC
         resourceName: '*'
         patternType: LITERAL
@@ -163,6 +190,9 @@ components:
         permission: ALLOW
     Topic:
       example:
+        id: my-topic
+        kind: Topic
+        href: "/api/v1/topics/my-topic"
         name: my-topic
         config:
           - key: min.insync.replicas
@@ -205,8 +235,12 @@ components:
         value: '1'
     TopicsList:
       example:
+        kind: TopicList
         items:
-          - name: my-topic
+          - id: my-topic
+            kind: Topic
+            href: "/api/v1/topics/my-topic"
+            name: my-topic
             config:
               - key: min.insync.replicas
                 value: '1'
@@ -263,11 +297,15 @@ components:
         logEndOffset: 5
     ConsumerGroupList:
       example:
+        kind: ConsumerGroupList
         count: 1
         limit: 10
         offset: 0
         items:
-          - groupId: consumer_group_1
+          - id: consumer_group_1
+            kind: ConsumerGroup
+            href: "/api/v1/consumer-groups/consumer_group_1"
+            groupId: consumer_group_1
             consumers:
               - groupId: consumer_group_1
                 topic: topic-1
