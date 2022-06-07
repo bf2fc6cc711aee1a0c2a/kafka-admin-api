@@ -39,6 +39,9 @@
         <maven.checkstyle.version>3.1.2</maven.checkstyle.version>
         <spotbugs.version>4.0.3</spotbugs.version>
         <surefire-plugin.version>3.0.0-M5</surefire-plugin.version>
+        <sonar.coverage.jacoco.xmlReportPaths>
+            ${project.basedir}/kafka-admin/target/site/jacoco/jacoco.xml
+        </sonar.coverage.jacoco.xmlReportPaths>
     </properties>
 
     <scm>
@@ -161,48 +164,6 @@
                                 <ignoredDependency>org.bouncycastle:bcprov-jdk15on</ignoredDependency>
                                 <ignoredDependency>com.jayway.jsonpath:json-path</ignoredDependency>
                             </ignoredDependencies>
-                        </configuration>
-                    </execution>
-                </executions>
-            </plugin>
-            <plugin>
-                <groupId>org.jacoco</groupId>
-                <artifactId>jacoco-maven-plugin</artifactId>
-                <version>0.8.8</version>
-                <executions>
-                    <execution>
-                        <id>prepare-agent</id>
-                        <goals>
-                            <goal>prepare-agent</goal>
-                        </goals>
-                    </execution>
-                    <execution>
-                        <id>default-report</id>
-                        <goals>
-                            <goal>report</goal>
-                        </goals>
-                    </execution>
-                    <execution>
-                        <id>jacoco-check</id>
-                        <goals>
-                            <goal>check</goal>
-                        </goals>
-                        <configuration>
-                            <excludes>
-                                <exclude>**/systemtest/**</exclude>
-                            </excludes>
-                            <rules>
-                                <rule>
-                                    <element>PACKAGE</element>
-                                    <limits>
-                                        <limit>
-                                            <counter>LINE</counter>
-                                            <value>COVEREDRATIO</value>
-                                            <minimum>0.01</minimum>
-                                        </limit>
-                                    </limits>
-                                </rule>
-                            </rules>
                         </configuration>
                     </execution>
                 </executions>
