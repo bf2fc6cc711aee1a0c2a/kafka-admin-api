@@ -40,7 +40,6 @@ jobs:
           name: artifacts
           path: systemtests/target/failsafe-reports/
   quality:
-    needs: [ integration ]
     if: github.event_name == 'push'
     runs-on: ubuntu-latest
     name: quality
