@@ -69,7 +69,6 @@ class LoggingConfigWatcherTest {
         assertTrue(watcher.overriddenLoggers.isEmpty(), () -> "overriddenLoggers not empty: " + watcher.overriddenLoggers);
         assertEquals(originalLevelValue, context.getLogger(logger).getLevel());
     }
-
     @ParameterizedTest
     @CsvSource({
         "'',        quarkus.log.level",
@@ -86,7 +85,7 @@ class LoggingConfigWatcherTest {
 
             // Trigger a modification event
             writeString(override, String.format("%s=%s\nignored=anything\n", property, "DEBUG"));
-            return ws.poll(5, TimeUnit.SECONDS);
+            return ws.poll(15, TimeUnit.SECONDS);
         });
 
         assertTrue(dirExists);

@@ -40,6 +40,10 @@
         <maven.checkstyle.version>3.1.2</maven.checkstyle.version>
         <spotbugs.version>4.0.3</spotbugs.version>
         <surefire-plugin.version>3.0.0-M5</surefire-plugin.version>
+        <sonar.coverage.jacoco.xmlReportPaths>
+            ${project.basedir}/kafka-admin/target/site/jacoco/jacoco.xml,
+            ${project.basedir}/systemtests/target/site/jacoco/jacoco.xml
+        </sonar.coverage.jacoco.xmlReportPaths>
     </properties>
 
     <scm>
