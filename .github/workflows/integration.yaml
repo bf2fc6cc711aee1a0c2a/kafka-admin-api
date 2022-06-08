@@ -39,3 +39,35 @@ jobs:
         with:
           name: artifacts
           path: systemtests/target/failsafe-reports/
+  quality:
+    needs: [ integration ]
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    name: quality
+
+    steps:
+      - uses: actions/checkout@v2
+      - run: |
+          git fetch --prune --unshallow --tags --force
+      - uses: actions/setup-java@v1.4.3
+        with:
+          java-version: 11
+
+      - name: cache sonar
+        uses: actions/cache@v1
+        with:
+          path: ~/.sonar/cache
+          key: ${{ runner.os }}-sonar
+          restore-keys: ${{ runner.os }}-sonar
+
+      - name: maven cache
+        uses: actions/cache@v1
+        with:
+          path: ~/.m2
+          key: ${{ runner.os }}-m2-${{ hashFiles('**/pom.xml') }}
+          restore-keys: ${{ runner.os }}-m2
+
+      - name: sonar
+        env:
+          SONAR_TOKEN: ${{secrets.SONAR_TOKEN}}
+        run: mvn -B verify --file pom.xml sonar:sonar -Dsonar.projectKey=biswas-sri-kafka-admin-api -Dsonar.login=$SONAR_TOKEN
