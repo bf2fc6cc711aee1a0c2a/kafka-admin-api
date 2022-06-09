@@ -31,7 +31,7 @@ jobs:
 
       - name: "Integration tests"
         run: |
-          mvn verify -B --no-transfer-progress sonar:sonar -Dsonar.projectKey=biswas-sri-kafka-admin-api -Dsonar.login=$SONAR_TOKEN
+          mvn verify -B --no-transfer-progress sonar:sonar -Pcoverage -Dsonar.projectKey=biswas-sri-kafka-admin-api -Dsonar.login=$SONAR_TOKEN
 
       - name: Archive results
         uses: actions/upload-artifact@v2
