@@ -228,8 +228,7 @@ public class Types {
         }
     }
 
-    @Schema(title = "Topic",
-            description = "Kafka Topic (A feed where records are stored and published)",
+    @Schema(description = "Kafka Topic (A feed where records are stored and published)",
             allOf = { ObjectReference.class, Topic.class })
     public static class Topic extends ObjectReference implements Comparable<Topic> {
         // ID
@@ -289,7 +288,6 @@ public class Types {
 
     @Schema(
         name = "TopicSettings",
-        title = "Topic Settings",
         description = "The settings that are applicable to this topic. This includes partitions, configuration information, and number of replicas.")
     public static class TopicSettings {
 
@@ -363,7 +361,7 @@ public class Types {
         }
     }
 
-    @Schema(title = "Root Type for TopicsToResetOffset")
+    @Schema
     public static class TopicsToResetOffset {
         @NotNull
         private String topic;
@@ -456,7 +454,7 @@ public class Types {
         }
     }
 
-    @Schema(name = "ConsumerGroupResetOffsetParameters", title = "Root Type for ConsumerGroupResetOffsetParameters")
+    @Schema(name = "ConsumerGroupResetOffsetParameters")
     public static class ConsumerGroupOffsetResetParameters {
 
         @Schema(name = "OffsetType")
@@ -1042,8 +1040,7 @@ public class Types {
         }
     }
 
-    @Schema(title = "ConsumerGroup List",
-            description = "A list of consumer groups",
+    @Schema(description = "A list of consumer groups",
             properties = {
                 @SchemaProperty(name = "items", implementation = ConsumerGroup[].class)
             },
@@ -1105,7 +1102,6 @@ public class Types {
     }
 
     @Schema(name = "TopicsList",
-            title = "Topic List",
             description = "A list of topics.",
             properties = {
                 @SchemaProperty(name = "items", implementation = Topic[].class)
@@ -1143,11 +1139,11 @@ public class Types {
         }
     }
 
-    @Schema(title = "Root Type for ConsumerGroupResetOffsetResult",
-            properties = {
-                @SchemaProperty(name = "items", implementation = TopicPartitionResetResult[].class)
-            },
-            allOf = { PagedResponse.class, ConsumerGroupResetOffsetResult.class })
+    @Schema(
+        properties = {
+            @SchemaProperty(name = "items", implementation = TopicPartitionResetResult[].class)
+        },
+        allOf = { PagedResponse.class, ConsumerGroupResetOffsetResult.class })
     public static class ConsumerGroupResetOffsetResult extends PagedResponse<TopicPartitionResetResult> {
         public ConsumerGroupResetOffsetResult() {
             super(TopicPartitionResetResult.class);
@@ -1156,7 +1152,6 @@ public class Types {
 
     @Schema(
         name = "AclBindingListPage",
-        title = "ACL Binding List",
         description = "A page of ACL binding entries",
         properties = {
             @SchemaProperty(name = "items", implementation = AclBinding[].class)
@@ -1297,7 +1292,7 @@ public class Types {
         }
     }
 
-    @Schema(title = "ACL Binding Order Key")
+    @Schema
     public enum AclBindingOrderKey {
         RESOURCE_TYPE(AclBinding.PROP_RESOURCE_TYPE),
         RESOURCE_NAME(AclBinding.PROP_RESOURCE_NAME),
@@ -1325,7 +1320,7 @@ public class Types {
         }
     }
 
-    @Schema(title = "ACL Resource Type", nullable = false)
+    @Schema
     public enum AclResourceType {
         GROUP,
         TOPIC,
@@ -1333,7 +1328,7 @@ public class Types {
         TRANSACTIONAL_ID
     }
 
-    @Schema(title = "ACL Resource Type Filter")
+    @Schema
     public enum AclResourceTypeFilter {
         ANY,
         GROUP,
@@ -1342,13 +1337,13 @@ public class Types {
         TRANSACTIONAL_ID
     }
 
-    @Schema(title = "ACL Pattern Type", nullable = false)
+    @Schema
     public enum AclPatternType {
         LITERAL,
         PREFIXED
     }
 
-    @Schema(title = "ACL Pattern Type Filter", description = "Use value 'MATCH' to perform pattern matching.")
+    @Schema(description = "Use value 'MATCH' to perform pattern matching.")
     public enum AclPatternTypeFilter {
         LITERAL,
         PREFIXED,
@@ -1356,7 +1351,7 @@ public class Types {
         MATCH
     }
 
-    @Schema(title = "ACL Operation", nullable = false)
+    @Schema
     public enum AclOperation {
         ALL,
         READ,
@@ -1369,7 +1364,7 @@ public class Types {
         ALTER_CONFIGS
     }
 
-    @Schema(title = "ACL Operation Filter")
+    @Schema
     public enum AclOperationFilter {
         ALL,
         READ,
@@ -1383,13 +1378,13 @@ public class Types {
         ANY
     }
 
-    @Schema(title = "ACL Permission Type", nullable = false)
+    @Schema
     public enum AclPermissionType {
         ALLOW,
         DENY
     }
 
-    @Schema(title = "ACL Permission Type Filter")
+    @Schema
     public enum AclPermissionTypeFilter {
         ALLOW,
         DENY,
@@ -1582,7 +1577,6 @@ public class Types {
     }
 
     @Schema(
-        title = "ACL Binding",
         description = "Represents a binding between a resource pattern and an access control entry",
         allOf = { ObjectReference.class, AclBinding.class })
     @JsonInclude(Include.NON_NULL)
@@ -1606,7 +1600,6 @@ public class Types {
         @NotBlank
         @Pattern(regexp = "^User:(\\*|[a-zA-Z0-9_@.-]+)$")
         @Schema(
-            title = "ACL Principal",
             description = "Identifies the user or service account to which an ACL entry is bound. "
                     + "The literal prefix value of `User:` is required. "
                     + "May be used to specify all users with value `User:*`.",
@@ -1851,11 +1844,10 @@ public class Types {
     }
 
     @Schema(
-        title = "Error List",
         description = "List of errors",
         properties = {
             @SchemaProperty(name = "items", implementation = Error[].class),
-            @SchemaProperty(name = "total", description = "Total number of errors returned in this request")
+            @SchemaProperty(name = "total", implementation = Integer.class, description = "Total number of errors returned in this request")
         },
         allOf = { PagedResponse.class, ErrorList.class })
     public static class ErrorList extends PagedResponse<Error> {
@@ -1865,14 +1857,13 @@ public class Types {
     }
 
     @Schema(
-        title = "Record List",
         description = "A page of records consumed from a topic",
         properties = {
             @SchemaProperty(name = "items", implementation = Record[].class),
-            @SchemaProperty(name = "total", description = "Total number of records returned in this request. This value does not indicate the total number of records in the topic."),
+            @SchemaProperty(name = "total", implementation = Integer.class, description = "Total number of records returned in this request. This value does not indicate the total number of records in the topic."),
             // Scanner should hide these due to `hidden = true`
-            @SchemaProperty(name = "size", description = "Not used"),
-            @SchemaProperty(name = "page", description = "Not used")
+            @SchemaProperty(name = "size", implementation = Integer.class, description = "Not used"),
+            @SchemaProperty(name = "page", implementation = Integer.class, description = "Not used")
         },
         allOf = { PagedResponse.class, RecordList.class })
     public static class RecordList extends PagedResponse<Record> {
@@ -1882,7 +1873,6 @@ public class Types {
     }
 
     @Schema(
-        title = "Record",
         description = "An individual record consumed from a topic or produced to a topic",
         allOf = { ObjectReference.class, Record.class })
     @JsonInclude(Include.NON_NULL)
