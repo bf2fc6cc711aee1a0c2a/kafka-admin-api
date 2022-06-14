@@ -57,7 +57,6 @@ public class Types {
         @Schema(description = "Unique identifier for the object. Not supported for all object kinds.")
         String id;
 
-        @NotNull
         @Schema(readOnly = true)
         String kind;
 
