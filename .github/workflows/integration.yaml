@@ -21,6 +21,13 @@ jobs:
       - name: setup-docker
         uses: docker-practice/actions-setup-docker@v1
 
+      - name: Cache Sonar
+          uses: actions/cache@v1
+          with:
+            path: ~/.sonar/cache
+            key: ${{ runner.os }}-sonar
+            restore-keys: ${{ runner.os }}-sonar
+
       - name: Cache m2 repo
         uses: actions/cache@v1
         with:
@@ -30,8 +37,13 @@ jobs:
             ${{ runner.os }}-maven-
 
       - name: "Integration tests"
+        env:
+          GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
+          SONAR_ORG: ${{secrets.SONAR_ORG}}
+          SONAR_PROJECT: ${{secrets.SONAR_PROJECT}}
+          SONAR_TOKEN: ${{secrets.SONAR_TOKEN}}
         run: |
-          mvn verify -B --no-transfer-progress sonar:sonar -Pcoverage -Dsonar.organization=test-bf2-sonar -Dsonar.projectKey=biswassri_kafka-admin-api -Dsonar.login=$SONAR_TOKEN
+          mvn verify -B --no-transfer-progress org.sonarsource.scanner.maven:sonar-maven-plugin:sonar -Pcoverage -Dsonar.organization=${SONAR_ORG} -Dsonar.projectKey=${SONAR_PROJECT} -Dsonar.login=${SONAR_TOKEN}
 
       - name: Archive results
         uses: actions/upload-artifact@v2
