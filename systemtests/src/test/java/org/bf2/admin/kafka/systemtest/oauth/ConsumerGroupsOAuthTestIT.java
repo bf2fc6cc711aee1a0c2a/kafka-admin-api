@@ -2,6 +2,7 @@ package org.bf2.admin.kafka.systemtest.oauth;
 
 import io.quarkus.test.junit.QuarkusTest;
 import io.quarkus.test.junit.TestProfile;
+import org.bf2.admin.kafka.admin.model.ErrorType;
 import org.bf2.admin.kafka.systemtest.TestOAuthProfile;
 import org.bf2.admin.kafka.systemtest.deployment.DeploymentManager.UserType;
 import org.bf2.admin.kafka.systemtest.utils.ConsumerUtils;
@@ -25,11 +26,11 @@ import javax.ws.rs.core.HttpHeaders;
 import javax.ws.rs.core.Response.Status;
 
 import static io.restassured.RestAssured.given;
+import static org.bf2.admin.kafka.systemtest.utils.ErrorTypeMatcher.matchesError;
 import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.equalToIgnoringCase;
 import static org.hamcrest.Matchers.hasSize;
-import static org.hamcrest.Matchers.notNullValue;
 import static org.hamcrest.Matchers.startsWith;
 
 @QuarkusTest
@@ -199,6 +200,7 @@ class ConsumerGroupsOAuthTestIT {
         String groupId = "g1" + batchId;
         String clientId = "c1" + batchId;
         int numPartitions = 2;
+        final ErrorType expectedError = ErrorType.NOT_AUTHORIZED;
 
         try (var consumer = groupUtils.request()
                 .groupId(groupId)
@@ -214,11 +216,9 @@ class ConsumerGroupsOAuthTestIT {
                 .get(CONSUMER_GROUP_PATH, groupId)
             .then()
                 .log().ifValidationFails()
-                // User not authorized to view the group, therefore the list is empty
-                .statusCode(Status.FORBIDDEN.getStatusCode())
             .assertThat()
-                .body("code", equalTo(Status.FORBIDDEN.getStatusCode()))
-                .body("error_message", notNullValue());
+                .statusCode(expectedError.getHttpStatus().getStatusCode())
+                .body("", matchesError(expectedError));
         }
     }
 
@@ -325,6 +325,8 @@ class ConsumerGroupsOAuthTestIT {
             })
             .collect(Collectors.toList());
 
+        final ErrorType expectedError = ErrorType.NOT_AUTHORIZED;
+
         given()
             .log().ifValidationFails()
             .header(tokenUtils.authorizationHeader(UserType.OTHER.getUsername()))
@@ -332,10 +334,9 @@ class ConsumerGroupsOAuthTestIT {
             .delete(CONSUMER_GROUP_PATH, groupIds.get(0))
         .then()
             .log().ifValidationFails()
-            .statusCode(Status.FORBIDDEN.getStatusCode())
         .assertThat()
-            .body("code", equalTo(Status.FORBIDDEN.getStatusCode()))
-            .body("error_message", notNullValue());
+            .statusCode(expectedError.getHttpStatus().getStatusCode())
+            .body("", matchesError(expectedError));
 
         given()
             .queryParam("group-id-filter", prefix + "-g-")

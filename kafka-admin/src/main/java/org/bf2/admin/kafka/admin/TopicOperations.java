@@ -9,8 +9,9 @@ import io.vertx.kafka.admin.NewPartitions;
 import io.vertx.kafka.admin.NewTopic;
 import io.vertx.kafka.admin.TopicDescription;
 import io.vertx.kafka.client.common.ConfigResource;
-import org.apache.kafka.common.errors.InvalidRequestException;
-import org.bf2.admin.kafka.admin.handlers.CommonHandler;
+import org.bf2.admin.kafka.admin.model.AdminServerException;
+import org.bf2.admin.kafka.admin.model.ErrorType;
+import org.bf2.admin.kafka.admin.model.TopicComparator;
 import org.bf2.admin.kafka.admin.model.Types;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 
@@ -24,7 +25,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletionStage;
+import java.util.function.Predicate;
+import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.regex.PatternSyntaxException;
 import java.util.stream.Collectors;
 
 @ApplicationScoped
@@ -124,7 +128,7 @@ public class TopicOperations {
         describeTopicsNamesPromise.future()
             .compose(topics -> {
                 List<String> filteredList = topics.stream()
-                        .filter(topicName -> CommonHandler.byName(pattern, prom).test(topicName))
+                        .filter(topicName -> byName(pattern, prom).test(topicName))
                         .collect(Collectors.toList());
                 ac.describeTopics(filteredList, describeTopicsPromise);
                 return describeTopicsPromise.future();
@@ -147,9 +151,9 @@ public class TopicOperations {
                 });
 
                 if (Types.SortDirectionEnum.DESC.equals(orderByInput.getOrder())) {
-                    fullTopicDescriptions.sort(new CommonHandler.TopicComparator(orderByInput.getField()).reversed());
+                    fullTopicDescriptions.sort(new TopicComparator(orderByInput.getField()).reversed());
                 } else {
-                    fullTopicDescriptions.sort(new CommonHandler.TopicComparator(orderByInput.getField()));
+                    fullTopicDescriptions.sort(new TopicComparator(orderByInput.getField()));
                 }
 
 
@@ -158,7 +162,7 @@ public class TopicOperations {
                 if (pageRequest.isDeprecatedFormat()) {
                     // deprecated
                     if (pageRequest.getOffset() > fullTopicDescriptions.size()) {
-                        return Future.failedFuture(new InvalidRequestException("Offset (" + pageRequest.getOffset() + ") cannot be greater than topic list size (" + fullTopicDescriptions.size() + ")"));
+                        return Future.failedFuture(new AdminServerException(ErrorType.INVALID_REQUEST, "Offset (" + pageRequest.getOffset() + ") cannot be greater than topic list size (" + fullTopicDescriptions.size() + ")"));
                     }
                     int tmpLimit = pageRequest.getLimit();
                     if (tmpLimit == 0) {
@@ -170,7 +174,7 @@ public class TopicOperations {
                     topicList.setCount(croppedList.size());
                 } else {
                     if (fullTopicDescriptions.size() > 0 && (pageRequest.getPage() - 1) * pageRequest.getSize() >= fullTopicDescriptions.size()) {
-                        return Future.failedFuture(new InvalidRequestException("Requested pagination incorrect. Beginning of list greater than full list size (" + fullTopicDescriptions.size() + ")"));
+                        return Future.failedFuture(new AdminServerException(ErrorType.INVALID_REQUEST, "Requested pagination incorrect. Beginning of list greater than full list size (" + fullTopicDescriptions.size() + ")"));
                     }
                     croppedList = fullTopicDescriptions.subList((pageRequest.getPage() - 1) * pageRequest.getSize(), Math.min(pageRequest.getPage() * pageRequest.getSize(), fullTopicDescriptions.size()));
                     topicList.setPage(pageRequest.getPage());
@@ -191,6 +195,22 @@ public class TopicOperations {
             });
 
         return prom.future().toCompletionStage();
+    }
+
+    static Predicate<String> byName(Pattern pattern, Promise<?> prom) {
+        return topic -> {
+            if (pattern == null) {
+                return true;
+            } else {
+                try {
+                    Matcher matcher = pattern.matcher(topic);
+                    return matcher.find();
+                } catch (PatternSyntaxException ex) {
+                    prom.fail(ex);
+                    return false;
+                }
+            }
+        };
     }
 
     public CompletionStage<List<String>> deleteTopics(KafkaAdminClient ac, List<String> topicsToDelete) {

@@ -13,13 +13,13 @@ import io.vertx.kafka.client.common.TopicPartition;
 import io.vertx.kafka.client.consumer.OffsetAndMetadata;
 import org.apache.kafka.common.ConsumerGroupState;
 import org.apache.kafka.common.errors.GroupIdNotFoundException;
-import org.apache.kafka.common.errors.InvalidRequestException;
 import org.apache.kafka.common.errors.UnknownTopicOrPartitionException;
-import org.bf2.admin.kafka.admin.handlers.CommonHandler;
+import org.bf2.admin.kafka.admin.model.AdminServerException;
+import org.bf2.admin.kafka.admin.model.ConsumerGroupComparator;
+import org.bf2.admin.kafka.admin.model.ErrorType;
 import org.bf2.admin.kafka.admin.model.Types;
 import org.bf2.admin.kafka.admin.model.Types.ConsumerGroupOffsetResetParameters.OffsetType;
 import org.bf2.admin.kafka.admin.model.Types.PagedResponse;
-import org.bf2.admin.kafka.admin.model.Types.PagedResponseDeprecated;
 import org.bf2.admin.kafka.admin.model.Types.TopicPartitionResetResult;
 import org.jboss.logging.Logger;
 
@@ -68,13 +68,13 @@ public class ConsumerGroupOperations {
             .compose(groupDescriptions -> fetchDescriptions(ac, groupDescriptions, topicPattern, -1, BLANK_ORDER))
             .map(groupDescriptions -> groupDescriptions
                  .sorted(Types.SortDirectionEnum.DESC.equals(orderByInput.getOrder()) ?
-                     new CommonHandler.ConsumerGroupComparator(orderByInput.getField()).reversed() :
-                         new CommonHandler.ConsumerGroupComparator(orderByInput.getField()))
+                     new ConsumerGroupComparator(orderByInput.getField()).reversed() :
+                         new ConsumerGroupComparator(orderByInput.getField()))
                  .collect(Collectors.<Types.ConsumerGroup>toList()))
-            .compose(list -> {
+            .map(list -> {
                 if (pageRequest.isDeprecatedFormat()) {
                     if (pageRequest.getOffset() > list.size()) {
-                        return Future.failedFuture(new InvalidRequestException("Offset (" + pageRequest.getOffset() + ") cannot be greater than consumer group list size (" + list.size() + ")"));
+                        throw new AdminServerException(ErrorType.INVALID_REQUEST, "Offset (" + pageRequest.getOffset() + ") cannot be greater than consumer group list size (" + list.size() + ")");
                     }
 
                     int tmpLimit = pageRequest.getLimit();
@@ -82,7 +82,7 @@ public class ConsumerGroupOperations {
                         tmpLimit = list.size();
                     }
 
-                    var response = new PagedResponseDeprecated<Types.ConsumerGroup>();
+                    var response = new Types.ConsumerGroupList();
                     response.setLimit(pageRequest.getLimit());
                     response.setOffset(pageRequest.getOffset());
 
@@ -90,10 +90,10 @@ public class ConsumerGroupOperations {
                     response.setCount(croppedList.size());
                     response.setItems(croppedList);
 
-                    return Future.succeededFuture(response);
+                    return response;
                 }
 
-                return PagedResponse.forPage(pageRequest, list);
+                return PagedResponse.forPage(pageRequest, Types.ConsumerGroup.class, list);
             })
             .onComplete(finalRes -> {
                 if (finalRes.failed()) {
@@ -131,7 +131,7 @@ public class ConsumerGroupOperations {
                 break;
             default:
                 if (parameters.getValue() == null) {
-                    throw new InvalidRequestException("Value has to be set when " + parameters.getOffset().getValue() + " offset is used.");
+                    throw new AdminServerException(ErrorType.INVALID_REQUEST, "value is required when " + parameters.getOffset().getValue() + " offset is used.");
                 }
         }
 
@@ -155,7 +155,7 @@ public class ConsumerGroupOperations {
                     .onFailure(promise::fail);
         } else {
             parameters.getTopics().forEach(paramPartition -> {
-                Promise promise = Promise.promise();
+                Promise<Void> promise = Promise.promise();
                 promises.add(promise.future());
                 if (paramPartition.getPartitions() == null || paramPartition.getPartitions().isEmpty()) {
                     ac.describeTopics(Collections.singletonList(paramPartition.getTopic())).compose(topicsDesc -> {
@@ -202,7 +202,7 @@ public class ConsumerGroupOperations {
                         try {
                             offsetSpec = OffsetSpec.TIMESTAMP(ZonedDateTime.parse(parameters.getValue(), DATE_TIME_FORMATTER).toInstant().toEpochMilli());
                         } catch (DateTimeParseException e) {
-                            throw new InvalidRequestException("Timestamp must be in format 'yyyy-MM-dd'T'HH:mm:ssz'" + e.getMessage());
+                            throw new AdminServerException(ErrorType.INVALID_REQUEST, "Timestamp must be in format 'yyyy-MM-dd'T'HH:mm:ssz'" + e.getMessage());
                         }
                         break;
                     case ABSOLUTE:
@@ -210,7 +210,7 @@ public class ConsumerGroupOperations {
                         offsetSpec = OffsetSpec.LATEST;
                         break;
                     default:
-                        throw new InvalidRequestException("Offset can be 'absolute', 'latest', 'earliest' or 'timestamp' only");
+                        throw new AdminServerException(ErrorType.INVALID_REQUEST, "Offset can be 'absolute', 'latest', 'earliest' or 'timestamp' only");
                 }
 
                 partitionsToFetchOffset.put(topicPartition, offsetSpec);
@@ -250,7 +250,7 @@ public class ConsumerGroupOperations {
                     return;
                 }
                 if (list.result().isEmpty()) {
-                    promise.fail(new InvalidRequestException("Consumer Group " + parameters.getGroupId() + " does not consume any topics/partitions"));
+                    promise.fail(new AdminServerException(ErrorType.INVALID_REQUEST, "Consumer Group " + parameters.getGroupId() + " does not consume any topics/partitions"));
                     return;
                 }
                 promise.complete(newOffsets.entrySet().stream().collect(Collectors.toMap(
@@ -290,9 +290,7 @@ public class ConsumerGroupOperations {
                         })
                         .collect(Collectors.toList());
 
-                Types.PagedResponse.forItems(result)
-                    .onSuccess(promise::complete)
-                    .onFailure(promise::fail);
+                promise.complete(Types.PagedResponse.forItems(Types.TopicPartitionResetResult.class, result));
             });
             return promise.future();
         }).onComplete(res -> {
@@ -335,8 +333,8 @@ public class ConsumerGroupOperations {
                     topicDescribe.complete();
                 })
                 .onFailure(error -> {
-                    if (CommonHandler.isCausedBy(error, UnknownTopicOrPartitionException.class)) {
-                        topicDescribe.fail(new IllegalArgumentException("Request contained an unknown topic"));
+                    if (ErrorType.isCausedBy(error, UnknownTopicOrPartitionException.class)) {
+                        topicDescribe.fail(new AdminServerException(ErrorType.TOPIC_PARTITION_INVALID));
                     } else {
                         topicDescribe.fail(error);
                     }
@@ -391,9 +389,10 @@ public class ConsumerGroupOperations {
 
     static void validatePartitionResettable(Map<TopicPartition, List<MemberDescription>> topicClients, TopicPartition topicPartition) {
         if (!topicClients.containsKey(topicPartition)) {
-            throw new IllegalArgumentException(String.format("Topic %s, partition %d is not valid",
-                                                          topicPartition.getTopic(),
-                                                          topicPartition.getPartition()));
+            String message = String.format("Topic %s, partition %d is not valid",
+                                           topicPartition.getTopic(),
+                                           topicPartition.getPartition());
+            throw new AdminServerException(ErrorType.TOPIC_PARTITION_INVALID, message);
         } else if (!topicClients.get(topicPartition).isEmpty()) {
             /*
              * Reject the request if any of the topic partitions
@@ -403,11 +402,12 @@ public class ConsumerGroupOperations {
                 .stream()
                 .map(member -> String.format("{ memberId: %s, clientId: %s }", member.getConsumerId(), member.getClientId()))
                 .collect(Collectors.joining(", "));
+            String message = String.format("Topic %s, partition %d has connected clients: [%s]",
+                                           topicPartition.getTopic(),
+                                           topicPartition.getPartition(),
+                                           clients);
 
-            throw new IllegalArgumentException(String.format("Topic %s, partition %d has connected clients: [%s]",
-                                                             topicPartition.getTopic(),
-                                                             topicPartition.getPartition(),
-                                                             clients));
+            throw new AdminServerException(ErrorType.GROUP_NOT_EMPTY, message);
         }
     }
 

@@ -9,6 +9,8 @@ import org.apache.kafka.clients.admin.Admin;
 import org.apache.kafka.common.KafkaFuture;
 import org.apache.kafka.common.acl.AclBinding;
 import org.apache.kafka.common.security.auth.KafkaPrincipal;
+import org.bf2.admin.kafka.admin.model.AdminServerException;
+import org.bf2.admin.kafka.admin.model.ErrorType;
 import org.bf2.admin.kafka.admin.model.Types;
 import org.bf2.admin.kafka.admin.model.Types.PagedResponse;
 import org.bf2.admin.kafka.admin.model.Types.SortDirectionEnum;
@@ -88,7 +90,7 @@ public class AccessControlOperations {
 
     public CompletionStage<Void> createAcl(Admin client, Types.AclBinding binding) {
         if (!validAclBinding(binding)) {
-            return CompletableFuture.failedStage(new IllegalArgumentException(INVALID_ACL_RESOURCE_OPERATION));
+            return CompletableFuture.failedStage(new AdminServerException(ErrorType.INVALID_ACL_RESOURCE_OP));
         }
 
         Promise<Void> promise = Promise.promise();
@@ -125,11 +127,9 @@ public class AccessControlOperations {
         KafkaFuture.allOf(pendingResults.toArray(KafkaFuture[]::new))
             .whenComplete((nothing, error) ->
                 collectBindings(pendingResults, sortOrder, error)
+                    .map(bindings -> PagedResponse.forPage(pageRequest, Types.AclBinding.class, bindings))
                     .onFailure(promise::fail)
-                    .onSuccess(bindings ->
-                        PagedResponse.forPage(pageRequest, bindings)
-                            .onFailure(promise::fail)
-                            .onSuccess(promise::complete)));
+                    .onSuccess(promise::complete));
 
         return promise.future().toCompletionStage();
     }
@@ -143,11 +143,9 @@ public class AccessControlOperations {
             .all()
             .whenComplete((bindingCollection, error) ->
                 collectBindings(bindingCollection, error)
+                    .map(bindings -> PagedResponse.forItems(Types.AclBinding.class, bindings))
                     .onFailure(promise::fail)
-                    .onSuccess(bindings ->
-                        PagedResponse.forItems(bindings)
-                            .onFailure(promise::fail)
-                            .onSuccess(promise::complete)));
+                    .onSuccess(promise::complete));
 
         return promise.future().toCompletionStage();
     }

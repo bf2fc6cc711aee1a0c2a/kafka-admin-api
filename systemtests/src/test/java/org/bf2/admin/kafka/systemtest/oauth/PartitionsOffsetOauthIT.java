@@ -3,6 +3,7 @@ package org.bf2.admin.kafka.systemtest.oauth;
 import io.quarkus.test.junit.QuarkusTest;
 import io.quarkus.test.junit.TestProfile;
 import io.restassured.http.ContentType;
+import org.bf2.admin.kafka.admin.model.ErrorType;
 import org.bf2.admin.kafka.systemtest.TestOAuthProfile;
 import org.bf2.admin.kafka.systemtest.deployment.DeploymentManager.UserType;
 import org.bf2.admin.kafka.systemtest.utils.ConsumerUtils;
@@ -24,6 +25,8 @@ import javax.json.Json;
 import javax.ws.rs.core.Response.Status;
 
 import static io.restassured.RestAssured.given;
+import static org.bf2.admin.kafka.systemtest.utils.ErrorTypeMatcher.matchesError;
+import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.hasSize;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -32,7 +35,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 @TestProfile(TestOAuthProfile.class)
 class PartitionsOffsetOauthIT {
 
-    static final String CONSUMER_GROUP_RESET_PATH = "/rest/consumer-groups/{groupId}/reset-offset";
+    static final String CONSUMER_GROUP_RESET_PATH = "/api/v1/consumer-groups/{groupId}/reset-offset";
 
     @Inject
     Config config;
@@ -52,6 +55,7 @@ class PartitionsOffsetOauthIT {
         final String topicName = "t-" + batchId;
         final String groupId = "g-" + batchId;
         final String clientId = "c-" + batchId;
+        final ErrorType expected = ErrorType.GROUP_NOT_EMPTY;
 
         try (var consumer = consumerUtils.request().groupId(groupId).topic(topicName).clientId(clientId).messagesPerTopic(5).consume()) {
             given()
@@ -70,25 +74,25 @@ class PartitionsOffsetOauthIT {
                 .post(CONSUMER_GROUP_RESET_PATH, groupId)
             .then()
                 .log().ifValidationFails()
-                .statusCode(Status.BAD_REQUEST.getStatusCode())
             .assertThat()
-                .body("code", equalTo(Status.BAD_REQUEST.getStatusCode()))
-                .body("error_message", Matchers.matchesPattern(".*connected clients.*"));
+                .statusCode(expected.getHttpStatus().getStatusCode())
+                .body("", matchesError(expected, containsString("partition 0 has connected clients")));
         }
     }
 
     @ParameterizedTest
     @CsvSource(delimiter = '|', value = {
-        "topic1 | topicBad | 1 | .*Request contained an unknown topic.* | false",
-        "topic1 | topic1   | 5 | .*Topic topic1%s, partition 5 is not valid.* | true",
+        "topic1 | topicBad | 1 | ",
+        "topic1 | topic1   | 5 | 'Topic topic1%s, partition 5 is not valid'",
     })
-    void testResetOffsetToStartWithInvalidTopicPartition(String topicPrefix, String topicResetPrefix, int resetPartition, String messagePattern, boolean format) {
+    void testResetOffsetToStartWithInvalidTopicPartition(String topicPrefix, String topicResetPrefix, int resetPartition, String detail) {
         final String batchId = UUID.randomUUID().toString();
         final String topicName = topicPrefix + batchId;
         final String topicResetName = topicResetPrefix + batchId;
         final String groupId = "g-" + batchId;
         final String clientId = "c-" + batchId;
-        String expectedMessage = format ? String.format(messagePattern, batchId) : messagePattern;
+        final ErrorType expected = ErrorType.TOPIC_PARTITION_INVALID;
+        final String formattedDetail = detail != null ? String.format(detail, batchId) : null;
 
         consumerUtils.request()
             .groupId(groupId)
@@ -115,10 +119,9 @@ class PartitionsOffsetOauthIT {
             .post(CONSUMER_GROUP_RESET_PATH, groupId)
         .then()
             .log().ifValidationFails()
-            .statusCode(Status.BAD_REQUEST.getStatusCode())
         .assertThat()
-            .body("code", equalTo(Status.BAD_REQUEST.getStatusCode()))
-            .body("error_message", Matchers.matchesPattern(expectedMessage));
+            .statusCode(expected.getHttpStatus().getStatusCode())
+            .body("", matchesError(expected, formattedDetail));
     }
 
     @Test
@@ -127,6 +130,7 @@ class PartitionsOffsetOauthIT {
         final String topicName = "t-" + batchId;
         final String groupId = "g-" + batchId;
         final String clientId = "c-" + batchId;
+        final ErrorType expected = ErrorType.NOT_AUTHORIZED;
 
         consumerUtils.request()
             .groupId(groupId)
@@ -152,10 +156,9 @@ class PartitionsOffsetOauthIT {
             .post(CONSUMER_GROUP_RESET_PATH, groupId)
         .then()
             .log().ifValidationFails()
-            .statusCode(Status.FORBIDDEN.getStatusCode())
         .assertThat()
-            .body("code", equalTo(Status.FORBIDDEN.getStatusCode()))
-            .body("error_message", Matchers.notNullValue());
+            .statusCode(expected.getHttpStatus().getStatusCode())
+            .body("", matchesError(expected));
     }
 
     @ParameterizedTest

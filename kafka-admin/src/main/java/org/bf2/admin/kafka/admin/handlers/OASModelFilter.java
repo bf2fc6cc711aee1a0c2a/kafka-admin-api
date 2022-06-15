@@ -13,6 +13,7 @@ import org.eclipse.microprofile.openapi.OASFactory;
 import org.eclipse.microprofile.openapi.OASFilter;
 import org.eclipse.microprofile.openapi.models.OpenAPI;
 import org.eclipse.microprofile.openapi.models.examples.Example;
+import org.eclipse.microprofile.openapi.models.media.Schema;
 import org.eclipse.microprofile.openapi.models.security.SecurityScheme.Type;
 
 import java.math.BigDecimal;
@@ -27,6 +28,24 @@ public class OASModelFilter implements OASFilter {
 
     private static final String SECURITY_SCHEME_NAME_OAUTH = "Bearer";
     private static final String SECURITY_SCHEME_NAME_BASIC = "BasicAuth";
+
+    @Override
+    public Schema filterSchema(Schema schema) {
+        List<Schema> allOf = schema.getAllOf();
+
+        // Remove superfluous `nullable: false` added by OpenAPI scanner
+        if (allOf != null && allOf.stream().anyMatch(s -> Boolean.FALSE.equals(s.getNullable()))) {
+            allOf.stream()
+                .filter(s -> s.getRef() != null)
+                .findFirst()
+                .ifPresent(ref -> {
+                    schema.setRef(ref.getRef());
+                    schema.setAllOf(null);
+                });
+        }
+
+        return OASFilter.super.filterSchema(schema);
+    }
 
     @Override
     public void filterOpenAPI(OpenAPI openAPI) {
@@ -80,7 +99,7 @@ public class OASModelFilter implements OASFilter {
         var consumerGroupResetExample = new Types.ConsumerGroupOffsetResetParameters(OffsetType.ABSOLUTE, "4",
                    List.of(new Types.TopicsToResetOffset("my-topic", List.of(0))));
 
-        var recordProduceExample = new Types.Record(1, null, Map.of("X-Custom-Header", "header-value-1"), null, "{ \"examplekey\": \"example-value\" }");
+        var recordProduceExample = new Types.Record("my-topic", 1, null, Map.of("X-Custom-Header", "header-value-1"), null, "{ \"examplekey\": \"example-value\" }");
 
         Map<String, Example> examples = new LinkedHashMap<>();
 
