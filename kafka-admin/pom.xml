@@ -48,6 +48,9 @@
                                     </systemPropertyVariables>
                                     <schemaFilename>kafka-admin-rest</schemaFilename>
                                     <filter>org.bf2.admin.kafka.admin.handlers.OASModelFilter</filter>
+                                    <infoTitle>Kafka Instance API</infoTitle>
+                                    <infoDescription>API for interacting with Kafka Instance. Includes Produce, Consume and Admin APIs</infoDescription>
+                                    <infoContactEmail>rhosak-support@redhat.com</infoContactEmail>
                                     <infoVersion>${project.version}</infoVersion>
                                     <outputDirectory>${project.basedir}/.openapi</outputDirectory>
                                 </configuration>
