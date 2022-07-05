@@ -105,6 +105,12 @@ curl -s -u admin:admin-secret http://localhost:8080/rest/topics
 | KAFKA_ADMIN_REPLICATION_FACTOR | Replication factor defines the number of copies of a topic in a Kafka cluster. |
 | KAFKA_ADMIN_NUM_PARTITIONS_MAX | Maximum (inclusive) number of partitions that may be used for the creation of a new topic. |
 
+## Updating OpenAPI file
+
+```bash
+ mvn -Popenapi-generate process-classes
+```
+
 ## Releasing
 
 ### Milestones
