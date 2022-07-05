@@ -74,11 +74,10 @@ public class OASModelFilter implements OASFilter {
         // Sort global schemas
         openAPI.getComponents().setSchemas(new TreeMap<>(openAPI.getComponents().getSchemas()));
         var info = openAPI.getInfo();
-        
+
         info.setTitle("Kafka Instance API");
         info.setDescription("API for interacting with Kafka Instance. Includes Produce, Consume and Admin APIs");
-        info.setContact(OASFactory.createContact().name("Support email").email("rhosak-support@redhat.com"));
-
+   
         config.getOptionalValue("kafka.admin.num.partitions.max", String.class)
             .map(BigDecimal::new)
             .ifPresent(openAPI.getComponents().getSchemas().get("TopicSettings").getProperties().get("numPartitions")::setMaximum);

@@ -4,9 +4,6 @@ info:
   title: Kafka Instance API
   description: "API for interacting with Kafka Instance. Includes Produce, Consume\
     \ and Admin APIs"
-  contact:
-    name: Support email
-    email: rhosak-support@redhat.com
   license:
     name: Apache 2.0
     url: https://www.apache.org/licenses/LICENSE-2.0
