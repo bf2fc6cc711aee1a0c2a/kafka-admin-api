@@ -86,7 +86,7 @@ class LoggingConfigWatcherTest {
 
             // Trigger a modification event
             writeString(override, String.format("%s=%s\nignored=anything\n", property, "DEBUG"));
-            return ws.poll(5, TimeUnit.SECONDS);
+            return ws.poll(15, TimeUnit.SECONDS);
         });
 
         assertTrue(dirExists);
