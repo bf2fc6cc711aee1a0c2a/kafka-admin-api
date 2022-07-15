@@ -35,6 +35,8 @@ public enum ErrorType {
     UNKNOWN_MEMBER("15", "Unknown consumer group member", Status.BAD_REQUEST),
     INVALID_REQUEST("16", "Request body or parameters invalid", Status.BAD_REQUEST),
     //
+    RESOURCE_NOT_FOUND("17", "No such resource found", Status.NOT_FOUND),
+    //
     SERVER_ERROR("99", "Server has encountered an unexpected error", Status.INTERNAL_SERVER_ERROR);
 
     public static boolean isCausedBy(Throwable error, Class<? extends Throwable> searchCause) {

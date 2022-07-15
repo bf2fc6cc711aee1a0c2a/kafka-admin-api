@@ -12,6 +12,7 @@ import org.apache.kafka.common.errors.InvalidRequestException;
 import org.apache.kafka.common.errors.InvalidTopicException;
 import org.apache.kafka.common.errors.LeaderNotAvailableException;
 import org.apache.kafka.common.errors.PolicyViolationException;
+import org.apache.kafka.common.errors.ResourceNotFoundException;
 import org.apache.kafka.common.errors.SslAuthenticationException;
 import org.apache.kafka.common.errors.TimeoutException;
 import org.apache.kafka.common.errors.TopicExistsException;
@@ -76,6 +77,7 @@ public class CommonHandler {
             // 404 Not Found
             entry(UnknownTopicOrPartitionException.class, thrown -> errorResponse(thrown, ErrorType.TOPIC_NOT_FOUND)),
             entry(GroupIdNotFoundException.class, thrown -> errorResponse(thrown, ErrorType.GROUP_NOT_FOUND)),
+            entry(ResourceNotFoundException.class, thrown -> errorResponse(thrown, ErrorType.ERROR_NOT_FOUND)),
 
             // 409 Conflict
             entry(TopicExistsException.class, thrown -> errorResponse(thrown, ErrorType.TOPIC_DUPLICATED)),
