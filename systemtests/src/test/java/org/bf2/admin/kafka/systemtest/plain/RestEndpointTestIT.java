@@ -696,5 +696,4 @@ class RestEndpointTestIT {
                 .header("Access-Control-Max-Age",
                         equalTo(String.valueOf(Duration.ofHours(2).toSeconds())));
     }
-
 }
