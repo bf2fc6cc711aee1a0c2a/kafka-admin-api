@@ -699,12 +699,15 @@ class RestEndpointTestIT {
 
     @Test
     void testUnknownEndpointReturnsNotFound() {
+        final ErrorType expectedError = ErrorType.RESOURCE_NOT_FOUND;
         given()
             .log().ifValidationFails()
             .when()
                 .get("/foo/bar")
             .then()
                 .log().ifValidationFails()
-                .statusCode(Status.NOT_FOUND.getStatusCode());
+                .assertThat()
+                .statusCode(Status.NOT_FOUND.getStatusCode())
+                .body("", matchesError(expectedError));
     }
 }

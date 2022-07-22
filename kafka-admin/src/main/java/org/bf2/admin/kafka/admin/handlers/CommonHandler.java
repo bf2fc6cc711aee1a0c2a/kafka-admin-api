@@ -77,7 +77,7 @@ public class CommonHandler {
             // 404 Not Found
             entry(UnknownTopicOrPartitionException.class, thrown -> errorResponse(thrown, ErrorType.TOPIC_NOT_FOUND)),
             entry(GroupIdNotFoundException.class, thrown -> errorResponse(thrown, ErrorType.GROUP_NOT_FOUND)),
-            entry(NotFoundException.class, thrown -> errorResponse(thrown, ErrorType.ERROR_NOT_FOUND)),
+            entry(NotFoundException.class, thrown -> errorResponse(thrown, ErrorType.RESOURCE_NOT_FOUND)),
 
             // 409 Conflict
             entry(TopicExistsException.class, thrown -> errorResponse(thrown, ErrorType.TOPIC_DUPLICATED)),
