@@ -696,4 +696,15 @@ class RestEndpointTestIT {
                 .header("Access-Control-Max-Age",
                         equalTo(String.valueOf(Duration.ofHours(2).toSeconds())));
     }
+
+    @Test
+    void testUnknownEndpointReturnsNotFound() {
+        given()
+            .log().ifValidationFails()
+            .when()
+                .get("/foo/bar")
+            .then()
+                .log().ifValidationFails()
+                .statusCode(Status.NOT_FOUND.getStatusCode());
+    }
 }
