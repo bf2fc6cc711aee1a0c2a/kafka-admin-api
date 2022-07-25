@@ -22,6 +22,7 @@ import org.bf2.admin.kafka.admin.model.ErrorType;
 import org.bf2.admin.kafka.admin.model.Types;
 import org.jboss.logging.Logger;
 
+import javax.ws.rs.NotFoundException;
 import javax.ws.rs.core.Response;
 import javax.ws.rs.core.Response.ResponseBuilder;
 import javax.ws.rs.core.Response.Status.Family;
@@ -76,6 +77,7 @@ public class CommonHandler {
             // 404 Not Found
             entry(UnknownTopicOrPartitionException.class, thrown -> errorResponse(thrown, ErrorType.TOPIC_NOT_FOUND)),
             entry(GroupIdNotFoundException.class, thrown -> errorResponse(thrown, ErrorType.GROUP_NOT_FOUND)),
+            entry(NotFoundException.class, thrown -> errorResponse(thrown, ErrorType.RESOURCE_NOT_FOUND)),
 
             // 409 Conflict
             entry(TopicExistsException.class, thrown -> errorResponse(thrown, ErrorType.TOPIC_DUPLICATED)),

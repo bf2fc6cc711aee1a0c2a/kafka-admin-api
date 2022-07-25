@@ -697,4 +697,17 @@ class RestEndpointTestIT {
                         equalTo(String.valueOf(Duration.ofHours(2).toSeconds())));
     }
 
+    @Test
+    void testUnknownEndpointReturnsNotFound() {
+        final ErrorType expectedError = ErrorType.RESOURCE_NOT_FOUND;
+        given()
+            .log().ifValidationFails()
+            .when()
+                .get("/foo/bar")
+            .then()
+                .log().ifValidationFails()
+                .assertThat()
+                .statusCode(Status.NOT_FOUND.getStatusCode())
+                .body("", matchesError(expectedError));
+    }
 }
