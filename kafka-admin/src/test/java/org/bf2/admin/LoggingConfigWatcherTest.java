@@ -69,7 +69,6 @@ class LoggingConfigWatcherTest {
         assertTrue(watcher.overriddenLoggers.isEmpty(), () -> "overriddenLoggers not empty: " + watcher.overriddenLoggers);
         assertEquals(originalLevelValue, context.getLogger(logger).getLevel());
     }
-
     @ParameterizedTest
     @CsvSource({
         "'',        quarkus.log.level",
