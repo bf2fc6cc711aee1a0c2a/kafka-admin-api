@@ -1,8 +1,9 @@
 name: Integration tests
 on:
   push:
-    branches: [ '**' ]
+    branches: [ 'main' ]
   pull_request:
+    branches: [ 'main' ]
     types: [ opened, reopened, synchronize ]
 
 jobs:
@@ -11,6 +12,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v2
+      - run: |
+          git fetch --prune --unshallow --tags --force
 
       - name: Set up JDK 17
         uses: actions/setup-java@v2
