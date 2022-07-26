@@ -43,7 +43,7 @@
 
         <!-- Sonar settings -->
         <sonar.host.url>https://sonarcloud.io</sonar.host.url>
-        <sonar.organization>test-bf2-sonar</sonar.organization>
+        <sonar.organization>bf2fc6cc711aee1a0c2a</sonar.organization>
         <sonar.coverage.jacoco.xmlReportPaths>
             ${project.basedir}/../systemtests/target/site/jacoco-aggregate/jacoco.xml,
             ${project.basedir}/systemtests/target/site/jacoco-aggregate/jacoco.xml
