@@ -1,4 +1,4 @@
-[![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](http://www.apache.org/licenses/LICENSE-2.0)
+[![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](http://www.apache.org/licenses/LICENSE-2.0)[![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=bf2fc6cc711aee1a0c2a_kafka-admin-api&metric=alert_status)](https://sonarcloud.io/summary/new_code?id=bf2fc6cc711aee1a0c2a_kafka-admin-api)[![Coverage](https://sonarcloud.io/api/project_badges/measure?project=bf2fc6cc711aee1a0c2a_kafka-admin-api&metric=coverage)](https://sonarcloud.io/summary/new_code?id=bf2fc6cc711aee1a0c2a_kafka-admin-api)
 
 # Managed Kafka Admin API
 
