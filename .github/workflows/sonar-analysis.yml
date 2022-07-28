@@ -6,6 +6,15 @@ on:
     types: [ completed ]
 
 jobs:
+  debug:
+    runs-on: ubuntu-latest
+    name: Display Context
+    steps:
+      - name: Display Github Event Context
+        run: echo "$GITHUB_CONTEXT"
+        env:
+          GITHUB_CONTEXT: ${{ toJson(github) }}
+
   analyze:
     if: ${{ github.repository == 'bf2fc6cc711aee1a0c2a/kafka-admin-api' && github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
