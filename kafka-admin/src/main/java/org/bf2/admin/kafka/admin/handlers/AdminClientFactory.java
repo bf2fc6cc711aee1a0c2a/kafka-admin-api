@@ -1,6 +1,5 @@
 package org.bf2.admin.kafka.admin.handlers;
 
-import io.vertx.core.Vertx;
 import org.apache.kafka.clients.admin.AdminClient;
 import org.apache.kafka.clients.consumer.Consumer;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
@@ -25,6 +24,8 @@ import java.util.Base64;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionStage;
 
 @RequestScoped
 public class AdminClientFactory {
@@ -38,9 +39,6 @@ public class AdminClientFactory {
 
     @Inject
     Logger log;
-
-    @Inject
-    Vertx vertx;
 
     @Inject
     KafkaAdminConfigRetriever config;
@@ -60,7 +58,7 @@ public class AdminClientFactory {
      * map will be placed in the context under the key identified by the
      * {@link #ADMIN_CLIENT_CONFIG} constant.
      */
-    public AdminClient createAdminClient() {
+    public CompletionStage<AdminClient> createAdminClient() {
         Map<String, Object> acConfig = config.getAcConfig();
 
         if (config.isOauthEnabled()) {
@@ -83,7 +81,7 @@ public class AdminClientFactory {
             log.debug("OAuth is disabled - no attempt to set access token in Admin Client config");
         }
 
-        return AdminClient.create(acConfig);
+        return CompletableFuture.supplyAsync(() -> AdminClient.create(acConfig));
     }
 
     Optional<String> extractCredentials(Optional<String> authorizationHeader) {

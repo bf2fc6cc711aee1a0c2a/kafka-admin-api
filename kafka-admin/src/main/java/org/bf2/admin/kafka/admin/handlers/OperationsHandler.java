@@ -1,5 +1,6 @@
 package org.bf2.admin.kafka.admin.handlers;
 
+import io.quarkus.runtime.annotations.RegisterForReflection;
 import org.bf2.admin.kafka.admin.Operations;
 import org.bf2.admin.kafka.admin.model.Types;
 import org.eclipse.microprofile.openapi.annotations.Operation;
@@ -29,6 +30,7 @@ import javax.ws.rs.core.Response;
 import java.util.Optional;
 import java.util.concurrent.CompletionStage;
 
+@RegisterForReflection
 public interface OperationsHandler {
 
     @POST

@@ -128,9 +128,9 @@ public class RestOperations implements OperationsHandler {
                .thenApply(topicList -> Response.ok().entity(topicList).build());
     }
 
-    @Blocking
     @Counted("consume_records_requests")
     @Timed("consume_records_request_time")
+    @Blocking
     public Response consumeRecords(String topicName,
                                    RecordFilterParams params) {
 
@@ -292,16 +292,16 @@ public class RestOperations implements OperationsHandler {
     }
 
     <R> CompletionStage<R> withAdminClient(Function<AdminClient, CompletionStage<R>> function) {
-        final AdminClient client = clientFactory.createAdminClient();
+        return threadContext.withContextCapture(clientFactory.createAdminClient())
+            .thenCompose(client -> function.apply(client).whenComplete((result, error) -> close(client)));
+    }
 
-        return threadContext.withContextCapture(function.apply(client))
-                .whenComplete((result, error) -> {
-                    try {
-                        client.close();
-                    } catch (Exception e) {
-                        log.warnf("Exception closing Kafka AdminClient", e);
-                    }
-                });
+    void close(AdminClient client) {
+        try {
+            client.close();
+        } catch (Exception e) {
+            log.warnf("Exception closing Kafka AdminClient", e);
+        }
     }
 
     CompletionStage<Response> badRequest(String message) {
