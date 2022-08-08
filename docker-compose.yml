@@ -16,7 +16,6 @@ services:
     image: confluentinc/cp-kafka:7.2.1 ## = 3.2.1
     hostname: broker
     container_name: broker
-    mem_limit: 384m
     depends_on:
       - zookeeper
     ports:

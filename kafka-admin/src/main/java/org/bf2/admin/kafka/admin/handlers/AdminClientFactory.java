@@ -158,6 +158,8 @@ public class AdminClientFactory {
         props.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, "org.apache.kafka.common.serialization.StringSerializer");
         props.put(ProducerConfig.ACKS_CONFIG, "all");
         props.put(ProducerConfig.MAX_BLOCK_MS_CONFIG, 5000);
+        props.put(ProducerConfig.ENABLE_IDEMPOTENCE_CONFIG, false);
+        props.put(ProducerConfig.RETRIES_CONFIG, 0);
 
         return new KafkaProducer<>(props);
     }
