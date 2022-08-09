@@ -149,6 +149,8 @@ public class RecordOperations {
             }
         } catch (TimeoutException e) {
             promise.completeExceptionally(noSuchTopic(topicName));
+        } catch (Exception e) {
+            promise.completeExceptionally(e);
         }
 
         return promise.whenComplete((result, exception) -> {
