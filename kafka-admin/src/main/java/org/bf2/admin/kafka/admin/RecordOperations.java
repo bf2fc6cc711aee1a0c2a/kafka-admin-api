@@ -1,6 +1,8 @@
 package org.bf2.admin.kafka.admin;
 
 import org.apache.kafka.clients.consumer.Consumer;
+import org.apache.kafka.clients.consumer.ConsumerRecord;
+import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.clients.producer.Producer;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.common.PartitionInfo;
@@ -26,7 +28,10 @@ import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
+import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Comparator;
+import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -36,6 +41,7 @@ import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
+
 
 @RequestScoped
 public class RecordOperations {
@@ -109,28 +115,52 @@ public class RecordOperations {
                     }
                 });
             }
+            Instant timeout = Instant.now().plusSeconds(2);
+            List<Types.Record> results = new ArrayList<>();
 
-            var records = consumer.poll(Duration.ofSeconds(2));
+            Iterable<ConsumerRecords<byte[], byte[]>> poll = () -> new Iterator<>() {
+                @Override
+                public boolean hasNext() {
+                    return results.size() < assignments.size() * limit && Instant.now().compareTo(timeout) < 0;
+                }
 
-            List<Types.Record> items = StreamSupport.stream(records.spliterator(), false)
-                .map(rec -> {
-                    Types.Record item = new Types.Record(topicName);
+                @Override
+                public ConsumerRecords<byte[], byte[]> next() {
+                    return consumer.poll(Duration.ofMillis(100));
+                }
+            };
 
-                    setProperty(Types.Record.PROP_PARTITION, include, rec::partition, item::setPartition);
-                    setProperty(Types.Record.PROP_OFFSET, include, rec::offset, item::setOffset);
-                    setProperty(Types.Record.PROP_TIMESTAMP, include, () -> timestampToString(rec.timestamp()), item::setTimestamp);
-                    setProperty(Types.Record.PROP_TIMESTAMP_TYPE, include, rec.timestampType()::name, item::setTimestampType);
-                    setProperty(Types.Record.PROP_KEY, include, rec::key, k -> item.setKey(bytesToString(k, maxValueLength)));
-                    setProperty(Types.Record.PROP_VALUE, include, rec::value, v -> item.setValue(bytesToString(v, maxValueLength)));
-                    setProperty(Types.Record.PROP_HEADERS, include, () -> headersToMap(rec.headers(), maxValueLength), item::setHeaders);
-                    item.updateHref();
+            Comparator<ConsumerRecord<byte[], byte[]>> comparator = Comparator.comparing(ConsumerRecord::timestamp);
+            if (timestamp == null && offset == null) {
+                comparator = comparator.reversed();
+            }
+            comparator = comparator.thenComparing(ConsumerRecord::partition);
 
-                    return item;
-                })
-                .collect(Collectors.toList());
+            StreamSupport.stream(poll.spliterator(), false)
+                    .flatMap(records -> StreamSupport.stream(records.spliterator(), false))
+                    .sorted(comparator)
+                    .limit(limit)
+                    .map(rec -> getItems(rec, topicName, include, maxValueLength))
+                    .forEach(results::add);
 
-            return Types.PagedResponse.forItems(Types.Record.class, items);
+            return Types.PagedResponse.forItems(Types.Record.class, results);
+
         }
+    }
+
+    public Types.Record getItems(ConsumerRecord rec, String topicName, List<String> include, Integer maxValueLength) {
+        Types.Record item = new Types.Record(topicName);
+
+        setProperty(Types.Record.PROP_PARTITION, include, rec::partition, item::setPartition);
+        setProperty(Types.Record.PROP_OFFSET, include, rec::offset, item::setOffset);
+        setProperty(Types.Record.PROP_TIMESTAMP, include, () -> timestampToString(rec.timestamp()), item::setTimestamp);
+        setProperty(Types.Record.PROP_TIMESTAMP_TYPE, include, rec.timestampType()::name, item::setTimestampType);
+        setProperty(Types.Record.PROP_KEY, include, rec::key, k -> item.setKey(bytesToString((byte[]) k, maxValueLength)));
+        setProperty(Types.Record.PROP_VALUE, include, rec::value, v -> item.setValue(bytesToString((byte[]) v, maxValueLength)));
+        setProperty(Types.Record.PROP_HEADERS, include, () -> headersToMap(rec.headers(), maxValueLength), item::setHeaders);
+        item.updateHref();
+
+        return item;
     }
 
     public CompletionStage<Types.Record> produceRecord(String topicName, Types.Record input) {
