@@ -135,7 +135,7 @@ public class RecordOperations {
                 public ConsumerRecords<byte[], byte[]> next() {
                     var records = consumer.poll(Duration.ofMillis(100));
                     int pollSize = records.count();
-                    emptyPoll = (pollSize == 0);
+                    emptyPoll = pollSize == 0;
                     recordsConsumed.addAndGet(pollSize);
                     if (log.isTraceEnabled()) {
                         log.tracef("next() consumed records: %d; total %s", pollSize, recordsConsumed.get());
