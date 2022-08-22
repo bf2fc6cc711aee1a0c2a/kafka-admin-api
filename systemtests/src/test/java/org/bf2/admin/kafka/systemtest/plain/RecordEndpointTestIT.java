@@ -238,7 +238,7 @@ class RecordEndpointTestIT {
     })
     void testConsumeLatestRecords(int limit) {
         final String topicName = UUID.randomUUID().toString();
-        final int totalRecords = 20;
+        final int totalRecords = 100;
         topicUtils.createTopics(List.of(topicName), 10, Status.CREATED); // single partition
         List<String> messageValues = new ArrayList<>();
 
@@ -253,7 +253,6 @@ class RecordEndpointTestIT {
 
         given()
             .log().ifValidationFails()
-            .queryParam("partition", 0)
             .queryParam("limit", limit)
         .when()
             .get(RecordUtils.RECORDS_PATH, topicName)
@@ -262,7 +261,7 @@ class RecordEndpointTestIT {
             .statusCode(Status.OK.getStatusCode())
             .body("total", equalTo(resultCount))
             .body("items", hasSize(resultCount))
-            .body("items.findAll { it }.value", contains(messageValues.subList(totalRecords - resultCount, totalRecords).toArray(String[]::new)));
+            .body("items.findAll { it }.value", contains(messageValues.subList(0, resultCount).toArray(String[]::new)));
     }
 
     @Test
