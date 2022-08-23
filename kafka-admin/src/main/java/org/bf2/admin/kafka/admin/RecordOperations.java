@@ -134,13 +134,13 @@ public class RecordOperations {
 
                 @Override
                 public ConsumerRecords<byte[], byte[]> next() {
+                    if (!hasNext()) {
+                        throw new NoSuchElementException();
+                    }
                     var records = consumer.poll(Duration.ofMillis(100));
                     int pollSize = records.count();
                     emptyPoll = pollSize == 0;
                     recordsConsumed.addAndGet(pollSize);
-                    if (recordsConsumed == null) {
-                        throw new NoSuchElementException("No records were consumed");
-                    }
                     if (log.isTraceEnabled()) {
                         log.tracef("next() consumed records: %d; total %s", pollSize, recordsConsumed.get());
                     }
