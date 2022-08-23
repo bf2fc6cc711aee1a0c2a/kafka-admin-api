@@ -36,6 +36,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.NavigableSet;
+import java.util.NoSuchElementException;
 import java.util.TreeSet;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
@@ -137,6 +138,9 @@ public class RecordOperations {
                     int pollSize = records.count();
                     emptyPoll = pollSize == 0;
                     recordsConsumed.addAndGet(pollSize);
+                    if (recordsConsumed == null) {
+                        throw new NoSuchElementException("No records were consumed");
+                    }
                     if (log.isTraceEnabled()) {
                         log.tracef("next() consumed records: %d; total %s", pollSize, recordsConsumed.get());
                     }
