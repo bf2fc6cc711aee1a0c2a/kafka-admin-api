@@ -1,6 +1,8 @@
 package org.bf2.admin.kafka.admin;
 
 import org.apache.kafka.clients.consumer.Consumer;
+import org.apache.kafka.clients.consumer.ConsumerRecord;
+import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.clients.producer.Producer;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.common.PartitionInfo;
@@ -26,16 +28,24 @@ import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
+import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Comparator;
+import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.NavigableSet;
+import java.util.NoSuchElementException;
+import java.util.TreeSet;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
+
 
 @RequestScoped
 public class RecordOperations {
@@ -55,7 +65,7 @@ public class RecordOperations {
                                               List<String> include,
                                               Integer maxValueLength) {
 
-        try (Consumer<byte[], byte[]> consumer = clientFactory.createConsumer(limit)) {
+        try (Consumer<byte[], byte[]> consumer = clientFactory.createConsumer(null)) {
             List<PartitionInfo> partitions = consumer.partitionsFor(topicName);
 
             if (partitions.isEmpty()) {
@@ -109,28 +119,84 @@ public class RecordOperations {
                     }
                 });
             }
+            Instant timeout = Instant.now().plusSeconds(2);
+            int maxRecords = assignments.size() * limit;
+            List<Types.Record> results = new ArrayList<>();
+            AtomicInteger recordsConsumed = new AtomicInteger(0);
 
-            var records = consumer.poll(Duration.ofSeconds(2));
+            Iterable<ConsumerRecords<byte[], byte[]>> poll = () -> new Iterator<>() {
+                boolean emptyPoll = false;
 
-            List<Types.Record> items = StreamSupport.stream(records.spliterator(), false)
-                .map(rec -> {
-                    Types.Record item = new Types.Record(topicName);
+                @Override
+                public boolean hasNext() {
+                    return !emptyPoll && recordsConsumed.get() < maxRecords && Instant.now().isBefore(timeout);
+                }
 
-                    setProperty(Types.Record.PROP_PARTITION, include, rec::partition, item::setPartition);
-                    setProperty(Types.Record.PROP_OFFSET, include, rec::offset, item::setOffset);
-                    setProperty(Types.Record.PROP_TIMESTAMP, include, () -> timestampToString(rec.timestamp()), item::setTimestamp);
-                    setProperty(Types.Record.PROP_TIMESTAMP_TYPE, include, rec.timestampType()::name, item::setTimestampType);
-                    setProperty(Types.Record.PROP_KEY, include, rec::key, k -> item.setKey(bytesToString(k, maxValueLength)));
-                    setProperty(Types.Record.PROP_VALUE, include, rec::value, v -> item.setValue(bytesToString(v, maxValueLength)));
-                    setProperty(Types.Record.PROP_HEADERS, include, () -> headersToMap(rec.headers(), maxValueLength), item::setHeaders);
-                    item.updateHref();
+                @Override
+                public ConsumerRecords<byte[], byte[]> next() {
+                    if (!hasNext()) {
+                        throw new NoSuchElementException();
+                    }
+                    var records = consumer.poll(Duration.ofMillis(100));
+                    int pollSize = records.count();
+                    emptyPoll = pollSize == 0;
+                    recordsConsumed.addAndGet(pollSize);
+                    if (log.isTraceEnabled()) {
+                        log.tracef("next() consumed records: %d; total %s", pollSize, recordsConsumed.get());
+                    }
+                    return records;
+                }
+            };
 
-                    return item;
-                })
-                .collect(Collectors.toList());
+            Comparator<ConsumerRecord<byte[], byte[]>> comparator = Comparator.comparingLong(ConsumerRecord::timestamp);
+            if (timestamp == null && offset == null) {
+                comparator = comparator.reversed();
+            }
+            comparator = comparator
+                    .thenComparingInt(ConsumerRecord::partition)
+                    .thenComparingLong(ConsumerRecord::offset);
 
-            return Types.PagedResponse.forItems(Types.Record.class, items);
+            NavigableSet<ConsumerRecord<byte[], byte[]>> limitSet = new TreeSet<>(comparator) {
+                private static final long serialVersionUID = 1L;
+                @Override
+                public boolean add(ConsumerRecord<byte[], byte[]> rec) {
+                    boolean added = super.add(rec);
+                    if (size() > limit) {
+                        pollLast();
+                    }
+                    return added;
+                }
+            };
+
+            StreamSupport.stream(poll.spliterator(), false)
+                    .flatMap(records -> StreamSupport.stream(records.spliterator(), false))
+                    .collect(Collectors.toCollection(() -> limitSet))
+                    .stream()
+                    .map(rec -> getItems(rec, topicName, include, maxValueLength))
+                    .forEach(results::add);
+
+            if (log.isDebugEnabled()) {
+                log.debugf("Total consumed records: %d", recordsConsumed.get());
+            }
+
+            return Types.PagedResponse.forItems(Types.Record.class, results);
+
         }
+    }
+
+    public Types.Record getItems(ConsumerRecord<byte[], byte[]> rec, String topicName, List<String> include, Integer maxValueLength) {
+        Types.Record item = new Types.Record(topicName);
+
+        setProperty(Types.Record.PROP_PARTITION, include, rec::partition, item::setPartition);
+        setProperty(Types.Record.PROP_OFFSET, include, rec::offset, item::setOffset);
+        setProperty(Types.Record.PROP_TIMESTAMP, include, () -> timestampToString(rec.timestamp()), item::setTimestamp);
+        setProperty(Types.Record.PROP_TIMESTAMP_TYPE, include, rec.timestampType()::name, item::setTimestampType);
+        setProperty(Types.Record.PROP_KEY, include, rec::key, k -> item.setKey(bytesToString(k, maxValueLength)));
+        setProperty(Types.Record.PROP_VALUE, include, rec::value, v -> item.setValue(bytesToString(v, maxValueLength)));
+        setProperty(Types.Record.PROP_HEADERS, include, () -> headersToMap(rec.headers(), maxValueLength), item::setHeaders);
+        item.updateHref();
+
+        return item;
     }
 
     public CompletionStage<Types.Record> produceRecord(String topicName, Types.Record input) {

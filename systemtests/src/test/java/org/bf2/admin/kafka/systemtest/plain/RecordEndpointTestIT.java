@@ -22,6 +22,7 @@ import java.security.SecureRandom;
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -229,16 +230,16 @@ class RecordEndpointTestIT {
 
     @ParameterizedTest
     @CsvSource({
-        "1",
-        "2",
-        "3",
-        "4",
-        "20"
+        "10",
+        "20",
+        "30",
+        "40",
+        "200"
     })
     void testConsumeLatestRecords(int limit) {
         final String topicName = UUID.randomUUID().toString();
-        final int totalRecords = 10;
-        topicUtils.createTopics(List.of(topicName), 1, Status.CREATED); // single partition
+        final int totalRecords = 100;
+        topicUtils.createTopics(List.of(topicName), 10, Status.CREATED); // single partition
         List<String> messageValues = new ArrayList<>();
 
         for (int i = 0; i < totalRecords; i++) {
@@ -246,12 +247,12 @@ class RecordEndpointTestIT {
             messageValues.add(value);
             recordUtils.produceRecord(topicName, null, null, "the-key-" + i, value);
         }
+        Collections.reverse(messageValues);
 
         int resultCount = Math.min(limit, totalRecords);
 
         given()
             .log().ifValidationFails()
-            .queryParam("partition", 0)
             .queryParam("limit", limit)
         .when()
             .get(RecordUtils.RECORDS_PATH, topicName)
@@ -260,7 +261,7 @@ class RecordEndpointTestIT {
             .statusCode(Status.OK.getStatusCode())
             .body("total", equalTo(resultCount))
             .body("items", hasSize(resultCount))
-            .body("items.findAll { it }.value", contains(messageValues.subList(totalRecords - resultCount, totalRecords).toArray(String[]::new)));
+            .body("items.findAll { it }.value", contains(messageValues.subList(0, resultCount).toArray(String[]::new)));
     }
 
     @Test
