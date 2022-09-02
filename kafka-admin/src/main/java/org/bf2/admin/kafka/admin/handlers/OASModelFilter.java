@@ -26,7 +26,7 @@ import java.util.TreeMap;
 
 public class OASModelFilter implements OASFilter {
 
-    private static final String SECURITY_SCHEME_NAME_OAUTH = "Bearer";
+    private static final String SECURITY_SCHEME_NAME_OAUTH = "OAuth2";
     private static final String SECURITY_SCHEME_NAME_BASIC = "BasicAuth";
 
     @Override
@@ -77,7 +77,7 @@ public class OASModelFilter implements OASFilter {
 
         info.setTitle("Kafka Instance API");
         info.setDescription("API for interacting with Kafka Instance. Includes Produce, Consume and Admin APIs");
-   
+
         config.getOptionalValue("kafka.admin.num.partitions.max", String.class)
             .map(BigDecimal::new)
             .ifPresent(openAPI.getComponents().getSchemas().get("TopicSettings").getProperties().get("numPartitions")::setMaximum);
