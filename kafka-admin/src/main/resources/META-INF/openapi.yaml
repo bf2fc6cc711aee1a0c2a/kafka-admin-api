@@ -16,6 +16,7 @@ servers:
     description: Kafka Admin REST API
 security:
   - Bearer: []
+  - OAuth2: []
 tags:
   - name: topics
     description: Topic Management
@@ -405,8 +406,13 @@ components:
              $ref: '#/components/schemas/Error'
   securitySchemes:
     Bearer:
+      type: http
+      description: JWT used with HTTP Bearer authentication
+      scheme: bearer
+      bearerFormat: JWT
+    OAuth2:
       type: oauth2
-      description: Access token used with OAuth 2.0
+      description: Client credentials used to obtain an OAuth 2.0 access token
       flows:
         clientCredentials:
           # Place-holder value for `tokenUrl`
