@@ -8,6 +8,7 @@ on:
 
 jobs:
   dispatch:
+    if: ${{ github.repository == 'bf2fc6cc711aee1a0c2a/kafka-admin-api' }}
     env:
       APP_SERVICES_CI_TOKEN: "${{ secrets.APP_SERVICES_CI_TOKEN }}"
     strategy:
