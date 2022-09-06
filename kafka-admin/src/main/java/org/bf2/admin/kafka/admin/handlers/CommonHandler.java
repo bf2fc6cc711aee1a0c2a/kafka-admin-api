@@ -55,7 +55,7 @@ public class CommonHandler {
             // 400 Bad Request
             entry(InvalidTopicException.class, thrown -> errorResponse(thrown, ErrorType.TOPIC_PARTITION_INVALID)),
             entry(PolicyViolationException.class, thrown -> errorResponse(thrown, ErrorType.POLICY_VIOLATION)),
-            entry(InvalidRequestException.class, thrown -> errorResponse(thrown, ErrorType.INVALID_CONFIGURATION)),
+            entry(InvalidRequestException.class, thrown -> errorResponse(thrown, ErrorType.INVALID_CONFIGURATION, thrown.getMessage())),
             entry(InvalidConfigurationException.class, thrown -> errorResponse(thrown, ErrorType.INVALID_CONFIGURATION, thrown.getMessage())),
             entry(InvalidPartitionsException.class, thrown -> errorResponse(thrown, ErrorType.TOPIC_PARTITION_INVALID, thrown.getMessage())),
             entry(com.fasterxml.jackson.core.JsonParseException.class, thrown -> errorResponse(thrown, ErrorType.INVALID_REQUEST_FORMAT)),
