@@ -89,12 +89,12 @@
                 <artifactId>smallrye-jwt</artifactId>
                 <version>${smallrye.jwt.version}</version>
             </dependency>
-            <!-- This is used to override CVE-2022-25857 => should be removed once Quarkus uses it out of the box -->
+            <!-- CVE-2022-25857, CVE-2022-38752 => should be removed once Quarkus uses it out of the box -->
             <!-- https://github.com/bf2fc6cc711aee1a0c2a/kafka-admin-api/issues/224 covers the removal of this override -->
             <dependency>
                 <groupId>org.yaml</groupId>
                 <artifactId>snakeyaml</artifactId>
-                <version>1.31</version>
+                <version>1.32</version>
             </dependency>
         </dependencies>
     </dependencyManagement>
