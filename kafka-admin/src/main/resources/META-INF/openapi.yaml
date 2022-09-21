@@ -21,9 +21,9 @@ tags:
   - name: topics
     description: Topic Management
   - name: groups
-    description: Consumer Group Management Tag
+    description: Consumer Group Management
   - name: acls
-    description: Access Control Management (ACLs) Tag
+    description: Access Control Management (ACLs)
   - name: records
     description: Send and receive records interactively
   - name: errors
