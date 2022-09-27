@@ -1,6 +1,7 @@
 package org.bf2.admin.kafka.admin.handlers;
 
 import org.apache.kafka.common.errors.InvalidRequestException;
+import org.apache.kafka.common.errors.PolicyViolationException;
 import org.bf2.admin.kafka.admin.model.ErrorType;
 import org.bf2.admin.kafka.admin.model.Types;
 import org.junit.jupiter.api.Test;
@@ -27,4 +28,13 @@ class CommonHandlerTest {
         assertEquals(cause.getMessage(), errorEntity.getDetail());
     }
 
+    @Test
+    void testProcessFailureWithPolicyViolationException() {
+        PolicyViolationException cause = new PolicyViolationException("The request has failed");
+        Response response = CommonHandler.processFailure(cause).build();
+        Types.Error errorEntity = (Types.Error) response.getEntity();
+        assertEquals(ErrorType.POLICY_VIOLATION.getHttpStatus().getStatusCode(), errorEntity.getCode());
+        assertEquals(ErrorType.POLICY_VIOLATION.getReason(), errorEntity.getReason());
+        assertEquals(cause.getMessage(), errorEntity.getDetail());
+    }
 }
