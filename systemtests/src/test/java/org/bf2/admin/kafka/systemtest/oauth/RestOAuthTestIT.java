@@ -34,6 +34,7 @@ import static org.bf2.admin.kafka.systemtest.utils.ErrorTypeMatcher.matchesError
 import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.hasSize;
+import static org.hamcrest.Matchers.stringContainsInOrder;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 @QuarkusTest
@@ -205,7 +206,7 @@ class RestOAuthTestIT {
             .log().ifValidationFails()
             .statusCode(Status.CREATED.getStatusCode())
         .assertThat()
-            .header("Location", equalTo("/api/v1/topics/" + topicName))
+            .header("Location", stringContainsInOrder("/api/v1/topics/" + topicName))
             .body("name", equalTo(topicName))
             .body("isInternal", equalTo(false))
             .body("partitions.size()", equalTo(numPartitions))

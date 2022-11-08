@@ -31,6 +31,7 @@ import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.stringContainsInOrder;
 
 @QuarkusTest
 @TestProfile(TestPlainProfile.class)
@@ -399,7 +400,7 @@ class RestEndpointTestIT {
             .log().ifValidationFails()
             .statusCode(Status.CREATED.getStatusCode())
         .assertThat()
-            .header("Location", equalTo("/api/v1/topics/" + topicName))
+            .header("Location", stringContainsInOrder("/api/v1/topics/" + topicName))
             .body("name", equalTo(topicName))
             .body("isInternal", equalTo(false))
             .body("partitions.size()", equalTo(numPartitions))
