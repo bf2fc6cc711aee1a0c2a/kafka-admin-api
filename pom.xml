@@ -26,7 +26,7 @@
         <docker.push>false</docker.push>
 
         <!-- Dependencies -->
-        <quarkus.version>2.7.6.Final</quarkus.version>
+        <quarkus.version>2.13.7.Final</quarkus.version>
         <jandex-maven-plugin.version>1.2.1</jandex-maven-plugin.version>
         <strimzi-oauth.version>0.10.0</strimzi-oauth.version>
         <smallrye.jwt.version>3.5.3</smallrye.jwt.version>
