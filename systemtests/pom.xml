@@ -12,31 +12,12 @@
         <hamcrest.version>2.1</hamcrest.version>
         <strimzi-test-container.version>0.102.0</strimzi-test-container.version>
         <!-- System test image dependencies -->
-        <keycloak.image>quay.io/keycloak/keycloak:14.0.0</keycloak.image>
+        <keycloak.image>quay.io/keycloak/keycloak:20.0.3</keycloak.image>
         <strimzi-kafka.tag>quay.io/strimzi/kafka:0.30.0-kafka-3.2.0</strimzi-kafka.tag>
     </properties>
 
     <build>
         <plugins>
-            <plugin>
-                <groupId>org.codehaus.mojo</groupId>
-                <artifactId>exec-maven-plugin</artifactId>
-                <version>3.0.0</version>
-                <executions>
-                    <execution>
-                        <id>generate-test-certs</id>
-                        <phase>pre-integration-test</phase>
-                        <goals>
-                            <goal>exec</goal>
-                        </goals>
-                        <configuration>
-                            <workingDirectory>${project.build.testOutputDirectory}</workingDirectory>
-                            <executable>/bin/bash</executable>
-                            <commandlineArgs>${project.basedir}/docker/certificates/gen-certs.sh</commandlineArgs>
-                        </configuration>
-                    </execution>
-                </executions>
-            </plugin>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-failsafe-plugin</artifactId>
@@ -162,6 +143,10 @@
             <groupId>org.hamcrest</groupId>
             <artifactId>hamcrest</artifactId>
             <version>${hamcrest.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.bouncycastle</groupId>
+            <artifactId>bcpkix-jdk15on</artifactId>
         </dependency>
     </dependencies>
     <profiles>
