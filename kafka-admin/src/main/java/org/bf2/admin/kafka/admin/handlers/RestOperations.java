@@ -313,7 +313,4 @@ public class RestOperations implements OperationsHandler {
 
         return CompletableFuture.completedStage(response.build());
     }
-    /*static ResponseBuilder created(URI location) {
-        return Response.status(Status.CREATED).header(HttpHeaders.LOCATION, location);
-    }*/
 }
