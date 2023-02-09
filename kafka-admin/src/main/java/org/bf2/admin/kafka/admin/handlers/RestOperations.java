@@ -22,6 +22,7 @@ import org.jboss.logging.Logger;
 import javax.inject.Inject;
 import javax.ws.rs.BeanParam;
 import javax.ws.rs.Path;
+import javax.ws.rs.core.HttpHeaders;
 import javax.ws.rs.core.Response;
 import javax.ws.rs.core.Response.ResponseBuilder;
 import javax.ws.rs.core.Response.Status;
@@ -78,7 +79,8 @@ public class RestOperations implements OperationsHandler {
         }
 
         return withAdminClient(client -> topicOperations.createTopic(KafkaAdminClient.create(vertx, client), inputTopic))
-                .thenApply(createdTopic -> Response.created(uriBuilder("describeTopic").build(createdTopic.getName())).entity(createdTopic).build());
+                .thenApply(createdTopic -> Response.status(Status.CREATED).header(HttpHeaders.LOCATION, uriBuilder("describeTopic").build(createdTopic.getName()))
+                        .entity(createdTopic).build());
     }
 
     @Override
@@ -143,7 +145,7 @@ public class RestOperations implements OperationsHandler {
     public CompletionStage<Response> produceRecord(String topicName, Types.Record input) {
         return threadContext.withContextCapture(recordOperations.produceRecord(topicName, input))
                 .thenApply(Types.Record::updateHref)
-                .thenApply(result -> Response.created(result.buildUri(uriBuilder("consumeRecords"), topicName))
+                .thenApply(result -> Response.status(Status.CREATED).header(HttpHeaders.LOCATION, result.buildUri(uriBuilder("consumeRecords"), topicName))
                            .entity(result).build());
     }
 
@@ -210,7 +212,7 @@ public class RestOperations implements OperationsHandler {
     public CompletionStage<Response> createAcl(Types.AclBinding binding) {
         return withAdminClient(client -> aclOperations.createAcl(client, binding))
                 .thenApply(nothing -> binding.buildUri(uriBuilder("describeAcls")))
-                .thenApply(location -> Response.created(location).build());
+                .thenApply(location -> Response.status(Status.CREATED).header(HttpHeaders.LOCATION, location).build());
     }
 
     @Override
@@ -311,4 +313,7 @@ public class RestOperations implements OperationsHandler {
 
         return CompletableFuture.completedStage(response.build());
     }
+    /*static ResponseBuilder created(URI location) {
+        return Response.status(Status.CREATED).header(HttpHeaders.LOCATION, location);
+    }*/
 }
