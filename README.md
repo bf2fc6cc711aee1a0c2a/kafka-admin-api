@@ -60,8 +60,11 @@ This will start a Kafka cluster at localhost:9093
 ### Using the Instance API
 
 Once all steps above have been completed, you can interact with the Kafka Instance API. The server will start the following interfaces:
-- Management (`/metrics` and `/health` endpoints) [http://localhost:9990](http://localhost:9990)
 - REST API (`/api/v1/*`) on either [http://localhost:8080](http://localhost:8080) or [https://localhost:8443](https://localhost:8443), depending on TLS configuration.
+- Metrics at [http://localhost:8080/metrics](http://localhost:8080/metrics)
+- Health status at [http://localhost:8080/health](http://localhost:8080/health)
+- OpenAPI at [http://localhost:8080/openapi](http://localhost:8080/openapi?format=json)
+- Swagger UI at [http://localhost:8080/swagger-ui](http://localhost:8080/swagger-ui)
 
 Interacting with the server requires credentials, most simply using HTTP Basic. With Basic enabled and the Kafka cluster started with `docker-compose`, the credentials
 that may be utilized can be found in `kafka_server_jaas.conf`. For example, to obtain the list of available topics to the `admin` user:
