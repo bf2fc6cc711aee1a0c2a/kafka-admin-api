@@ -893,6 +893,7 @@ public class Types {
         private String kind;
 
         @NotNull
+        @Schema(hidden = true)
         private List<T> items;
 
         @NotNull
@@ -1040,6 +1041,7 @@ public class Types {
     }
 
     @Schema(description = "A list of consumer groups",
+            requiredProperties = "items",
             properties = {
                 @SchemaProperty(name = "items", implementation = ConsumerGroup[].class)
             },
@@ -1102,6 +1104,7 @@ public class Types {
 
     @Schema(name = "TopicsList",
             description = "A list of topics.",
+            requiredProperties = "items",
             properties = {
                 @SchemaProperty(name = "items", implementation = Topic[].class)
             },
@@ -1139,6 +1142,7 @@ public class Types {
     }
 
     @Schema(
+        requiredProperties = "items",
         properties = {
             @SchemaProperty(name = "items", implementation = TopicPartitionResetResult[].class)
         },
@@ -1152,6 +1156,7 @@ public class Types {
     @Schema(
         name = "AclBindingListPage",
         description = "A page of ACL binding entries",
+        requiredProperties = "items",
         properties = {
             @SchemaProperty(name = "items", implementation = AclBinding[].class)
         },
@@ -1844,6 +1849,7 @@ public class Types {
 
     @Schema(
         description = "List of errors",
+        requiredProperties = "items",
         properties = {
             @SchemaProperty(name = "items", implementation = Error[].class),
             @SchemaProperty(name = "total", implementation = Integer.class, description = "Total number of errors returned in this request")
@@ -1857,6 +1863,7 @@ public class Types {
 
     @Schema(
         description = "A page of records consumed from a topic",
+        requiredProperties = "items",
         properties = {
             @SchemaProperty(name = "items", implementation = Record[].class),
             @SchemaProperty(name = "total", implementation = Integer.class, description = "Total number of records returned in this request. This value does not indicate the total number of records in the topic."),
