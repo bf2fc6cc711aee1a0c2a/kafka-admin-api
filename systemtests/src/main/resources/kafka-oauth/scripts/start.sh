@@ -5,14 +5,14 @@ source functions.sh
 
 URI=${KEYCLOAK_URI}
 if [ "" == "${URI}" ]; then
-    URI="http://${KEYCLOAK_HOST:-keycloak}:8080/auth"
+    URI="http://${KEYCLOAK_HOST:-keycloak}:8080"
 fi
 
 wait_for_url $URI "Waiting for Keycloak to start"
 
 wait_for_url "$URI/realms/${REALM:-demo}" "Waiting for realm '${REALM}' to be available"
 
-./simple_kafka_config.sh | tee /tmp/strimzi.properties
+/bin/sh ./simple_kafka_config.sh | tee /tmp/strimzi.properties
 
 
 # Add 'admin' user
