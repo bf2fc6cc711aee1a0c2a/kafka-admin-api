@@ -1,9 +1,10 @@
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](http://www.apache.org/licenses/LICENSE-2.0)[![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=bf2fc6cc711aee1a0c2a_kafka-admin-api&metric=alert_status)](https://sonarcloud.io/summary/new_code?id=bf2fc6cc711aee1a0c2a_kafka-admin-api)[![Coverage](https://sonarcloud.io/api/project_badges/measure?project=bf2fc6cc711aee1a0c2a_kafka-admin-api&metric=coverage)](https://sonarcloud.io/summary/new_code?id=bf2fc6cc711aee1a0c2a_kafka-admin-api)
 
-# Managed Kafka Admin API
+# Managed Kafka Instance API
 
-This repository contains the Managed Kafka Admin API and its implementation.
-Kafka Admin API provides a way for managing [Apache Kafka<sup>TM</sup>](https://kafka.apache.org/) topics.
+This repository contains the Managed Kafka Instance API and its implementation.
+The API provides a way for managing [Apache Kafka<sup>TM</sup>](https://kafka.apache.org/) topics and consumer groups, as
+well as endpoints to publish and browse messages.
 
 ## Getting Started
 
@@ -13,7 +14,7 @@ There are a few things you need to have installed to run this project:
 
 - [Maven](https://maven.apache.org/)
 - [JDK 11+](https://openjdk.java.net/projects/jdk/11/)
-- [Docker](https://www.docker.com/)
+- [Docker](https://www.docker.com/) or [Podman](https://podman.io)
 - [Docker Compose](https://docs.docker.com/compose/) (optional but recommended)
 
 ### Download
@@ -32,60 +33,48 @@ Now you can install the required dependencies with Maven:
 mvn install -DskipTests
 ```
 
-### Start a local Kafka cluster
+### Run Instance API and Kafka cluster from CLI
 
-The Managed Kafka Admin API needs a Apache Kafka cluster to connect to. There is a [docker-compose.yml](./docker-compose.yml) file with default Kafka containers you can use to run the server against.
+The Managed Kafka Instance API needs a Apache Kafka cluster to connect to. There is a [docker-compose.yml](./docker-compose.yml) file with default
+Kafka containers you can use to run the server against.
 
-Run the local Kafka cluster:
+#### Kafka SASL_PLAINTEXT
+Run the development server with a local Kafka cluster using a PLAINTEXT listener. Note, this command assumes the working directory is the project root.
 
 ```shell
-docker-compose up -d
+make dev
 ```
 
 This will start a Kafka cluster at localhost:9092
 
-### Run Admin API from CLI
+#### Kafka SASL_SSL
 
-With the Kafka cluster running from the previous step, the following command can be used to start the
-Admin API server on port 8080 (TLS disabled).
-Note, this command assumes the working directory is the project root.
+Run the development server with a local Kafka cluster using an SSL listener. Note, this command assumes the working directory is the project root.
+
 ```shell
-KAFKA_ADMIN_BOOTSTRAP_SERVERS="localhost:9092" \
-KAFKA_ADMIN_OAUTH_ENABLED="false" \
-KAFKA_ADMIN_BASIC_ENABLED="true" \
-java -cp ./kafka-admin/target/kafka-admin.jar \
- -Dlog4j.configurationFile=file:$(pwd)/kafka-admin/src/main/docker/resources/config/log4j2.properties \
- org.bf2.admin.Main
+make dev-tls
 ```
 
-### Configure IDE
+This will start a Kafka cluster at localhost:9093
 
-If you are using IntelliJ there are two Run configurations: `Main` and `Main (EnvFile)` available in the `.run` directory.
+### Using the Instance API
 
-**Main**
-
-`Main` uses the default environment variables needed to connect to the Kafka cluster we created in [Start a Kafka cluster](#start-a-local-kafka-cluster).
-
-**Main (EnvFile)**
-
-`Main (EnvFile)` uses the [EnvFile](https://plugins.jetbrains.com/plugin/7861-envfile) plugin to load environment variables from a `.env` file. To use this configuration please do the following:
-
-1. Install [EnvFile](https://plugins.jetbrains.com/plugin/7861-envfile).
-2. Create a `.env` file in your project root. You can use the example file, which already has the correct variables: `cp .env.example .env`.
-
-### Run the Admin Server
-
-Once all steps above have been completed, you can run the Kafka Admin API. The server will start the following interfaces:
-- Management (`/metrics` and `/health` endpoints) [http://localhost:9990](http://localhost:9990)
-- REST API (`/rest/*`) on either [http://localhost:8080](http://localhost:8080) or [https://localhost:8443](https://localhost:8443), depending on TLS configuration.
+Once all steps above have been completed, you can interact with the Kafka Instance API. The server will start the following interfaces:
+- REST API (`/api/v1/*`) on either [http://localhost:8080](http://localhost:8080)
+- Metrics at [http://localhost:8080/metrics](http://localhost:8080/metrics)
+- Health status at [http://localhost:8080/health](http://localhost:8080/health)
+- OpenAPI at [http://localhost:8080/openapi](http://localhost:8080/openapi?format=json)
+- Swagger UI at [http://localhost:8080/swagger-ui](http://localhost:8080/swagger-ui)
 
 Interacting with the server requires credentials, most simply using HTTP Basic. With Basic enabled and the Kafka cluster started with `docker-compose`, the credentials
 that may be utilized can be found in `kafka_server_jaas.conf`. For example, to obtain the list of available topics to the `admin` user:
 ```
-curl -s -u admin:admin-secret http://localhost:8080/rest/topics
+curl -s -u admin:admin-secret http://localhost:8080/api/v1/topics
 ```
 
-### Admin Server Configuration
+### Instance API Configuration
+
+These options may be `export`ed prior to starting the server + Kafka broker as described above.
 
 | Environment Variable | Description |
 | -------------------- | ----------- |
@@ -129,7 +118,6 @@ Releases are performed by modifying the `.github/project.yml` file, setting `cur
 Once approved and the pull request is merged, the release action will execute. This action will execute the Maven release plugin to tag the release commit, build the application artifacts, create the build image, and push the image to (currently) quay.io. If successful, the action will push the new tag to the Github repository and generate release notes listing all of the closed issues included in the milestone. Finally, the milestone will be closed.
 
 ## Logging Configuration Override
-The container image built from this repository includes support for providing an additional Log4J properties file at run time. The properties file must be given to the running
-container at mount point `/opt/kafka-admin-api/custom-config/log4j2.properties`. Configuration specified in the override file is merged with the static configuration built in
-to the image from [docker/log4j2.properties](./docker/log4j2.properties). Individual configuration items in the override properties will replace the static properties of the same
-name, as defined in the Apache Log4J 2.x [composite configuration documentation](https://logging.apache.org/log4j/2.x/manual/configuration.html#CompositeConfiguration).
+The container image built from this repository includes support for providing an additional logging configuration at run time (without requiring a restart).
+Configuration property `logging.config.override` (or environment variable `LOGGING_CONFIG_OVERRIDE`) must be provided to the server at startup with a path to
+the logging configuration override file that _may_ exist during run time. When created, the file may contain any valid Quarkus [log category level configurations](https://quarkus.io/guides/logging#logging-categories).
