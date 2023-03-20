@@ -53,6 +53,7 @@ public interface OperationsHandler {
         responseDescription = "Topic created successfully.")
     @APIResponse(responseCode = "400", ref = "BadRequest")
     @APIResponse(responseCode = "401", ref = "NotAuthorized")
+    @APIResponse(responseCode = "403", ref = "Forbidden")
     @APIResponse(responseCode = "409", ref = "Conflict")
     @APIResponse(responseCode = "500", ref = "ServerError")
     @APIResponse(responseCode = "503", ref = "ServiceUnavailable")
@@ -144,6 +145,7 @@ public interface OperationsHandler {
         responseDescription = "List of topics matching the request query parameters. The topics returned are limited to those records the requestor is authorized to view.")
     @APIResponse(responseCode = "400", ref = "BadRequest")
     @APIResponse(responseCode = "401", ref = "NotAuthorized")
+    @APIResponse(responseCode = "403", ref = "Forbidden")
     @APIResponse(responseCode = "500", ref = "ServerError")
     @APIResponse(responseCode = "503", ref = "ServiceUnavailable")
     CompletionStage<Response> listTopics(@QueryParam("filter") String filter,
@@ -223,6 +225,7 @@ public interface OperationsHandler {
         responseDescription = "List of consumer groups matching the request parameters. The consumer groups returned are limited to those records the requestor is authorized to view.")
     @APIResponse(responseCode = "400", ref = "BadRequest")
     @APIResponse(responseCode = "401", ref = "NotAuthorized")
+    @APIResponse(responseCode = "403", ref = "Forbidden")
     @APIResponse(responseCode = "500", ref = "ServerError")
     @APIResponse(responseCode = "503", ref = "ServiceUnavailable")
     CompletionStage<Response> listGroups(@QueryParam("group-id-filter") String groupFilter,
@@ -326,6 +329,7 @@ public interface OperationsHandler {
         description = "Retrieve the resources and associated operations that may have ACLs configured.")
     @APIResponse(responseCode = "200", description = "Map of allowed resources and operations for ACL creation")
     @APIResponse(responseCode = "401", ref = "NotAuthorized")
+    @APIResponse(responseCode = "403", ref = "Forbidden")
     @APIResponse(responseCode = "500", ref = "ServerError")
     Response getAclResourceOperations();
 
