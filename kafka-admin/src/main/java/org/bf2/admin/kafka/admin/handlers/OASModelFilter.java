@@ -2,7 +2,10 @@ package org.bf2.admin.kafka.admin.handlers;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import kafka.log.LogConfig;
+import kafka.server.KafkaConfig;
 import org.apache.kafka.common.ConsumerGroupState;
+import org.apache.kafka.common.config.ConfigDef;
 import org.bf2.admin.kafka.admin.KafkaAdminConfigRetriever;
 import org.bf2.admin.kafka.admin.model.Types;
 import org.bf2.admin.kafka.admin.model.Types.ConsumerGroupMetrics;
@@ -14,7 +17,9 @@ import org.eclipse.microprofile.openapi.OASFilter;
 import org.eclipse.microprofile.openapi.models.OpenAPI;
 import org.eclipse.microprofile.openapi.models.examples.Example;
 import org.eclipse.microprofile.openapi.models.media.Schema;
+import org.eclipse.microprofile.openapi.models.media.Schema.SchemaType;
 import org.eclipse.microprofile.openapi.models.security.SecurityScheme.Type;
+import org.jboss.logging.Logger;
 
 import java.math.BigDecimal;
 import java.util.Collections;
@@ -22,6 +27,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Properties;
 import java.util.TreeMap;
 
 public class OASModelFilter implements OASFilter {
@@ -71,6 +77,8 @@ public class OASModelFilter implements OASFilter {
             openAPI.getComponents().setSecuritySchemes(null);
         }
 
+        patchConfigEntrySchema(openAPI.getComponents().getSchemas().get("ConfigEntry"));
+
         // Sort global schemas
         openAPI.getComponents().setSchemas(new TreeMap<>(openAPI.getComponents().getSchemas()));
         var info = openAPI.getInfo();
@@ -119,5 +127,65 @@ public class OASModelFilter implements OASFilter {
         return OASFactory.createExample()
                 .description(description)
                 .value(mapper.convertValue(value, ObjectNode.class));
+    }
+
+    void patchConfigEntrySchema(Schema configEntry) {
+        try {
+            Properties overrides = new Properties();
+            overrides.setProperty("zookeeper.connect", "dummy");
+            KafkaConfig defaults = KafkaConfig.fromProps(overrides);
+            Map<String, Object> defaultTopicConfig = LogConfig.extractLogConfigMap(defaults);
+            var synonyms = LogConfig.AllTopicConfigSynonyms();
+
+            defaultTopicConfig
+                .entrySet()
+                .stream()
+                .sorted((c1, c2) -> c1.getKey().compareTo(c2.getKey()))
+                .forEach(e -> {
+                    String key = e.getKey();
+                    Object value = e.getValue();
+                    String synonym = synonyms.get(key).get(0).name();
+                    ConfigDef.Type type = Optional.ofNullable(defaults.typeOf(key)).orElseGet(() -> defaults.typeOf(synonym));
+                    Schema valueSchema = null;
+
+                    if (type != null) {
+                        switch (type) {
+                            case BOOLEAN:
+                                valueSchema = OASFactory.createSchema().type(SchemaType.BOOLEAN).defaultValue(value);
+                                break;
+                            case PASSWORD:
+                            case STRING:
+                            case CLASS:
+                                valueSchema = OASFactory.createSchema().type(SchemaType.STRING).defaultValue(value);
+                                break;
+                            case INT:
+                                valueSchema = OASFactory.createSchema().type(SchemaType.INTEGER).format("int32").defaultValue(value);
+                                break;
+                            case SHORT:
+                                valueSchema = OASFactory.createSchema().type(SchemaType.INTEGER).format("int16").defaultValue(value);
+                                break;
+                            case LONG:
+                                valueSchema = OASFactory.createSchema().type(SchemaType.INTEGER).format("int64").defaultValue(value);
+                                break;
+                            case DOUBLE:
+                                valueSchema = OASFactory.createSchema().type(SchemaType.NUMBER).format("double").defaultValue(value);
+                                break;
+                            case LIST:
+                                valueSchema = OASFactory.createSchema().type(SchemaType.ARRAY)
+                                    .items(OASFactory.createSchema().type(SchemaType.STRING).defaultValue(value));
+                                break;
+                        }
+                    }
+
+                    configEntry.addOneOf(OASFactory.createSchema()
+                            .type(SchemaType.OBJECT)
+                            .addProperty("key", OASFactory.createSchema().enumeration(List.of(key)))
+                            .addProperty("value", valueSchema));
+
+                });
+        } catch (Throwable e) {
+            // Do nothing
+            Logger.getLogger(getClass()).warnf("Thrown: %s", e.getMessage());
+        }
     }
 }

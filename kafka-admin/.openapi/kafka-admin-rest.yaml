@@ -1122,6 +1122,219 @@ components:
       example:
         key: min.insync.replicas
         value: "1"
+      oneOf:
+      - type: object
+        properties:
+          key:
+            enum:
+            - cleanup.policy
+          value:
+            type: array
+            items:
+              default:
+              - delete
+              type: string
+      - type: object
+        properties:
+          key:
+            enum:
+            - compression.type
+          value:
+            default: producer
+            type: string
+      - type: object
+        properties:
+          key:
+            enum:
+            - delete.retention.ms
+          value:
+            format: int64
+            default: 86400000
+            type: integer
+      - type: object
+        properties:
+          key:
+            enum:
+            - file.delete.delay.ms
+          value:
+            format: int64
+            default: 60000
+            type: integer
+      - type: object
+        properties:
+          key:
+            enum:
+            - flush.messages
+          value:
+            format: int64
+            default: 9223372036854775807
+            type: integer
+      - type: object
+        properties:
+          key:
+            enum:
+            - flush.ms
+          value:
+            format: int64
+            default: 9223372036854775807
+            type: integer
+      - type: object
+        properties:
+          key:
+            enum:
+            - index.interval.bytes
+          value:
+            format: int32
+            default: 4096
+            type: integer
+      - type: object
+        properties:
+          key:
+            enum:
+            - max.compaction.lag.ms
+          value:
+            format: int64
+            default: 9223372036854775807
+            type: integer
+      - type: object
+        properties:
+          key:
+            enum:
+            - max.message.bytes
+          value:
+            format: int32
+            default: 1048588
+            type: integer
+      - type: object
+        properties:
+          key:
+            enum:
+            - message.downconversion.enable
+          value:
+            default: true
+            type: boolean
+      - type: object
+        properties:
+          key:
+            enum:
+            - message.format.version
+          value:
+            default: 3.0-IV1
+            type: string
+      - type: object
+        properties:
+          key:
+            enum:
+            - message.timestamp.difference.max.ms
+          value:
+            format: int64
+            default: 9223372036854775807
+            type: integer
+      - type: object
+        properties:
+          key:
+            enum:
+            - message.timestamp.type
+          value:
+            default: CreateTime
+            type: string
+      - type: object
+        properties:
+          key:
+            enum:
+            - min.cleanable.dirty.ratio
+          value:
+            format: double
+            default: 0.5
+            type: number
+      - type: object
+        properties:
+          key:
+            enum:
+            - min.compaction.lag.ms
+          value:
+            format: int64
+            default: 0
+            type: integer
+      - type: object
+        properties:
+          key:
+            enum:
+            - min.insync.replicas
+          value:
+            format: int32
+            default: 1
+            type: integer
+      - type: object
+        properties:
+          key:
+            enum:
+            - preallocate
+          value:
+            default: false
+            type: boolean
+      - type: object
+        properties:
+          key:
+            enum:
+            - retention.bytes
+          value:
+            format: int64
+            default: -1
+            type: integer
+      - type: object
+        properties:
+          key:
+            enum:
+            - retention.ms
+          value:
+            format: int64
+            default: 604800000
+            type: integer
+      - type: object
+        properties:
+          key:
+            enum:
+            - segment.bytes
+          value:
+            format: int32
+            default: 1073741824
+            type: integer
+      - type: object
+        properties:
+          key:
+            enum:
+            - segment.index.bytes
+          value:
+            format: int32
+            default: 10485760
+            type: integer
+      - type: object
+        properties:
+          key:
+            enum:
+            - segment.jitter.ms
+          value:
+            format: int64
+            default: 0
+            type: integer
+      - type: object
+        properties:
+          key:
+            enum:
+            - segment.ms
+          value:
+            format: int64
+            default: 604800000
+            type: integer
+      - type: object
+        properties:
+          key:
+            enum:
+            - unclean.leader.election.enable
+          value:
+            default: false
+            type: boolean
     Consumer:
       description: A Kafka consumer is responsible for reading records from one or
         more topics and one or more partitions of a topic.
